@@ -3,6 +3,10 @@ import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, Mess
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 export default function AIChat({ profile, setActiveTab }) {
     // State for Sessions
@@ -371,8 +375,19 @@ INSTRUCTIONS:
                             </div>
                             <div className={`p-3 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-3 rounded-tr-0' : 'bg-white text-dark border rounded-3 rounded-tl-0'}`} style={{ maxWidth: '85%', fontSize: '0.95rem' }}>
                                 <ReactMarkdown
+                                    remarkPlugins={[remarkMath, remarkGfm]}
+                                    rehypePlugins={[rehypeKatex]}
                                     components={{
                                         p: ({ node, ...props }) => <p className="mb-1" {...props} />,
+                                        table: ({ node, ...props }) => (
+                                            <div className="table-responsive my-3">
+                                                <table className="table table-bordered table-sm table-hover bg-white mb-0 shadow-sm rounded overflow-hidden" {...props} />
+                                            </div>
+                                        ),
+                                        thead: ({ node, ...props }) => <thead className="table-light text-primary small fw-bold" {...props} />,
+                                        th: ({ node, ...props }) => <th className="p-2 border-bottom-0" {...props} />,
+                                        td: ({ node, ...props }) => <td className="p-2 align-middle small" {...props} />,
+                                        tr: ({ node, ...props }) => <tr {...props} />,
                                         ul: ({ node, ...props }) => <ul className="ps-3 mb-1" {...props} />,
                                         ol: ({ node, ...props }) => <ol className="ps-3 mb-1" {...props} />,
                                         li: ({ node, ...props }) => <li className="mb-1" {...props} />,
