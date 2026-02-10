@@ -698,7 +698,7 @@ function App() {
       {activeTab === 'community' && <CommunityFeed profile={userProfile} />}
 
       {/* AI Tutor Tab */}
-      {activeTab === 'ai' && <AIChat profile={userProfile} />}
+      {activeTab === 'ai' && <AIChat profile={userProfile} setActiveTab={setActiveTab} />}
 
       {/* Floating Navigation Bar */}
       <div className="position-fixed bottom-0 start-0 w-100 p-3 z-3 d-flex justify-content-center" style={{ pointerEvents: 'none' }}>
