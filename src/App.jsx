@@ -13,7 +13,7 @@ import CreateFolderModal from './CreateFolderModal';
 import AdminPanel from './AdminPanel';
 import AdminLoginModal from './AdminLoginModal';
 import StudentProfile from './StudentProfile';
-import StudentProfile from './StudentProfile';
+
 import CommunityFeed from './CommunityFeed';
 import AIChat from './AIChat';
 import { getDeviceId, getClientIp } from './utils/deviceUtils';
