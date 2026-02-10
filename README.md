@@ -1,95 +1,102 @@
-# IES Notes: Your Academic Superpower 🚀
+# IES Notes: The Future of Academic Learning 🚀✨
 
-IES Notes is a comprehensive academic resource platform built for students and faculty. It provides a seamless way to share, manage, and access study materials while fostering a safe and engaging community.
+![IES Notes](http://via.placeholder.com/1200x500?text=IES+Notes:+Your+Academic+Superpower)
 
-![IES Notes Banner](/home/justin/.gemini/antigravity/brain/750515e9-45e4-4d17-984a-f8b72d5a4ebb/uploaded_media_1770734276020.png)
+## 🌟 What is IES Notes?
+**IES Notes** is not just a study app; it's an **AI-powered academic ecosystem** designed exclusively for the students of IES College of Engineering. We've transformed the traditional way of accessing notes into a dynamic, interactive, and intelligent experience.
 
-## ✨ Key Features
+It combines **instant access to study materials** with a **safe, real-time community** and a personal **AI Tutor** that knows your syllabus inside out.
 
-### 📚 Content Management System
-- **Hierarchical Browsing**: Navigate resources by **Department > Semester > Subject**.
-- **Smart Uploads**: Share notes via direct links (Google Drive, etc.) with titles and descriptions.
-- **Admin Control**: Create new Departments, Semesters, and Subjects on the fly.
+---
 
-### 🛡️ User Management & Security
-- **Role-Based Access Control (RBAC)**: Secure Admin Panel for managing the platform.
-- **User Moderation**:
-    - **Search**: Find users instantly.
-    - **Warn**: Send warnings for inappropriate behavior.
-    - **Ban**: Automatically or manually ban users from posting.
-    - **Delete**: Remove user accounts.
-- **Automated Moderation**:
-    - **Profanity Filter**: Blocks harmful language in real-time.
-    - **Three-Strike Rule**: Users are auto-banned after 3 warnings.
+## 🤖 Why This is Innovative for Students?
 
-### 💬 Community & Engagement
-- **Updates Feed**: Real-time announcements for students.
-- **Favorites**: Save frequently accessed subjects for quick access.
-- **Dark Mode**: Automatic theme switching based on preference.
+This platform solves the biggest pain points of engineering students:
 
-## 🛠️ Technology Stack
+### 1. **Visual Learning with "Justin AI"** 🧠🎨
+Most AI chatbots just give you text. **Justin AI** (our custom-built tutor based on Gemini 2.0 Flash) goes further:
+- **Draws Diagrams**: Ask for a flowchart or block diagram, and it renders a crisp Mermaid chart or SVG instantly.
+- **Solves Math**: Handles complex engineering math with LaTeX rendering.
+- **Context-Aware**: It knows your name, department, semester, and syllabus. It doesn't just "guess"; it tutors you based on your curriculum.
+- **Smart History**: Remembers your previous study sessions so you can pick up right where you left off.
 
-- **Frontend**: React, Vite, Framer Motion (Animations), Lucide React (Icons), Bootstrap 5.
-- **Backend**: Supabase (PostgreSQL, Authentication, Realtime, Storage).
-- **Security**: Row Level Security (RLS) Policies, PostgreSQL RPC Functions.
+### 2. **A Fair & Safe Community** ⚖️🗳️
+We've built a social space that encourages quality discussion:
+- **One-User-One-Vote**: A robust, database-backed voting system ensures that the best content rises to the top ("Hot" sorting).
+- **Vote Toggling**: Flexible interaction allows you to change your mind freely.
+- **Auto-Moderation**: An intelligent system automatically filters profanity and warns/bans bad actors, keeping the space safe for everyone without constant manual oversight.
+
+### 3. **Seamless Access & Sync** 🔄📲
+- **UID-Based Login**: No passwords to forget. Your unique student ID is your key.
+- **Device Agnostic**: Start reading on your laptop, continue on your phone. Your favorites, chats, and feed sync instantly.
+- **PWA Ready**: Install it as a native app on your phone for offline-first capabilities.
+
+---
+
+## ✨ Key Features Breakdown
+
+### 📚 Intelligent Content Management
+- **Hierarchical Browsing**: Navigate effortlessly: **Department > Semester > Subject**.
+- **Smart Filters**: Toggle between "Core" and "Labs" instantly.
+- **Direct Resource Links**: One-tap access to notes hosted on Google Drive or other clouds.
+
+### 💬 Real-Time Community Feed
+- **Live Updates**: See new posts and announcements the moment they happen.
+- **Threaded Comments**: Engage in deep discussions with classmates.
+- **Dynamic Sorting**: View "New" posts or see what's "Hot" based on our custom ranking algorithm.
+
+### 🛡️ Student Dashboard & Security
+- **Personal Profile**: Track your contributions and standing.
+- **Admin Panel**: Powerful tools for faculty to manage content and users.
+- **Privacy First**: Secure Row Level Security (RLS) ensures your data is only yours.
+
+---
+
+## 🛠️ Built With Modern Tech
+
+- **Frontend**: React 18, Vite, Framer Motion (for buttery smooth animations).
+- **Backend & Realtime**: Supabase (PostgreSQL, Auth, Realtime Subscriptions).
+- **AI Engine**: Google Gemini 2.0 Flash (via OpenRouter).
+- **Rendering**: Mermaid.js (Diagrams), KaTeX (Math), Lucide React (Icons).
+- **Styling**: Bootstrap 5 + Custom Glassmorphism CSS.
+
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v16+)
-- Supabase Project
+- Node.js (v18+)
+- A Supabase Project
 
 ### Installation
 
-1.  **Clone the repository**:
+1.  **Clone the Repo**:
     ```bash
-    git clone https://github.com/your-username/ies-notes.git
+    git clone https://github.com/your-username/ies-notes-clay.git
     cd ies-notes-clay
     ```
 
-2.  **Install dependencies**:
+2.  **Install Magic**:
     ```bash
     npm install
     ```
 
-3.  **Environment Setup**:
-    Create a `.env` file in the root directory:
+3.  **Configure Env**:
+    Create a `.env` file:
     ```env
     VITE_SUPABASE_URL=your_supabase_url
     VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+    VITE_OPENROUTER_API_KEY=your_openrouter_key
     ```
 
-4.  **Database Setup**:
-    Run the SQL scripts located in `admin_scripts/` in your Supabase SQL Editor to set up tables and security policies. Start with `admin_setup_script.sql` and then `admin_updates.sql`.
-
-5.  **Run the app**:
+4.  **Launch**:
     ```bash
     npm run dev
     ```
 
-## 🔐 Security Overview
-
-- **SQL Injection Protection**: All client-side queries use Supabase's parameterized ORM. Server-side RPCs (`admin_updates.sql`) use PL/pgSQL strict typing and parameterized inputs.
-- **XSS Protection**: React automatically escapes content. No usage of `dangerouslySetInnerHTML`.
-- **Access Control**: Critical administrative actions (Warn, Ban, Delete) are protected by **Row Level Security (RLS)** policies and `SECURITY DEFINER` functions that strictly enforce `is_admin` checks on the server side.
-
-## 📂 Project Structure
-
-```
-ies-notes-clay/
-├── src/
-│   ├── components/       # Reusable UI components
-│   ├── AdminPanel.jsx    # Admin Dashboard & Moderation
-│   ├── App.jsx           # Main Application Logic
-│   ├── CommunityFeed.jsx # Social Features
-│   └── supabaseClient.js # Supabase Configuration
-├── admin_scripts/        # Database Schema & Security Scripts
-├── public/               # Static Assets
-└── package.json          # Dependencies
-```
-
-## 🤝 Contributing
-Contributions are welcome! Please open an issue or submit a pull request.
-
 ---
+
+## 🤝 Join the Innovation
+This project is a testament to what students can build for students. 
+
 **Developed with ❤️ for IES College of Engineering.**
