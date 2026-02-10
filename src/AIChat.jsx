@@ -7,6 +7,32 @@ import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
+import mermaid from 'mermaid';
+
+mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    fontFamily: 'Outfit, sans-serif'
+});
+
+const Mermaid = ({ chart }) => {
+    const ref = useRef(null);
+
+    useEffect(() => {
+        if (ref.current && chart) {
+            mermaid.contentLoaded();
+            mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart).then(({ svg }) => {
+                if (ref.current) ref.current.innerHTML = svg;
+            }).catch(err => {
+                console.error("Mermaid error:", err);
+                if (ref.current) ref.current.innerHTML = `<div class="alert alert-danger py-1 small">Invalid diagram syntax</div>`;
+            });
+        }
+    }, [chart]);
+
+    return <div ref={ref} className="mermaid-container my-3 bg-white p-3 rounded-3 shadow-sm overflow-auto" />;
+};
 
 export default function AIChat({ profile, setActiveTab }) {
     // State for Sessions
@@ -161,10 +187,12 @@ ${syllabusText.substring(0, 20000)} ... (truncated for token limit if needed)
 
 INSTRUCTIONS:
 1. Answer strictly based on the provided syllabus where applicable.
-2. If the user asks about a specific subject in their semester (${profile?.semester}), provide detailed, academic answers.
-3. Be encouraging, concise, and use markdown for formatting (bullet points, bold text).
-4. If the question is outside academic scope, politely steer back to engineering topics.
-5. Use emojis to be friendly but professional.
+2. If the user asks for a diagram, flowchart, or block diagram, ALWAYS use Mermaid syntax in a \`mermaid\` code block.
+3. For custom shapes or technical drawings, you can also use raw \`svg\` code blocks.
+4. DO NOT use ASCII art for diagrams. Use Mermaid or SVG for better visual understanding.
+5. Be encouraging, concise, and use markdown for formatting.
+6. If the question is outside academic scope, politely steer back to engineering topics.
+7. Use emojis to be friendly but professional.
 `;
 
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -348,7 +376,7 @@ INSTRUCTIONS:
             </div>
 
             {/* Chat Area */}
-            <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar" style={{ background: '#f0f2f5', paddingBottom: '80px' }}>
+            <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar" style={{ background: '#f0f2f5', paddingBottom: '150px' }}>
                 <div className="d-flex flex-column gap-3 py-2">
                     {messages.length === 0 && !loading && (
                         <div className="text-center py-5">
@@ -392,6 +420,22 @@ INSTRUCTIONS:
                                         ol: ({ node, ...props }) => <ol className="ps-3 mb-1" {...props} />,
                                         li: ({ node, ...props }) => <li className="mb-1" {...props} />,
                                         code: ({ node, inline, className, children, ...props }) => {
+                                            const match = /language-(\w+)/.exec(className || '');
+                                            const lang = match ? match[1] : '';
+
+                                            if (!inline && lang === 'mermaid') {
+                                                return <Mermaid chart={String(children).replace(/\n$/, '')} />;
+                                            }
+
+                                            if (!inline && lang === 'svg') {
+                                                return (
+                                                    <div
+                                                        className="svg-container my-3 bg-white p-3 rounded-3 shadow-sm overflow-auto d-flex justify-content-center"
+                                                        dangerouslySetInnerHTML={{ __html: String(children) }}
+                                                    />
+                                                );
+                                            }
+
                                             return inline ?
                                                 <code className="bg-dark-subtle px-1 rounded text-danger" {...props}>{children}</code> :
                                                 <pre className="bg-dark text-light p-2 rounded small mt-2 overflow-auto" {...props}><code>{children}</code></pre>
@@ -413,7 +457,7 @@ INSTRUCTIONS:
                             </div>
                         </motion.div>
                     )}
-                    <div ref={messagesEndRef} style={{ height: '60px' }} /> {/* Spacer for bottom input */}
+                    <div ref={messagesEndRef} style={{ height: '100px' }} /> {/* Spacer for bottom input */}
                 </div>
             </div>
 
