@@ -1,0 +1,471 @@
+[
+    {
+        "id": "common-s1s2",
+        "name": "First Year (Common)",
+        "type": "dept",
+        "icon": "Users",
+        "semesters": [
+            {
+                "id": "s1",
+                "name": "Semester 1",
+                "subjects": [
+                    {
+                        "id": "mat101",
+                        "name": "Linear Algebra & Calculus (MAT101)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "pht100",
+                        "name": "Engineering Physics A (PHT100)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cyt100",
+                        "name": "Engineering Chemistry (CYT100)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "est100",
+                        "name": "Engineering Mechanics (EST100)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "est110",
+                        "name": "Engineering Graphics (EST110)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "hun101",
+                        "name": "Life Skills (HUN101)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s2",
+                "name": "Semester 2",
+                "subjects": [
+                    {
+                        "id": "mat102",
+                        "name": "Vector Calculus & Diff. Eq. (MAT102)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "est102",
+                        "name": "Programming in C (EST102)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "est120",
+                        "name": "Basics of Civil & Mech (EST120)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "est130",
+                        "name": "Basics of Electrical & Electronics (EST130)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "hun102",
+                        "name": "Professional Communication (HUN102)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "ad",
+        "name": "Data Science (AD)",
+        "type": "dept",
+        "icon": "Database",
+        "semesters": [
+            {
+                "id": "s3",
+                "name": "Semester 3",
+                "subjects": [
+                    {
+                        "id": "mat203",
+                        "name": "Discrete Mathematical Structures (MAT203)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt201",
+                        "name": "Data Structures (ADT201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt203",
+                        "name": "Foundations of AI (ADT203)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt205",
+                        "name": "Object Oriented Programming (ADT205)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s4",
+                "name": "Semester 4",
+                "subjects": [
+                    {
+                        "id": "mat206",
+                        "name": "Graph Theory (MAT206)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt202",
+                        "name": "Python for Data Science (ADT202)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt204",
+                        "name": "Database Management Systems (ADT204)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt206",
+                        "name": "Operating Systems (ADT206)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s5",
+                "name": "Semester 5",
+                "subjects": [
+                    {
+                        "id": "adt301",
+                        "name": "Machine Learning (ADT301)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt303",
+                        "name": "Statistical Modelling (ADT303)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt305",
+                        "name": "Deep Learning (ADT305)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt307",
+                        "name": "Web Technologies (ADT307)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s6",
+                "name": "Semester 6",
+                "subjects": [
+                    {
+                        "id": "adt302",
+                        "name": "Big Data Analytics (ADT302)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt304",
+                        "name": "Natural Language Processing (ADT304)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "adt306",
+                        "name": "Computer Vision (ADT306)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "cse",
+        "name": "Computer Science (CSE)",
+        "type": "dept",
+        "icon": "Code",
+        "semesters": [
+            {
+                "id": "s3",
+                "name": "Semester 3",
+                "subjects": [
+                    {
+                        "id": "mat203",
+                        "name": "Discrete Mathematical Structures (MAT203)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst201",
+                        "name": "Data Structures (CST201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst203",
+                        "name": "Logic System Design (CST203)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst205",
+                        "name": "Object Oriented Programming Java (CST205)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s4",
+                "name": "Semester 4",
+                "subjects": [
+                    {
+                        "id": "mat206",
+                        "name": "Graph Theory (MAT206)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst202",
+                        "name": "Computer Org & Architecture (CST202)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst204",
+                        "name": "Database Management Systems (CST204)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst206",
+                        "name": "Operating Systems (CST206)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s5",
+                "name": "Semester 5",
+                "subjects": [
+                    {
+                        "id": "cst301",
+                        "name": "Formal Lang. & Automata Theory (CST301)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst303",
+                        "name": "Computer Networks (CST303)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst305",
+                        "name": "System Software (CST305)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst307",
+                        "name": "Microprocessors and Microcontrollers (CST307)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s6",
+                "name": "Semester 6",
+                "subjects": [
+                    {
+                        "id": "cst302",
+                        "name": "Compiler Design (CST302)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst304",
+                        "name": "Computer Graphics & Img Proc. (CST304)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cst306",
+                        "name": "Algorithm Analysis & Design (CST306)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "ce",
+        "name": "Civil Engineering (CE)",
+        "type": "dept",
+        "icon": "Building",
+        "semesters": [
+            {
+                "id": "s3",
+                "name": "Semester 3",
+                "subjects": [
+                    {
+                        "id": "mat201",
+                        "name": "Partial Diff. Eq. & Complex Analysis (MAT201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cet201",
+                        "name": "Mechanics of Solids (CET201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cet203",
+                        "name": "Fluid Mechanics & Hydraulics (CET203)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cet205",
+                        "name": "Surveying & Geomatics (CET205)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s4",
+                "name": "Semester 4",
+                "subjects": [
+                    {
+                        "id": "mat202",
+                        "name": "Prob., Stats & Num. Methods (MAT202)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cet202",
+                        "name": "Engineering Geology (CET202)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cet204",
+                        "name": "Geotechnical Engineering I (CET204)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "cet206",
+                        "name": "Transportation Engineering (CET206)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "me",
+        "name": "Mechanical Engineering (ME)",
+        "type": "dept",
+        "icon": "Settings",
+        "semesters": [
+            {
+                "id": "s3",
+                "name": "Semester 3",
+                "subjects": [
+                    {
+                        "id": "mat201",
+                        "name": "Partial Diff. Eq. & Complex Analysis (MAT201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "met201",
+                        "name": "Mechanics of Solids (MET201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "met203",
+                        "name": "Mechanics of Fluids (MET203)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "met205",
+                        "name": "Metallurgy & Mat. Science (MET205)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s4",
+                "name": "Semester 4",
+                "subjects": [
+                    {
+                        "id": "mat202",
+                        "name": "Prob., Stats & Num. Methods (MAT202)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "met202",
+                        "name": "Engineering Thermodynamics (MET202)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "met204",
+                        "name": "Manufacturing Process (MET204)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "met206",
+                        "name": "Fluid Machinery (MET206)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "ece",
+        "name": "Electronics & Communication (ECE)",
+        "type": "dept",
+        "icon": "Cpu",
+        "semesters": [
+            {
+                "id": "s3",
+                "name": "Semester 3",
+                "subjects": [
+                    {
+                        "id": "mat201",
+                        "name": "Partial Diff. Eq. & Complex Analysis (MAT201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "ect201",
+                        "name": "Solid State Devices (ECT201)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "ect203",
+                        "name": "Logic Circuit Design (ECT203)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "ect205",
+                        "name": "Network Theory (ECT205)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            },
+            {
+                "id": "s4",
+                "name": "Semester 4",
+                "subjects": [
+                    {
+                        "id": "mat204",
+                        "name": "Prob., Rand. Proc. & Num. Meth (MAT204)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "ect202",
+                        "name": "Analog Circuits (ECT202)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "ect204",
+                        "name": "Signals & Systems (ECT204)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    },
+                    {
+                        "id": "ect206",
+                        "name": "Computer Architecture (ECT206)",
+                        "driveLink": "https://drive.google.com/drive/u/0/folders/placeholder"
+                    }
+                ]
+            }
+        ]
+    }
+]

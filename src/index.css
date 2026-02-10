@@ -1,0 +1,245 @@
+:root {
+  /* White/Black/Blue Glass Palette */
+  --bg-color: #f8fafc;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+
+  --text-main: #1a202c;
+  --text-muted: #718096;
+
+  --primary-accent: #2563eb;
+  /* Royal Blue */
+  --secondary-accent: #0ea5e9;
+  /* Sky Blue */
+
+  --clay-radius: 24px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', sans-serif;
+  color: var(--text-main);
+  background: #f0f4f8;
+  /* Light gray-blue tint */
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Liquid Orbs in Background - Blue Tones */
+body::before,
+body::after {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.15), rgba(14, 165, 233, 0.15));
+  filter: blur(80px);
+  z-index: -1;
+  animation: floatOrb 15s ease-in-out infinite;
+}
+
+body::before {
+  top: -200px;
+  left: -200px;
+}
+
+body::after {
+  bottom: -200px;
+  right: -200px;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.15), rgba(147, 197, 253, 0.15));
+  animation-delay: -7s;
+}
+
+@keyframes floatOrb {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(30px, -30px) scale(1.1);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* --- GLASSMORPHISM COMPONENTS --- */
+
+/* White Glass Card */
+.clay-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--clay-radius);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+  color: var(--text-main);
+  position: relative;
+  overflow: hidden;
+}
+
+.clay-card:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 12px 40px rgba(31, 38, 135, 0.15);
+  border-color: #ffffff;
+}
+
+/* Glass Button - Blue Accent */
+.clay-button,
+.btn-primary {
+  background: var(--primary-accent) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  border-radius: 50px;
+  transition: all 0.2s ease;
+}
+
+.clay-button:hover,
+.btn-primary:hover {
+  background: #1d4ed8 !important;
+  /* Darker blue */
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Inputs */
+.clay-input {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  backdrop-filter: blur(10px);
+  color: var(--text-main);
+  border-radius: 20px;
+  padding: 1rem 1.5rem;
+  width: 100%;
+  outline: none;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.clay-input:focus {
+  background: #ffffff;
+  border-color: var(--primary-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.clay-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Text Utilities */
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary-accent), #1e40af);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  filter: none;
+  /* Removed drop-shadow for cleaner text */
+}
+
+.text-muted {
+  color: #64748b !important;
+}
+
+.text-dark {
+  color: var(--text-main) !important;
+}
+
+/* Bootstrap Overrides */
+.btn-light {
+  background: white !important;
+  border: 1px solid #e2e8f0 !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.bg-light {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+.bg-white {
+  background: #ffffff !important;
+  color: var(--text-main) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Animations */
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Ensure Icons are visible */
+svg {
+  color: inherit;
+}
+
+.text-primary {
+  color: var(--primary-accent) !important;
+}
+
+.text-danger {
+  color: #ef4444 !important;
+}
+
+.text-success {
+  color: #10b981 !important;
+}
+
+/* Dark Mode (If user toggles) */
+body.dark-mode {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+body.dark-mode .clay-card {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+body.dark-mode .text-muted {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .clay-input {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+body.dark-mode .btn-light {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  color: white !important;
+}
