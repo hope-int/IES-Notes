@@ -8,7 +8,7 @@ export default function AIChat({ profile }) {
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: `Hello ${profile?.full_name?.split(' ')[0] || 'Student'}! I am Sokratis, your AI Tutor. I know your entire syllabus for ${profile?.department || 'Engineering'} (Sem ${profile?.semester || '?'}). Ask me anything!`
+            content: `Hello ${profile?.full_name?.split(' ')[0] || 'Student'}! I am Alex, your AI Tutor. I know your entire syllabus for ${profile?.department || 'Engineering'} (Sem ${profile?.semester || '?'}). Ask me anything!`
         }
     ]);
     const [input, setInput] = useState('');
@@ -40,7 +40,7 @@ export default function AIChat({ profile }) {
         try {
             // Construct System Prompt
             const systemPrompt = `
-You are Sokratis, an expert engineering tutor at IES College of Engineering.
+You are Alex, an expert engineering tutor at IES College of Engineering.
 User Details: ${profile?.full_name}, ${profile?.department}, ${profile?.semester}, Year ${profile?.year}.
 Context: The user is asking questions related to their engineering curriculum.
 
@@ -66,7 +66,7 @@ INSTRUCTIONS:
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "google/gemini-2.0-flash-lite-preview-02-05:free",
+                    "model": "openrouter/aurora-alpha",
                     "messages": [
                         { "role": "system", "content": systemPrompt },
                         ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -103,7 +103,7 @@ INSTRUCTIONS:
                     </div>
                     <div>
                         <h4 className="fw-bold mb-0">AI Tutor <span className="badge bg-light text-primary border ms-2" style={{ fontSize: '0.7rem' }}>BETA</span></h4>
-                        <small className="text-muted">Powered by Gemini 2.0 Flash</small>
+                        <small className="text-muted">Powered by DATA SCIENCE DEPARTMENT</small>
                     </div>
                 </div>
                 <button
