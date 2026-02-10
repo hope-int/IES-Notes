@@ -508,17 +508,19 @@ function App() {
               </motion.div>
             </div>
             <div className="col-lg-6 z-1 ps-lg-5">
-              <div className="clay-card p-4">
+              <div className="clay-card p-4 h-100">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h4 className="fw-bold mb-0">Latest Updates</h4>
                   <Bell size={20} className="text-muted" />
                 </div>
-                {announcements.length > 0 ? announcements.map((ann, i) => (
-                  <div key={i} className="glass-panel p-2 mb-2 rounded d-flex align-items-center gap-2">
-                    <div className="bg-primary rounded-circle" style={{ width: 6, height: 6 }}></div>
-                    {ann.content}
-                  </div>
-                )) : <p className="text-muted small">No new updates.</p>}
+                <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '160px' }}>
+                  {announcements.length > 0 ? announcements.map((ann, i) => (
+                    <div key={i} className="glass-panel p-2 mb-2 rounded d-flex align-items-center gap-2">
+                      <div className="bg-primary rounded-circle flex-shrink-0" style={{ width: 6, height: 6 }}></div>
+                      <div className="small text-muted">{ann.content}</div>
+                    </div>
+                  )) : <p className="text-muted small">No new updates.</p>}
+                </div>
               </div>
             </div>
           </div>

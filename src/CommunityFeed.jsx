@@ -101,26 +101,55 @@ export default function CommunityFeed({ profile }) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [sortMethod]);
+    }, [sortMethod, profile]); // Refetch when sort changes or profile loads
 
     const fetchPosts = async () => {
         setLoading(true);
-        let query = supabase
-            .from('community_posts')
-            .select('*');
+        try {
+            let query = supabase
+                .from('community_posts')
+                .select('*');
 
-        if (sortMethod === 'new') {
-            query = query.order('created_at', { ascending: false });
-        } else {
-            query = query
-                .order('likes', { ascending: false })
-                .order('created_at', { ascending: false });
+            if (sortMethod === 'new') {
+                query = query.order('created_at', { ascending: false });
+            } else {
+                query = query
+                    .order('likes', { ascending: false })
+                    .order('created_at', { ascending: false });
+            }
+
+            const { data: postsData, error: postsError } = await query;
+            if (postsError) throw postsError;
+
+            if (postsData) {
+                setPosts(postsData);
+
+                // Fetch User Votes for these posts
+                if (profile?.id) {
+                    const { data: votesData, error: votesError } = await supabase
+                        .from('community_post_likes')
+                        .select('post_id, vote_type')
+                        .eq('user_id', profile.id)
+                        .in('post_id', postsData.map(p => p.id));
+
+                    if (votesError) {
+                        console.error("Error fetching user votes:", votesError);
+                    }
+
+                    if (votesData) {
+                        const votesMap = {};
+                        votesData.forEach(v => {
+                            votesMap[v.post_id] = v.vote_type;
+                        });
+                        setUserVotes(votesMap);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching community feed:", error);
+        } finally {
+            setLoading(false);
         }
-
-        const { data, error } = await query;
-
-        if (data) setPosts(data);
-        setLoading(false);
     };
 
     const handlePost = async () => {
@@ -266,29 +295,54 @@ export default function CommunityFeed({ profile }) {
     };
 
     const handleVote = async (postId, currentScore, direction) => {
-        // Prevent double voting (simple local check)
-        const previousVote = userVotes[postId] || 0;
-        if (previousVote === direction) return; // Already voted this way
+        console.log("handleVote called:", { postId, currentScore, direction, profileId: profile?.id });
+        if (!profile?.id) {
+            console.warn("User not logged in or profile not loaded.");
+            return;
+        }
+        if (isBanned) {
+            alert("You are banned from interacting.");
+            return;
+        }
 
-        // Calculate new score locally
-        const diff = direction - previousVote;
-        // If changing from 0 to 1, diff is 1. If 1 to -1, diff is -2.
+        const previousVote = userVotes[postId] || 0;
+        console.log("Previous vote:", previousVote);
+
+        // Toggle Logic: If clicking the same direction, set vote to 0 (un-vote)
+        const finalVote = previousVote === direction ? 0 : direction;
+        console.log("Final vote determined:", finalVote);
+
+        // Calculate diff for optimistic update
+        const diff = finalVote - previousVote;
+        console.log("Calculated diff:", diff);
 
         // Optimistic Update
-        const updatedPosts = posts.map(p => {
-            if (p.id === postId) return { ...p, likes: (p.likes || 0) + diff };
+        setPosts(currentPosts => currentPosts.map(p => {
+            if (p.id === postId) {
+                const currentLikes = parseInt(p.likes) || 0;
+                const newLikes = currentLikes + diff;
+                console.log(`Optimistically updating post ${postId} likes from ${currentLikes} to ${newLikes}`);
+                return { ...p, likes: newLikes };
+            }
             return p;
+        }));
+        setUserVotes(prev => ({ ...prev, [postId]: finalVote }));
+
+        // Update DB via Secure RPC
+        const { error } = await supabase.rpc('toggle_post_vote', {
+            target_post_id: postId,
+            voting_user_id: profile.id,
+            new_vote_type: finalVote
         });
-        setPosts(updatedPosts);
-        setUserVotes({ ...userVotes, [postId]: direction });
 
-        // Update DB (approximate, since we don't have atomic increment here without RPC or raw SQL safety, but good enough for demo)
-        // Ideally we'd call an RPC 'vote_post(id, increment)'
-        const { error } = await supabase.from('community_posts')
-            .update({ likes: (currentScore || 0) + diff })
-            .eq('id', postId);
-
-        if (error) console.error("Vote failed:", error);
+        if (error) {
+            console.error("Vote RPC failed:", error);
+            alert("Vote failed to save. Please try again.");
+            // Revert optimistic update on error by fetching fresh data
+            fetchPosts();
+        } else {
+            console.log("Vote RPC successful");
+        }
     };
 
     const timeAgo = (dateString) => {
