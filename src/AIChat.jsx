@@ -131,7 +131,6 @@ INSTRUCTIONS:
                                 </div>
                                 <div className={`p-3 rounded-4 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-tr-0' : 'bg-white text-dark border rounded-tl-0'}`} style={{ maxWidth: '80%' }}>
                                     <ReactMarkdown
-                                        className="markdown-content"
                                         components={{
                                             p: ({ node, ...props }) => <p className="mb-1" {...props} />,
                                             ul: ({ node, ...props }) => <ul className="ps-3 mb-1" {...props} />,
