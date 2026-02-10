@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Folder, ExternalLink, Search, Book, Zap, Database, Code, FolderPlus,
   Cpu, ChevronRight, ArrowLeft, Users, Building, Settings,
-  FileText, Heart, Shield, LogOut, User, Bell, MessageCircle, Home, Upload, Download
+  FileText, Heart, Shield, LogOut, User, Bell, MessageCircle, Home, Upload, Download, Sparkles
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import Registration from './Registration';
@@ -13,7 +13,9 @@ import CreateFolderModal from './CreateFolderModal';
 import AdminPanel from './AdminPanel';
 import AdminLoginModal from './AdminLoginModal';
 import StudentProfile from './StudentProfile';
+import StudentProfile from './StudentProfile';
 import CommunityFeed from './CommunityFeed';
+import AIChat from './AIChat';
 import { getDeviceId, getClientIp } from './utils/deviceUtils';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -695,6 +697,9 @@ function App() {
       {/* Community Tab */}
       {activeTab === 'community' && <CommunityFeed profile={userProfile} />}
 
+      {/* AI Tutor Tab */}
+      {activeTab === 'ai' && <AIChat profile={userProfile} />}
+
       {/* Floating Navigation Bar */}
       <div className="position-fixed bottom-0 start-0 w-100 p-3 z-3 d-flex justify-content-center" style={{ pointerEvents: 'none' }}>
         <div className="clay-card rounded-pill p-2 d-flex gap-2 shadow-lg" style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)' }}>
@@ -709,6 +714,12 @@ function App() {
             className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'community' ? 'bg-primary text-white shadow' : 'text-muted hover-bg-light'}`}
           >
             <MessageCircle size={20} /> <span className={activeTab === 'community' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'ai' ? 'bg-primary text-white shadow' : 'text-muted hover-bg-light'}`}
+          >
+            <Sparkles size={20} /> <span className={activeTab === 'ai' ? 'd-inline' : 'd-none d-sm-inline'}>AI Tutor</span>
           </button>
         </div>
       </div>
