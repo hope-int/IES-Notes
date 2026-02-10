@@ -81,6 +81,26 @@ export default function CommunityFeed({ profile }) {
 
     useEffect(() => {
         fetchPosts();
+
+        // Real-time Subscription
+        const channel = supabase
+            .channel('public:community_posts')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_posts' }, payload => {
+                setPosts(currentPosts => [payload.new, ...currentPosts]);
+            })
+            // Also listen for DELETE to remove posts in real-time
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts' }, payload => {
+                setPosts(currentPosts => currentPosts.filter(post => post.id !== payload.old.id));
+            })
+            // Listen for UPDATE (e.g. likes)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_posts' }, payload => {
+                setPosts(currentPosts => currentPosts.map(post => post.id === payload.new.id ? payload.new : post));
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [sortMethod]);
 
     const fetchPosts = async () => {
@@ -157,6 +177,8 @@ export default function CommunityFeed({ profile }) {
         if (activePostId === post.id) {
             setActivePostId(null);
             setComments([]);
+            // Clean up subscription if exists (though we rely on useEffect cleanup usually, here we might multiple channels if we aren't careful. 
+            // Better strategy: Use a separate useEffect for comments when activePostId changes)
             return;
         }
 
@@ -172,6 +194,25 @@ export default function CommunityFeed({ profile }) {
         if (data) setComments(data);
         setLoadingComments(false);
     };
+
+    // Separate Effect for Comment Subscriptions
+    useEffect(() => {
+        if (!activePostId) return;
+
+        const channel = supabase
+            .channel(`comments:${activePostId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_comments', filter: `post_id=eq.${activePostId}` }, payload => {
+                setComments(currentComments => [...currentComments, payload.new]);
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_comments', filter: `post_id=eq.${activePostId}` }, payload => {
+                setComments(currentComments => currentComments.filter(comment => comment.id !== payload.old.id));
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [activePostId]);
 
     const handleComment = async () => {
         if (!newComment.trim() || !activePostId) return;

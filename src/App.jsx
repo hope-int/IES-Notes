@@ -502,7 +502,7 @@ function App() {
                     </>
                   )}
                 </h1>
-                <p className="text-muted fs-5 mb-5">Access all your IES College notes. Powered by Supabase.</p>
+                <p className="text-muted fs-5 mb-5">Access all your IES College notes. Developed by Justin.</p>
               </motion.div>
             </div>
             <div className="col-lg-6 z-1 ps-lg-5">

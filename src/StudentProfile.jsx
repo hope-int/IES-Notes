@@ -4,7 +4,7 @@ import {
     User, Upload, Link as LinkIcon, Youtube, Book,
     FileText, Globe, CheckCircle, AlertCircle, Loader,
     ChevronDown, MapPin, Calendar, Hash, Edit2, Save, X,
-    LogOut, Shield
+    LogOut, Shield, Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -89,6 +89,12 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
         }
     };
 
+    const handleCopyUID = () => {
+        if (!profile?.id) return;
+        navigator.clipboard.writeText(profile.id);
+        alert("UID copied to clipboard! Keep it safe.");
+    };
+
     return (
         <div className="container py-4">
             <button onClick={onBack} className="btn btn-link text-muted text-decoration-none mb-3 ps-0">
@@ -141,6 +147,20 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
                             <ProfileField isEditing={isEditing} icon={Calendar} label="Year" value={editForm.year} onChange={v => setEditForm({ ...editForm, year: v })} placeholder="e.g. 2nd Year" />
                             <ProfileField isEditing={isEditing} icon={MapPin} label="Department" value={editForm.department} onChange={v => setEditForm({ ...editForm, department: v })} placeholder="e.g. CSE" />
                             <ProfileField isEditing={isEditing} icon={Building2} label="College" value={editForm.college} onChange={v => setEditForm({ ...editForm, college: v })} placeholder="College Name" />
+
+                            {/* UID Display */}
+                            {!isEditing && (
+                                <div className="d-flex align-items-center gap-3 border-top pt-3 mt-2">
+                                    <div className="p-2 rounded-circle bg-light text-muted shadow-sm"><User size={16} /></div>
+                                    <div className="flex-grow-1 overflow-hidden">
+                                        <div className="small text-muted fw-bold text-uppercase" style={{ fontSize: '0.7rem' }}>STUDENT UID (Secret Login Key)</div>
+                                        <div className="fw-bold text-truncate" style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{profile?.id}</div>
+                                    </div>
+                                    <button onClick={handleCopyUID} className="btn btn-sm btn-light rounded-circle" title="Copy UID">
+                                        <Copy size={16} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {saveStatus === 'success' && <div className="mt-3 text-success small fw-bold">Profile updated!</div>}

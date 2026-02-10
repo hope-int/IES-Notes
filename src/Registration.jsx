@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { motion } from 'framer-motion';
-import { User, Book, ChevronRight, Loader } from 'lucide-react';
+import { User, Book, ChevronRight, Loader, LogIn, KeyRound } from 'lucide-react';
 
 export default function Registration({ onComplete }) {
     const [step, setStep] = useState(1);
+    const [isLoginMode, setIsLoginMode] = useState(false);
+    const [loginUid, setLoginUid] = useState('');
     const [loading, setLoading] = useState(false);
     const [departments, setDepartments] = useState([]);
     const [semesters, setSemesters] = useState([]);
@@ -58,6 +60,34 @@ export default function Registration({ onComplete }) {
             semester_id: semId,
             semester_name: sem?.name || ''
         });
+    };
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', loginUid.trim())
+                .single();
+
+            if (error || !data) {
+                alert("Invalid UID. User not found.");
+                setLoading(false);
+                return;
+            }
+
+            // Save and Complete
+            localStorage.setItem('ies_student_profile', JSON.stringify(data));
+            onComplete(data);
+        } catch (err) {
+            console.error(err);
+            alert("Login failed.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -116,98 +146,145 @@ export default function Registration({ onComplete }) {
                         <Book size={32} />
                     </div>
                     <h2 className="fw-bold mb-2">Welcome to IES Notes</h2>
-                    <p className="text-muted">Set up your profile to get started.</p>
+                    <p className="text-muted">
+                        {isLoginMode ? "Enter your Secret UID to continue." : "Set up your profile to get started."}
+                    </p>
+
+                    <div className="d-flex justify-content-center gap-2 mt-3 p-1 bg-white rounded-pill border d-inline-flex">
+                        <button
+                            onClick={() => setIsLoginMode(false)}
+                            className={`btn btn-sm rounded-pill px-3 fw-bold ${!isLoginMode ? 'btn-secondary text-white' : 'text-muted'}`}
+                        >
+                            Register
+                        </button>
+                        <button
+                            onClick={() => setIsLoginMode(true)}
+                            className={`btn btn-sm rounded-pill px-3 fw-bold ${isLoginMode ? 'btn-primary text-white' : 'text-muted'}`}
+                        >
+                            Login
+                        </button>
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="fw-bold small text-muted mb-2">Phone Number</label>
-                        <div className="clay-input d-flex align-items-center p-3 gap-3">
-                            <span className="text-muted fw-bold">+91</span>
-                            <input
-                                required
-                                type="tel"
-                                className="border-0 bg-transparent w-100 fw-medium"
-                                placeholder="Enter your phone number"
-                                value={formData.phone_number}
-                                onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
-                            />
+                {isLoginMode ? (
+                    <form onSubmit={handleLogin}>
+                        <div className="mb-4">
+                            <label className="fw-bold small text-muted mb-2">Secret UID</label>
+                            <div className="clay-input d-flex align-items-center p-3 gap-3">
+                                <KeyRound size={20} className="text-muted" />
+                                <input
+                                    required
+                                    className="border-0 bg-transparent w-100 fw-medium"
+                                    placeholder="Paste your UID here..."
+                                    value={loginUid}
+                                    onChange={e => setLoginUid(e.target.value)}
+                                />
+                            </div>
                         </div>
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="fw-bold small text-muted mb-2">Full Name</label>
-                        <div className="clay-input d-flex align-items-center p-3 gap-3">
-                            <User size={20} className="text-muted" />
-                            <input
-                                required
-                                className="border-0 bg-transparent w-100 fw-medium"
-                                placeholder="Enter your name"
-                                value={formData.full_name}
-                                onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="row g-3 mb-4">
-                        <div className="col-12">
-                            <label className="fw-bold small text-muted mb-2">Department</label>
-                            <select
-                                required
-                                className="clay-input w-100 p-3 bg-white border-0"
-                                value={formData.department_id}
-                                onChange={handleDeptChange}
-                            >
-                                <option value="">Select Department</option>
-                                {departments.map(d => (
-                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                ))}
-                            </select>
+                        <button
+                            type="submit"
+                            disabled={loading || !loginUid}
+                            className="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
+                        >
+                            {loading ? <Loader className="animate-spin" /> : (
+                                <>
+                                    Login <LogIn size={20} />
+                                </>
+                            )}
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleSubmit}>
+                        <div className="mb-4">
+                            <label className="fw-bold small text-muted mb-2">Phone Number</label>
+                            <div className="clay-input d-flex align-items-center p-3 gap-3">
+                                <span className="text-muted fw-bold">+91</span>
+                                <input
+                                    required
+                                    type="tel"
+                                    className="border-0 bg-transparent w-100 fw-medium"
+                                    placeholder="Enter your phone number"
+                                    value={formData.phone_number}
+                                    onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
+                                />
+                            </div>
                         </div>
 
-                        <div className="col-6">
-                            <label className="fw-bold small text-muted mb-2">Current Year</label>
-                            <select
-                                required
-                                className="clay-input w-100 p-3 bg-white border-0"
-                                value={formData.year}
-                                onChange={e => setFormData({ ...formData, year: e.target.value })}
-                            >
-                                {[1, 2, 3, 4].map(y => <option key={y} value={y}>{y}{y === 1 ? 'st' : y === 2 ? 'nd' : y === 3 ? 'rd' : 'th'} Year</option>)}
-                            </select>
+                        <div className="mb-4">
+                            <label className="fw-bold small text-muted mb-2">Full Name</label>
+                            <div className="clay-input d-flex align-items-center p-3 gap-3">
+                                <User size={20} className="text-muted" />
+                                <input
+                                    required
+                                    className="border-0 bg-transparent w-100 fw-medium"
+                                    placeholder="Enter your name"
+                                    value={formData.full_name}
+                                    onChange={e => setFormData({ ...formData, full_name: e.target.value })}
+                                />
+                            </div>
                         </div>
 
-                        <div className="col-6">
-                            <label className="fw-bold small text-muted mb-2">Semester</label>
-                            <select
-                                required
-                                disabled={!formData.department_id}
-                                className="clay-input w-100 p-3 bg-white border-0"
-                                value={formData.semester_id}
-                                onChange={handleSemChange}
-                            >
-                                <option value="">Select Sem</option>
-                                {semesters.map(s => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
+                        <div className="row g-3 mb-4">
+                            <div className="col-12">
+                                <label className="fw-bold small text-muted mb-2">Department</label>
+                                <select
+                                    required
+                                    className="clay-input w-100 p-3 bg-white border-0"
+                                    value={formData.department_id}
+                                    onChange={handleDeptChange}
+                                >
+                                    <option value="">Select Department</option>
+                                    {departments.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading || !formData.semester_id || !formData.full_name || !formData.phone_number}
-                        className="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
-                        style={{ backgroundColor: 'var(--primary-accent)' }}
-                    >
-                        {loading ? <Loader className="animate-spin" /> : (
-                            <>
-                                Sign In <ChevronRight size={20} />
-                            </>
-                        )}
-                    </button>
-                </form>
+                            <div className="col-6">
+                                <label className="fw-bold small text-muted mb-2">Current Year</label>
+                                <select
+                                    required
+                                    className="clay-input w-100 p-3 bg-white border-0"
+                                    value={formData.year}
+                                    onChange={e => setFormData({ ...formData, year: e.target.value })}
+                                >
+                                    {[1, 2, 3, 4].map(y => <option key={y} value={y}>{y}{y === 1 ? 'st' : y === 2 ? 'nd' : y === 3 ? 'rd' : 'th'} Year</option>)}
+                                </select>
+                            </div>
+
+                            <div className="col-6">
+                                <label className="fw-bold small text-muted mb-2">Semester</label>
+                                <select
+                                    required
+                                    disabled={!formData.department_id}
+                                    className="clay-input w-100 p-3 bg-white border-0"
+                                    value={formData.semester_id}
+                                    onChange={handleSemChange}
+                                >
+                                    <option value="">Select Sem</option>
+                                    {semesters.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading || !formData.semester_id || !formData.full_name || !formData.phone_number}
+                            className="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
+                            style={{ backgroundColor: 'var(--primary-accent)' }}
+                        >
+                            {loading ? <Loader className="animate-spin" /> : (
+                                <>
+                                    Sign In <ChevronRight size={20} />
+                                </>
+                            )}
+                        </button>
+
+                    </form>
+                )}
             </motion.div>
-        </div>
+        </div >
     );
 }
