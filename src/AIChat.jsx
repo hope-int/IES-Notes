@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageCircle, History, Plus, Trash2, Menu, X, Share2, LayoutGrid } from 'lucide-react';
+import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageCircle, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
 import ReactMarkdown from 'react-markdown';
@@ -8,6 +8,12 @@ import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
+import { saveFileToDB, getFileFromDB, clearFilesFromDB } from './utils/indexedDB';
+import * as pdfjsLib from 'pdfjs-dist';
+// Explicitly setting worker for Vite compatibility
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 // mermaid.initialize removed to avoid conflicts. Initialized inside component with specific settings.
 
@@ -105,6 +111,9 @@ export default function AIChat({ profile, setActiveTab }) {
     const [loading, setLoading] = useState(false);
     const [syllabusText, setSyllabusText] = useState('');
     const [showWarning, setShowWarning] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [filePreview, setFilePreview] = useState(null);
+    const fileInputRef = useRef(null);
     const messagesEndRef = useRef(null);
 
     // Derived active messages
@@ -120,6 +129,11 @@ export default function AIChat({ profile, setActiveTab }) {
 
         const warningDismissed = localStorage.getItem('ies_chat_warning_dismissed');
         if (!warningDismissed) setShowWarning(true);
+
+        // Clear temporary files on unmount (closing chat)
+        return () => {
+            clearFilesFromDB();
+        };
     }, []);
 
     // Persistence
@@ -174,6 +188,7 @@ export default function AIChat({ profile, setActiveTab }) {
                 return s;
             });
             setSessions(updatedSessions);
+            clearFilesFromDB();
         }
     };
 
@@ -182,10 +197,65 @@ export default function AIChat({ profile, setActiveTab }) {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim() || loading) return;
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Limit to 5MB for AI Analysis to prevent request timeout/crash
+            if (file.size > 5 * 1024 * 1024) {
+                alert("File is too large for AI analysis (Max 5MB).");
+                return;
+            }
+            setSelectedFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFilePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
-        const userMsg = { role: 'user', content: input };
+    const clearFile = () => {
+        setSelectedFile(null);
+        setFilePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const extractTextFromPDF = async (file) => {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            let fullText = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += `\n[Page ${i} Content]: ${pageText}\n`;
+            }
+            return fullText;
+        } catch (error) {
+            console.error("PDF Extraction failed:", error);
+            throw new Error("Failed to extract text from PDF.");
+        }
+    };
+
+    const handleSend = async () => {
+        if ((!input.trim() && !selectedFile) || loading) return;
+
+        const fileId = selectedFile ? `file-${crypto.randomUUID()}` : null;
+        if (selectedFile) {
+            await saveFileToDB(fileId, selectedFile);
+        }
+
+        const userMsg = {
+            role: 'user',
+            content: input,
+            fileId: fileId,
+            fileType: selectedFile?.type,
+            fileName: selectedFile?.name,
+            filePreview: filePreview // Preview for session consistency
+        };
         const updatedMessages = [...messages, userMsg];
 
         // Update session messages and title if first user message
@@ -226,36 +296,61 @@ export default function AIChat({ profile, setActiveTab }) {
         );
 
         try {
-            // Updated System Prompt with very strict Mermaid rules
-            const systemPrompt = `
-You are Justin, an expert engineering tutor at IES College of Engineering.
-User Details: ${profile?.full_name}, ${profile?.department}, ${profile?.semester}, Year ${profile?.year}.
-Context: The user is asking questions related to their engineering curriculum.
+            const systemPrompt = `You are Justin, a helpful engineering tutor at IES College of Engineering. 
+PERSONALITY:
+1. BE INQUISITIVE: Always ask a follow-up question.
+2. ACCURACY: Follow the syllabus data strictly: ${selectedFile ? syllabusText.substring(0, 500) : syllabusText.substring(0, 3000)}
+3. VISION: You can see and analyze images and documents.
 
-Below is the official Syllabus/Curriculum Data for verify facts:
----
-${syllabusText.substring(0, 15000)} ...
----
+TECHNICAL:
+- DIAGRAMS: Use mermaid blocks (graph TD).
+- MATH: Use LaTeX symbols inside $$ blocks.`;
 
-INSTRUCTIONS:
-1. Answer strictly based on the provided syllabus where applicable.
-2. **DIAGRAMS**: If asked for a diagram, functionality, or flow, YOU MUST use a \`mermaid\` code block.
-   - **CRITICAL MERMAID SYNTAX RULES**:
-     - START with \`graph TD\` or \`sequenceDiagram\`.
-     - DO NOT use parentheses \`()\` or brackets \`[]\` inside node text unless escaped like \`#40;\` or \`#41;\`, BUT BETTER: avoid them.
-     - SAFE NODE FORMAT: A["Safe Text Here"]
-     - DO NOT use spaces in node IDs. e.g. A, B, Process_1.
-     - Example:
-       \`\`\`mermaid
-       graph TD
-         A["Start Process"] --> B["Decision?"]
-         B -- Yes --> C["Action One"]
-         B -- No --> D["Action Two"]
-       \`\`\`
-3. **MATH**: Use LaTeX for equations. 
-   - Block math: $$ ... $$
-4. Be encouraging, concise, and use markdown.
-`;
+            // Preparing request body for multi-modal support
+            const filteredHistory = messages.filter(m => m.content && m.content.trim() && !m.content.startsWith('⚠️'));
+            const requestMessages = [
+                { "role": "system", "content": systemPrompt },
+                ...filteredHistory.map(m => ({ role: m.role, content: m.content })),
+            ];
+
+            // Current message processing
+            let currentMessageContent = [];
+
+            if (selectedFile) {
+                if (selectedFile.type.startsWith('image/')) {
+                    // Images work well with Nemotron Vision
+                    if (!input.trim()) currentMessageContent.push({ type: "text", text: "Analyze this image." });
+                    currentMessageContent.push({
+                        type: "image_url",
+                        image_url: { url: filePreview }
+                    });
+                    // Append current message for Image
+                    if (currentMessageContent.length > 0) {
+                        requestMessages.push({ role: "user", content: currentMessageContent });
+                    }
+                } else if (selectedFile.type === 'application/pdf') {
+                    // Use client-side extracted text for PDF to avoid 400 errors and ensure accuracy
+                    const pdfText = await extractTextFromPDF(selectedFile);
+
+                    if (!pdfText || pdfText.trim().length < 50) {
+                        alert("Could not extract text from this PDF! It might be a scanned image.\n\nPlease take a Screenshot and upload it as an Image for the AI to analyze.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    const promptText = input.trim()
+                        ? `${input}\n\n[Attached PDF Content]:\n${pdfText}`
+                        : `Analyze this document:\n\n[Attached PDF Content]:\n${pdfText}`;
+
+                    // Send as pure text user message
+                    requestMessages.push({ role: "user", content: promptText });
+                }
+            } else {
+                // Text only message
+                if (input.trim()) {
+                    requestMessages.push({ role: "user", content: input });
+                }
+            }
 
             const fetchPromise = fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
@@ -266,29 +361,34 @@ INSTRUCTIONS:
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "openrouter/aurora-alpha",
-                    "messages": [
-                        { "role": "system", "content": systemPrompt },
-                        ...messages.map(m => ({ role: m.role, content: m.content })),
-                        { "role": "user", "content": input }
-                    ]
+                    "model": selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "openrouter/aurora-alpha",
+                    "messages": requestMessages
                 })
             });
 
             // Race fetch against timeout
             const response = await Promise.race([fetchPromise, timeoutPromise]);
 
-            if (!response.ok) { // Check HTTP status
-                throw new Error(`API Error: ${response.status}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("OpenRouter Error Detail:", errorData);
+                throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown'}`);
             }
 
             const data = await response.json();
 
             if (data.error) {
+                // Specific handling for OpenRouter empty response error
+                if (data.error.message?.toLowerCase().includes('empty')) {
+                    throw new Error("The model (Nemotron) failed to generate a response. This often happens with complex PDFs on smaller models. Try using an image or asking a simpler question.");
+                }
                 throw new Error(data.error.message || "API logical Error");
             }
 
-            const aiContent = data.choices?.[0]?.message?.content || "I'm having trouble thinking right now. Try again?";
+            const aiRawContent = data.choices?.[0]?.message?.content;
+            const aiContent = aiRawContent && aiRawContent.trim()
+                ? aiRawContent
+                : "The AI returned an empty response. This can happen if the content is flagged by a safety filter or if the model is having technical issues. Try rephrasing your question.";
 
             setSessions(prev => prev.map(s => {
                 if (s.id === activeSessionId) {
@@ -311,6 +411,7 @@ INSTRUCTIONS:
             }));
         } finally {
             setLoading(false);
+            clearFile();
         }
     };
 
@@ -578,6 +679,18 @@ INSTRUCTIONS:
                                 >
                                     {msg.content}
                                 </ReactMarkdown>
+                                {msg.filePreview && (
+                                    <div className="mt-2 rounded overflow-hidden shadow-sm border bg-light" style={{ maxWidth: '200px' }}>
+                                        {msg.fileType?.startsWith('image/') ? (
+                                            <img src={msg.filePreview} alt="Uploaded" className="w-100 d-block" style={{ maxHeight: '200px', objectFit: 'contain' }} />
+                                        ) : (
+                                            <div className="p-3 d-flex align-items-center gap-2">
+                                                <FileText size={24} className="text-danger" />
+                                                <span className="small fw-bold text-truncate">{msg.fileName || 'Document'}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     ))}
@@ -604,6 +717,35 @@ INSTRUCTIONS:
                         </div>
                     )}
 
+                    {/* File Preview Area */}
+                    <AnimatePresence>
+                        {filePreview && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                className="bg-white rounded-3 shadow border p-2 mb-2 mx-3 d-flex align-items-center gap-2"
+                                style={{ pointerEvents: 'auto' }}
+                            >
+                                {selectedFile?.type.startsWith('image/') ? (
+                                    <img src={filePreview} alt="Preview" className="rounded" style={{ width: '40px', height: '40px', objectFit: 'cover' }} />
+                                ) : (
+                                    <div className="bg-danger text-white rounded d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
+                                        <FileText size={20} />
+                                    </div>
+                                )
+                                }
+                                <div className="flex-grow-1 overflow-hidden">
+                                    <div className="small fw-bold text-truncate">{selectedFile?.name}</div>
+                                    <div className="text-muted" style={{ fontSize: '0.65rem' }}>{Math.round(selectedFile?.size / 1024)} KB</div>
+                                </div>
+                                <button onClick={clearFile} className="btn btn-sm btn-light rounded-circle">
+                                    <X size={14} />
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     <div className="bg-white rounded-4 shadow-lg p-2 d-flex gap-2 align-items-end border border-secondary-subtle mx-2 mx-md-0">
                         {/* Navigation Buttons */}
                         <div className="d-flex gap-1 flex-shrink-0">
@@ -624,6 +766,14 @@ INSTRUCTIONS:
                                 <MessageCircle size={20} />
                             </button>
                         </div>
+
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="d-none"
+                            accept="image/*,application/pdf"
+                            onChange={handleFileChange}
+                        />
 
                         <textarea
                             className="form-control bg-light shadow-none py-2 px-3"
@@ -647,12 +797,18 @@ INSTRUCTIONS:
                             disabled={loading}
                         />
                         <button
-                            onClick={handleSend}
-                            disabled={!input.trim() || loading}
+                            onClick={() => {
+                                if (!input.trim() && !selectedFile) {
+                                    fileInputRef.current?.click();
+                                } else {
+                                    handleSend();
+                                }
+                            }}
+                            disabled={loading}
                             className="btn btn-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center flex-shrink-0"
                             style={{ width: 44, height: 44 }}
                         >
-                            <Send size={20} />
+                            {(!input.trim() && !selectedFile) ? <Plus size={20} /> : <Send size={20} />}
                         </button>
                     </div>
                 </div>
