@@ -137,10 +137,55 @@ export default function AIChat({ profile, setActiveTab }) {
     }, []);
 
     // Persistence
+    // Persistence with Quota Handling
     useEffect(() => {
-        localStorage.setItem('ies_ai_sessions', JSON.stringify(sessions));
-        if (activeSessionId) {
-            localStorage.setItem('ies_ai_active_session_id', activeSessionId);
+        try {
+            localStorage.setItem('ies_ai_sessions', JSON.stringify(sessions));
+            if (activeSessionId) {
+                localStorage.setItem('ies_ai_active_session_id', activeSessionId);
+            }
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                console.warn("LocalStorage Quota Exceeded. Pruning old chat history.");
+
+                // Aggressive Pruning Strategy:
+                // 1. Keep only last 10 messages for inactive sessions.
+                // 2. Keep last 20 messages for active session.
+                // 3. Truncate very long messages (e.g. detailed PDF text) in older history > 5000 chars.
+
+                const prunedSessions = sessions.map(s => {
+                    const isActive = s.id === activeSessionId;
+                    const keepCount = isActive ? 20 : 10;
+
+                    // Slice messages
+                    let messages = s.messages.slice(-keepCount);
+
+                    // Truncate long content in history to save space
+                    messages = messages.map(m => ({
+                        ...m,
+                        content: m.content.length > 5000 ? m.content.substring(0, 5000) + "... [Content Truncated for Storage]" : m.content
+                    }));
+
+                    return { ...s, messages };
+                });
+
+                try {
+                    localStorage.setItem('ies_ai_sessions', JSON.stringify(prunedSessions));
+                    if (JSON.stringify(sessions).length !== JSON.stringify(prunedSessions).length) {
+                        setSessions(prunedSessions);
+                    }
+                } catch (retryError) {
+                    console.error("Critical: Storage still full after pruning.", retryError);
+                    // Last resort: Clear inactive sessions entirely
+                    const emergencySessions = sessions.filter(s => s.id === activeSessionId);
+                    try {
+                        localStorage.setItem('ies_ai_sessions', JSON.stringify(emergencySessions));
+                        setSessions(emergencySessions);
+                    } catch (finalError) {
+                        console.error("Failed to save even active session.", finalError);
+                    }
+                }
+            }
         }
     }, [sessions, activeSessionId]);
 
