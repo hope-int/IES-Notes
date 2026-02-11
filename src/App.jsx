@@ -500,12 +500,12 @@ function App() {
             <div className="row align-items-center gy-5 gx-lg-5">
               <div className="col-lg-6 text-center text-lg-start z-1">
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-                  <h1 className="fw-bolder display-3 mb-3 lh-sm" style={{ color: 'var(--text-main)' }}>
+                  <h1 className="fw-bolder display-5 display-md-3 mb-3 lh-sm" style={{ color: 'var(--text-main)' }}>
                     {userProfile ? (
                       currentView.type === 'favorites' ? (
                         <>
                           <span className="text-gradient">My Favorites</span>
-                          <span className="fs-2 text-muted fw-normal d-block mt-2">
+                          <span className="fs-5 fs-md-2 text-muted fw-normal d-block mt-2">
                             Your saved shortcuts
                           </span>
                         </>
@@ -513,7 +513,7 @@ function App() {
                         <>
                           Welcome, <span className="text-gradient">{userProfile.full_name?.split(' ')[0]}</span>
                           <br />
-                          <span className="fs-2 text-muted fw-normal d-block mt-2">
+                          <span className="fs-5 fs-md-2 text-muted fw-normal d-block mt-2">
                             {userProfile.department} {userProfile.semester && `• ${userProfile.semester} `}
                           </span>
                         </>
@@ -524,7 +524,7 @@ function App() {
                       </>
                     )}
                   </h1>
-                  <p className="text-muted fs-5 mb-5">Access all your IES College notes. Developed by Justin.</p>
+                  <p className="text-muted fs-6 fs-md-5 mb-5">Access all your IES College notes. Developed by Justin.</p>
                 </motion.div>
               </div>
               <div className="col-lg-6 z-1 ps-lg-5">

@@ -14,7 +14,7 @@ It combines **instant access to study materials** with a **safe, real-time commu
 This platform solves the biggest pain points of engineering students:
 
 ### 1. **Visual Learning with "Justin AI"** 🧠🎨
-Most AI chatbots just give you text. **Justin AI** (our custom-built tutor based on Gemini 2.0 Flash) goes further:
+Most AI chatbots just give you text. **Justin AI** (our custom-built tutor based on aurora-alpha) goes further:
 - **Draws Diagrams**: Ask for a flowchart or block diagram, and it renders a crisp Mermaid chart or SVG instantly.
 - **Solves Math**: Handles complex engineering math with LaTeX rendering.
 - **Context-Aware**: It knows your name, department, semester, and syllabus. It doesn't just "guess"; it tutors you based on your curriculum.
@@ -56,7 +56,7 @@ We've built a social space that encourages quality discussion:
 
 - **Frontend**: React 18, Vite, Framer Motion (for buttery smooth animations).
 - **Backend & Realtime**: Supabase (PostgreSQL, Auth, Realtime Subscriptions).
-- **AI Engine**: Google Gemini 2.0 Flash (via OpenRouter).
+- **AI Engine**: Google aurora-alpha (via OpenRouter).
 - **Rendering**: Mermaid.js (Diagrams), KaTeX (Math), Lucide React (Icons).
 - **Styling**: Bootstrap 5 + Custom Glassmorphism CSS.
 

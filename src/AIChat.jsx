@@ -459,18 +459,18 @@ INSTRUCTIONS:
             {/* Header */}
             <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-white border-bottom shadow-sm flex-shrink-0" style={{ height: '60px' }}>
                 <div className="d-flex align-items-center gap-2">
-                    <button className="btn btn-light btn-sm rounded-circle" onClick={() => setIsSidebarOpen(true)}>
+                    <button className="btn btn-light btn-sm rounded-circle d-md-none" onClick={() => setIsSidebarOpen(true)}>
                         <Menu size={20} />
                     </button>
                     <div className="d-flex align-items-center gap-2 ps-2 cursor-pointer" onClick={() => setShowFeatures(true)}>
                         <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style={{ width: 34, height: 34 }}>
                             <Bot size={20} />
                         </div>
-                        <div className="d-none d-sm-block">
+                        <div>
                             <h6 className="fw-bold mb-0 d-flex align-items-center gap-2" style={{ fontSize: '0.9rem' }}>
                                 AI Tutor <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: '0.6rem' }}>BETA</span>
                             </h6>
-                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>Tap for features</small>
+                            <small className="text-muted d-none d-sm-block" style={{ fontSize: '0.7rem' }}>Tap for features</small>
                         </div>
                     </div>
                 </div>
@@ -480,13 +480,13 @@ INSTRUCTIONS:
                         className="btn btn-light btn-sm rounded-pill d-flex align-items-center gap-1 px-3 border"
                         title="All AI Features"
                     >
-                        <LayoutGrid size={16} /> <span className="d-none d-sm-inline">Apps</span>
+                        <LayoutGrid size={16} /> <span className="d-none d-md-inline">Apps</span>
                     </button>
                     <button
                         onClick={createNewChat}
                         className="btn btn-primary btn-sm rounded-pill d-flex align-items-center gap-1 px-3"
                     >
-                        <Plus size={16} /> <span className="d-none d-sm-inline">New</span>
+                        <Plus size={16} /> <span className="d-none d-md-inline">New</span>
                     </button>
                     <button
                         onClick={handleClearChat}
@@ -596,7 +596,7 @@ INSTRUCTIONS:
             </div>
 
             {/* Input Area */}
-            <div className="fixed-bottom p-3 pb-5 mb-4 d-flex justify-content-center" style={{ zIndex: 1051, pointerEvents: 'none' }}>
+            <div className="fixed-bottom p-3 pb-4 pb-md-5 mb-0 mb-md-2 d-flex justify-content-center" style={{ zIndex: 1051, pointerEvents: 'none' }}>
                 <div className="w-100" style={{ maxWidth: '800px', pointerEvents: 'auto' }}>
                     {syllabusText.length < 100 && (
                         <div className="alert alert-warning py-1 small mb-2 text-center shadow-sm mx-3" style={{ fontSize: '0.7rem' }}>
@@ -604,7 +604,7 @@ INSTRUCTIONS:
                         </div>
                     )}
 
-                    <div className="bg-white rounded-4 shadow-lg p-2 d-flex gap-2 align-items-end border border-secondary-subtle">
+                    <div className="bg-white rounded-4 shadow-lg p-2 d-flex gap-2 align-items-end border border-secondary-subtle mx-2 mx-md-0">
                         {/* Navigation Buttons */}
                         <div className="d-flex gap-1 flex-shrink-0">
                             <button

@@ -492,18 +492,18 @@ export default function CommunityFeed({ profile }) {
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="d-flex gap-2 mt-auto">
+                                    <div className="d-flex gap-2 mt-auto flex-wrap">
                                         <button
                                             onClick={() => setActivePostId(activePostId === post.id ? null : post.id)}
-                                            className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1"
+                                            className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1 flex-grow-1 flex-md-grow-0 justify-content-center"
                                         >
                                             <MessageSquare size={16} />
                                             {post.comment_count > 0 && <span className="small fw-bold">{post.comment_count}</span>}
                                         </button>
-                                        <button className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1">
+                                        <button className="btn btn-sm btn-light text-muted d-flex align-items-center justify-content-center gap-2 rounded-1 flex-grow-1 flex-md-grow-0">
                                             <Share2 size={16} />
                                         </button>
-                                        <button className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1 ms-auto">
+                                        <button className="btn btn-sm btn-light text-muted d-flex align-items-center justify-content-center gap-2 rounded-1 ms-auto">
                                             <MoreHorizontal size={16} />
                                         </button>
                                     </div>
