@@ -30,7 +30,7 @@ export const getClientIp = async () => {
             org: data.org
         };
     } catch (error) {
-        console.warn("Primary IP fetch failed, trying fallback...", error);
+
         try {
             const fallback = await fetch('https://api.ipify.org?format=json');
             const data = await fallback.json();

@@ -39,7 +39,7 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
 
             // Fallback: If DB is empty (sync delay), use Auth Metadata
             if (!data && session?.user?.user_metadata?.full_name) {
-                console.log("Profile missing in DB, using Metadata...");
+
                 const meta = session.user.user_metadata;
                 data = {
                     id: session.user.id,

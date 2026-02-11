@@ -99,8 +99,24 @@ export default function CommunityFeed({ profile }) {
             })
             .subscribe();
 
+        // Real-time Comment Counts
+        const commentChannel = supabase
+            .channel('public:community_comments_counts')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_comments' }, payload => {
+                setPosts(currentPosts => currentPosts.map(p =>
+                    p.id === payload.new.post_id ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p
+                ));
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_comments' }, payload => {
+                setPosts(currentPosts => currentPosts.map(p =>
+                    p.id === payload.old.post_id ? { ...p, comment_count: Math.max(0, (p.comment_count || 0) - 1) } : p
+                ));
+            })
+            .subscribe();
+
         return () => {
             supabase.removeChannel(channel);
+            supabase.removeChannel(commentChannel);
         };
     }, [sortMethod, profile]); // Refetch when sort changes or profile loads
 
@@ -234,13 +250,19 @@ export default function CommunityFeed({ profile }) {
         }
 
         setActivePostId(post.id);
+        setComments([]);
         setLoadingComments(true);
 
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('community_comments')
             .select('*')
             .eq('post_id', post.id)
             .order('created_at', { ascending: true });
+
+        if (error) {
+            console.error("Error loading comments for post", post.id, error);
+        }
+
 
         if (data) setComments(data);
         setLoadingComments(false);
@@ -317,9 +339,9 @@ export default function CommunityFeed({ profile }) {
     };
 
     const handleVote = async (postId, currentScore, direction) => {
-        console.log("handleVote called:", { postId, currentScore, direction, profileId: profile?.id });
+
         if (!profile?.id) {
-            console.warn("User not logged in or profile not loaded.");
+
             return;
         }
         if (isBanned) {
@@ -328,22 +350,22 @@ export default function CommunityFeed({ profile }) {
         }
 
         const previousVote = userVotes[postId] || 0;
-        console.log("Previous vote:", previousVote);
+
 
         // Toggle Logic: If clicking the same direction, set vote to 0 (un-vote)
         const finalVote = previousVote === direction ? 0 : direction;
-        console.log("Final vote determined:", finalVote);
+
 
         // Calculate diff for optimistic update
         const diff = finalVote - previousVote;
-        console.log("Calculated diff:", diff);
+
 
         // Optimistic Update
         setPosts(currentPosts => currentPosts.map(p => {
             if (p.id === postId) {
                 const currentLikes = parseInt(p.likes) || 0;
                 const newLikes = currentLikes + diff;
-                console.log(`Optimistically updating post ${postId} likes from ${currentLikes} to ${newLikes}`);
+
                 return { ...p, likes: newLikes };
             }
             return p;
@@ -363,7 +385,7 @@ export default function CommunityFeed({ profile }) {
             // Revert optimistic update on error by fetching fresh data
             fetchPosts();
         } else {
-            console.log("Vote RPC successful");
+
         }
     };
 
@@ -494,7 +516,7 @@ export default function CommunityFeed({ profile }) {
                                     {/* Action Buttons */}
                                     <div className="d-flex gap-2 mt-auto flex-wrap">
                                         <button
-                                            onClick={() => setActivePostId(activePostId === post.id ? null : post.id)}
+                                            onClick={() => toggleComments(post)}
                                             className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1 flex-grow-1 flex-md-grow-0 justify-content-center"
                                         >
                                             <MessageSquare size={16} />
@@ -543,9 +565,9 @@ export default function CommunityFeed({ profile }) {
                                             <div className="py-2">
                                                 <SkeletonLoader type="text" count={3} />
                                             </div>
-                                        ) : comments.length > 0 ? (
+                                        ) : comments.filter(c => c.post_id === post.id).length > 0 ? (
                                             <div className="d-flex flex-column gap-3">
-                                                {comments.map(comment => (
+                                                {comments.filter(c => c.post_id === post.id).map(comment => (
                                                     <div key={comment.id} className="d-flex gap-2">
                                                         <div className="text-muted"><CornerDownRight size={16} /></div>
                                                         <div className="bg-white p-2 rounded shadow-sm flex-grow-1">

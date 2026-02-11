@@ -128,7 +128,7 @@ function App() {
         .maybeSingle();
 
       if (deviceLink?.user_id) {
-        console.log("Device recognized, logging in...", deviceLink.user_id);
+
         await fetchProfile(deviceLink.user_id);
       }
     }
