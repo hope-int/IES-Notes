@@ -366,6 +366,10 @@ TECHNICAL:
                 })
             });
 
+
+            // Clear File from Input UI immediately after request is sent
+            clearFile();
+
             // Race fetch against timeout
             const response = await Promise.race([fetchPromise, timeoutPromise]);
 
@@ -411,7 +415,6 @@ TECHNICAL:
             }));
         } finally {
             setLoading(false);
-            clearFile();
         }
     };
 
