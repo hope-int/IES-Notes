@@ -31,12 +31,15 @@ const iconMap = {
   Settings: Settings,
 };
 
+import SplashScreen from './SplashScreen';
+import SkeletonLoader from './SkeletonLoader';
+
 function App() {
-  // ... (state definitions are kept, just targeting the top imports effectively via context, but strict replacement requires matching lines)
-  // Actually, I can just target the import block and the render block separately or together if close.
-  // They are far apart. I will do two chunks.
-  // Wait, I can only do ONE contiguous chunk with replace_file_content.
-  // I should use multi_replace_file_content.
+  // Splash Screen State
+  const [showSplash, setShowSplash] = useState(() => {
+    return window.innerWidth < 768; // Show only on mobile by default
+  });
+
   // Auth State
   const [session, setSession] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -371,7 +374,14 @@ function App() {
     else if (currentView.type === 'subject') await fetchNotes(currentView.id);
   };
 
-  if (initializing) return <div className="text-center min-vh-100 d-flex align-items-center justify-content-center"><div className="spinner-border text-primary" role="status"></div></div>;
+  if (initializing) return (
+    /* Initial Loading - Full Screen */
+    <div className="d-flex align-items-center justify-content-center min-vh-100 bg-white">
+      <SkeletonLoader type="banner" count={1} />
+    </div>
+  );
+
+  if (showSplash) return <SplashScreen onComplete={() => setShowSplash(false)} />;
 
   if (!session && !userProfile) return <Registration onComplete={handleRegistrationComplete} />;
 
@@ -390,6 +400,15 @@ function App() {
     <div className="min-vh-100 pb-5 transition-colors">
       {/* Navigation / Header */}
       <nav className="container py-4 d-flex justify-content-between align-items-center">
+        {/* ... (Nav content) ... we can leave this as is if we matched the context correctly, but I need to be careful about what I replaced. 
+             Wait, I am replacing a huge block from 'initializing' check down to render start? 
+             The view showed lines 374+. Let's target the exact block around line 374 for initializing and then the loading check inside the main return.
+          */
+        }
+        {/* I will only replace the top level returns first, then the inner loading state separately to be safe. 
+             Actually, I can do the top level returns now. 
+          */}
+
         <div className="d-flex align-items-center gap-4">
           <div
             onClick={() => setShowAdminLogin(true)}
@@ -470,61 +489,63 @@ function App() {
       </nav >
 
       <AnimatePresence>
-        {/* Header - Always Visible */}
-        <motion.header
-          className="container px-md-5 position-relative overflow-hidden mt-2 mb-5"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-        >
-          <div className="row align-items-center gy-5 gx-lg-5">
-            <div className="col-lg-6 text-center text-lg-start z-1">
-              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-                <h1 className="fw-bolder display-3 mb-3 lh-sm" style={{ color: 'var(--text-main)' }}>
-                  {userProfile ? (
-                    currentView.type === 'favorites' ? (
-                      <>
-                        <span className="text-gradient">My Favorites</span>
-                        <span className="fs-2 text-muted fw-normal d-block mt-2">
-                          Your saved shortcuts
-                        </span>
-                      </>
+        {/* Header - Only Visible on Home */}
+        {activeTab === 'home' && (
+          <motion.header
+            className="container px-md-5 position-relative overflow-hidden mt-2 mb-5"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <div className="row align-items-center gy-5 gx-lg-5">
+              <div className="col-lg-6 text-center text-lg-start z-1">
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+                  <h1 className="fw-bolder display-3 mb-3 lh-sm" style={{ color: 'var(--text-main)' }}>
+                    {userProfile ? (
+                      currentView.type === 'favorites' ? (
+                        <>
+                          <span className="text-gradient">My Favorites</span>
+                          <span className="fs-2 text-muted fw-normal d-block mt-2">
+                            Your saved shortcuts
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          Welcome, <span className="text-gradient">{userProfile.full_name?.split(' ')[0]}</span>
+                          <br />
+                          <span className="fs-2 text-muted fw-normal d-block mt-2">
+                            {userProfile.department} {userProfile.semester && `• ${userProfile.semester} `}
+                          </span>
+                        </>
+                      )
                     ) : (
                       <>
-                        Welcome, <span className="text-gradient">{userProfile.full_name?.split(' ')[0]}</span>
-                        <br />
-                        <span className="fs-2 text-muted fw-normal d-block mt-2">
-                          {userProfile.department} {userProfile.semester && `• ${userProfile.semester} `}
-                        </span>
+                        Your Academic <br /> <span className="text-gradient">Superpower</span>
                       </>
-                    )
-                  ) : (
-                    <>
-                      Your Academic <br /> <span className="text-gradient">Superpower</span>
-                    </>
-                  )}
-                </h1>
-                <p className="text-muted fs-5 mb-5">Access all your IES College notes. Developed by Justin.</p>
-              </motion.div>
-            </div>
-            <div className="col-lg-6 z-1 ps-lg-5">
-              <div className="clay-card p-4 h-100">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h4 className="fw-bold mb-0">Latest Updates</h4>
-                  <Bell size={20} className="text-muted" />
-                </div>
-                <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '160px' }}>
-                  {announcements.length > 0 ? announcements.map((ann, i) => (
-                    <div key={i} className="glass-panel p-2 mb-2 rounded d-flex align-items-center gap-2">
-                      <div className="bg-primary rounded-circle flex-shrink-0" style={{ width: 6, height: 6 }}></div>
-                      <div className="small text-muted">{ann.content}</div>
-                    </div>
-                  )) : <p className="text-muted small">No new updates.</p>}
+                    )}
+                  </h1>
+                  <p className="text-muted fs-5 mb-5">Access all your IES College notes. Developed by Justin.</p>
+                </motion.div>
+              </div>
+              <div className="col-lg-6 z-1 ps-lg-5">
+                <div className="clay-card p-4 h-100">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h4 className="fw-bold mb-0">Latest Updates</h4>
+                    <Bell size={20} className="text-muted" />
+                  </div>
+                  <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '160px' }}>
+                    {announcements.length > 0 ? announcements.map((ann, i) => (
+                      <div key={i} className="glass-panel p-2 mb-2 rounded d-flex align-items-center gap-2">
+                        <div className="bg-primary rounded-circle flex-shrink-0" style={{ width: 6, height: 6 }}></div>
+                        <div className="small text-muted">{ann.content}</div>
+                      </div>
+                    )) : <p className="text-muted small">No new updates.</p>}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </motion.header>
+          </motion.header>
+        )}
       </AnimatePresence>
 
       <section className="container mt-4 pb-5">
@@ -578,16 +599,21 @@ function App() {
                 {/* My vs All Scope */}
                 <button
                   onClick={() => {
+                    setActiveFilter('My');
                     if (userProfile?.semester_id) {
-                      setActiveFilter('My');
-                      // Reset stack to just the semester view
-                      setNavStack([
-                        { type: 'sem', id: userProfile.semester_id, title: userProfile.semester_name || 'My Semester' }
-                      ]);
-                      fetchSubjects(userProfile.semester_id);
+                      // Force Semester View for "My"
+                      if (currentView.type !== 'sem' || currentView.id !== userProfile.semester_id) {
+                        setNavStack([
+                          { type: 'sem', id: userProfile.semester_id, title: userProfile.semester_name || 'My Semester' }
+                        ]);
+                        fetchSubjects(userProfile.semester_id);
+                      }
+                    } else {
+                      // If no semester assigned, maybe go to home but keep filter active?
+                      // Or just prompt user. For now, we'll just set filter.
                     }
                   }}
-                  className={`btn rounded - pill px - 4 py - 2 fw - bold border - 0 ${activeFilter === 'My' ? 'text-white' : 'text-muted'} `}
+                  className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'My' ? 'text-white' : 'text-muted'} `}
                   style={{ background: activeFilter === 'My' ? 'var(--primary-accent)' : 'var(--clay-bg)' }}
                 >
                   My
@@ -596,11 +622,17 @@ function App() {
                 <button
                   onClick={() => {
                     setActiveFilter('All');
-                    setNavStack([{ type: 'home', title: 'Home', id: null }]);
-                    fetchDepartments();
+                    // "All" should take us to the Home (Departments) view if we are "stuck" in a specific semester view that is "My Semester"
+                    // But if user just wants to see 'All' items in current view? 
+                    // Requirement: "the 'My' button is not working when we choose the 'All' button or any just we can't go back to my sort."
+                    // Implies we want to switch SCOPE.
+                    if (navStack.length > 0 && navStack[0].type !== 'home') {
+                      setNavStack([{ type: 'home', title: 'Home', id: null }]);
+                      fetchDepartments();
+                    }
                   }}
-                  className={`btn rounded - pill px - 4 py - 2 fw - bold border - 0 ${activeFilter === 'All' && currentView.type === 'home' ? 'text-white' : 'text-muted'} `}
-                  style={{ background: activeFilter === 'All' && currentView.type === 'home' ? 'var(--primary-accent)' : 'var(--clay-bg)' }}
+                  className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'All' ? 'text-white' : 'text-muted'} `}
+                  style={{ background: activeFilter === 'All' ? 'var(--primary-accent)' : 'var(--clay-bg)' }}
                 >
                   All
                 </button>
@@ -626,7 +658,9 @@ function App() {
 
             {/* Loading State */}
             {loading ? (
-              <div className="text-center py-5"><div className="spinner-border text-primary" role="status"></div></div>
+              <div className="row g-4">
+                <SkeletonLoader type="card" count={6} />
+              </div>
             ) : (
               <motion.div className="row g-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 {/* Empty State */}
@@ -669,8 +703,17 @@ function App() {
                         <div className="clay-card h-100 p-4 d-flex flex-column gap-3 cursor-pointer">
                           <div className="d-flex justify-content-between">
                             <div className="p-3 bg-light rounded-4"><Book size={28} className="text-primary" /></div>
-                            <button onClick={(e) => toggleFavorite(e, item)} className="btn btn-link p-0 text-muted">
-                              <Heart size={24} fill={favorites.some(f => f.id === item.id) ? "red" : "none"} className={favorites.some(f => f.id === item.id) ? "text-danger" : ""} />
+                            <button
+                              onClick={(e) => toggleFavorite(e, item)}
+                              className="btn btn-link p-0 text-muted favorite-btn"
+                              style={{ transform: favorites.some(f => f.id === item.id) ? 'scale(1.1)' : 'scale(1)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+                            >
+                              <Heart
+                                size={24}
+                                fill={favorites.some(f => f.id === item.id) ? "#ef4444" : "none"}
+                                className={favorites.some(f => f.id === item.id) ? "text-danger" : ""}
+                                style={{ filter: favorites.some(f => f.id === item.id) ? 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' : 'none' }}
+                              />
                             </button>
                           </div>
                           <div>

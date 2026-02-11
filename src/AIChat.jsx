@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageCircle, History, Plus, Trash2, Menu, X } from 'lucide-react';
+import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageCircle, History, Plus, Trash2, Menu, X, Share2, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
 import ReactMarkdown from 'react-markdown';
@@ -9,29 +9,65 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import mermaid from 'mermaid';
 
-mermaid.initialize({
-    startOnLoad: true,
-    theme: 'default',
-    securityLevel: 'loose',
-    fontFamily: 'Outfit, sans-serif'
-});
+// mermaid.initialize removed to avoid conflicts. Initialized inside component with specific settings.
 
 const Mermaid = ({ chart }) => {
     const ref = useRef(null);
+    const [svgContent, setSvgContent] = useState('');
+    const [isError, setIsError] = useState(false);
 
     useEffect(() => {
-        if (ref.current && chart) {
-            mermaid.contentLoaded();
-            mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart).then(({ svg }) => {
-                if (ref.current) ref.current.innerHTML = svg;
-            }).catch(err => {
-                console.error("Mermaid error:", err);
-                if (ref.current) ref.current.innerHTML = `<div class="alert alert-danger py-1 small">Invalid diagram syntax</div>`;
-            });
+        // Reset state on chart change
+        setSvgContent('');
+        setIsError(false);
+
+        if (chart) {
+            const renderDiagram = async () => {
+                try {
+                    // Configure mermaid to NOT throw on error if possible, but we catch importantly
+                    mermaid.initialize({
+                        startOnLoad: false, // We handle manual rendering
+                        theme: 'default',
+                        securityLevel: 'loose',
+                        fontFamily: 'Outfit, sans-serif',
+                        suppressErrorRendering: true, // IMPORTANT: Stop mermaid from auto-injecting error UI
+                    });
+
+                    const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+                    // parse first to check validity if possible, or just render and catch
+                    const { svg } = await mermaid.render(id, chart);
+                    setSvgContent(svg);
+                } catch (err) {
+                    console.error("Mermaid rendering failed:", err);
+                    setIsError(true);
+                }
+            };
+
+            renderDiagram();
         }
     }, [chart]);
 
-    return <div ref={ref} className="mermaid-container my-3 bg-white p-3 rounded-3 shadow-sm overflow-auto" />;
+    if (isError) {
+        return (
+            <div className="p-3 bg-light border rounded text-muted small">
+                <p className="mb-1 fw-bold text-danger">⚠️ Diagram Syntax Error</p>
+                <code className="d-block bg-white p-2 rounded border mt-2 overflow-auto text-wrap" style={{ fontSize: '0.75rem', maxHeight: '200px' }}>
+                    {chart}
+                </code>
+            </div>
+        );
+    }
+
+    if (!svgContent) {
+        return <div className="p-3 text-center text-muted small">Loading diagram...</div>;
+    }
+
+    return (
+        <div
+            className="mermaid-container my-3 bg-white p-3 rounded-3 shadow-sm overflow-auto d-flex justify-content-center"
+            dangerouslySetInnerHTML={{ __html: svgContent }}
+        />
+    );
 };
 
 export default function AIChat({ profile, setActiveTab }) {
@@ -60,6 +96,9 @@ export default function AIChat({ profile, setActiveTab }) {
         const lastId = localStorage.getItem('ies_ai_active_session_id');
         return lastId || (sessions.length > 0 ? sessions[0].id : null);
     });
+
+    // Feature List State
+    const [showFeatures, setShowFeatures] = useState(!activeSessionId); // Show features if no active session initially
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [input, setInput] = useState('');
@@ -165,7 +204,15 @@ export default function AIChat({ profile, setActiveTab }) {
 
         // Ensure we have a session if none active
         if (!activeSessionId) {
-            createNewChat(); // This might be tricky in async state, better handle it via useEffect or initial state
+            const newId = crypto.randomUUID();
+            const newSession = {
+                id: newId,
+                title: input.substring(0, 30),
+                messages: [{ role: 'assistant', content: "Hello! How can I help?" }, userMsg],
+                timestamp: Date.now()
+            };
+            setSessions([newSession, ...sessions]);
+            setActiveSessionId(newId);
         } else {
             setSessions(updatedSessions);
         }
@@ -173,8 +220,13 @@ export default function AIChat({ profile, setActiveTab }) {
         setInput('');
         setLoading(true);
 
+        // Timeout Promise
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Request timed out")), 20000) // 20s timeout
+        );
+
         try {
-            // Construct System Prompt
+            // Updated System Prompt with very strict Mermaid rules
             const systemPrompt = `
 You are Justin, an expert engineering tutor at IES College of Engineering.
 User Details: ${profile?.full_name}, ${profile?.department}, ${profile?.semester}, Year ${profile?.year}.
@@ -182,25 +234,35 @@ Context: The user is asking questions related to their engineering curriculum.
 
 Below is the official Syllabus/Curriculum Data for verify facts:
 ---
-${syllabusText.substring(0, 20000)} ... (truncated for token limit if needed)
+${syllabusText.substring(0, 15000)} ...
 ---
 
 INSTRUCTIONS:
 1. Answer strictly based on the provided syllabus where applicable.
-2. If the user asks for a diagram, flowchart, or block diagram, ALWAYS use Mermaid syntax in a \`mermaid\` code block.
-3. For custom shapes or technical drawings, you can also use raw \`svg\` code blocks.
-4. DO NOT use ASCII art for diagrams. Use Mermaid or SVG for better visual understanding.
-5. Be encouraging, concise, and use markdown for formatting.
-6. If the question is outside academic scope, politely steer back to engineering topics.
-7. Use emojis to be friendly but professional.
+2. **DIAGRAMS**: If asked for a diagram, functionality, or flow, YOU MUST use a \`mermaid\` code block.
+   - **CRITICAL MERMAID SYNTAX RULES**:
+     - START with \`graph TD\` or \`sequenceDiagram\`.
+     - DO NOT use parentheses \`()\` or brackets \`[]\` inside node text unless escaped like \`#40;\` or \`#41;\`, BUT BETTER: avoid them.
+     - SAFE NODE FORMAT: A["Safe Text Here"]
+     - DO NOT use spaces in node IDs. e.g. A, B, Process_1.
+     - Example:
+       \`\`\`mermaid
+       graph TD
+         A["Start Process"] --> B["Decision?"]
+         B -- Yes --> C["Action One"]
+         B -- No --> D["Action Two"]
+       \`\`\`
+3. **MATH**: Use LaTeX for equations. 
+   - Block math: $$ ... $$
+4. Be encouraging, concise, and use markdown.
 `;
 
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            const fetchPromise = fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
                     "Content-Type": "application/json",
-                    "HTTP-Referer": window.location.origin, // Required by OpenRouter
+                    "HTTP-Referer": window.location.origin,
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
@@ -213,10 +275,17 @@ INSTRUCTIONS:
                 })
             });
 
+            // Race fetch against timeout
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+            if (!response.ok) { // Check HTTP status
+                throw new Error(`API Error: ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (data.error) {
-                throw new Error(data.error.message || "API Error");
+                throw new Error(data.error.message || "API logical Error");
             }
 
             const aiContent = data.choices?.[0]?.message?.content || "I'm having trouble thinking right now. Try again?";
@@ -230,9 +299,13 @@ INSTRUCTIONS:
 
         } catch (error) {
             console.error("AI Error:", error);
+            const errorMsg = error.message === "Request timed out"
+                ? "⚠️ The AI is taking too long to respond. Please try again."
+                : "⚠️ detailed error: " + error.message;
+
             setSessions(prev => prev.map(s => {
                 if (s.id === activeSessionId) {
-                    return { ...s, messages: [...s.messages, { role: 'assistant', content: "⚠️ Connection error. Please check your API Key or internet." }] };
+                    return { ...s, messages: [...s.messages, { role: 'assistant', content: errorMsg }] };
                 }
                 return s;
             }));
@@ -241,8 +314,52 @@ INSTRUCTIONS:
         }
     };
 
+    if (showFeatures) {
+        return (
+            <div className="container py-5 d-flex flex-column align-items-center justify-content-center min-vh-100 pb-5 mb-5">
+                <div className="text-center mb-5">
+                    <div className="bg-white p-3 rounded-circle shadow-sm d-inline-block mb-3">
+                        <Sparkles size={48} className="text-primary" />
+                    </div>
+                    <h2 className="fw-bold display-5">AI Tutor Features</h2>
+                    <p className="text-muted fs-5">Select a tool to enhance your learning</p>
+                </div>
+
+                <div className="row g-4 justify-content-center w-100" style={{ maxWidth: '800px' }}>
+                    {/* Chat Feature */}
+                    <div className="col-md-8">
+                        <motion.div
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setShowFeatures(false)}
+                            className="card border-0 shadow-sm h-100 cursor-pointer overflow-hidden feature-card"
+                            style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)' }}
+                        >
+                            <div className="card-body p-4 text-center d-flex flex-column align-items-center gap-3">
+                                <div className="p-3 rounded-circle bg-primary bg-opacity-10 text-primary mb-2">
+                                    <MessageCircle size={32} />
+                                </div>
+                                <h4 className="fw-bold mb-1">AI Chat Tutor</h4>
+                                <p className="text-muted small mb-0">
+                                    Ask questions, get explanations, and verify facts from your official syllabus.
+                                </p>
+                                <button className="btn btn-primary rounded-pill px-4 mt-3 fw-bold">Open Chat</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                </div>
+
+                <button onClick={() => setActiveTab('home')} className="btn btn-link text-muted mt-5">
+                    <Home size={20} /> Back to Home
+                </button>
+            </div>
+        );
+    }
+
+
     return (
         <div className="d-flex flex-column vh-100 bg-light" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1050 }}>
+
             <AnimatePresence>
                 {showWarning && (
                     <motion.div
@@ -345,7 +462,7 @@ INSTRUCTIONS:
                     <button className="btn btn-light btn-sm rounded-circle" onClick={() => setIsSidebarOpen(true)}>
                         <Menu size={20} />
                     </button>
-                    <div className="d-flex align-items-center gap-2 ps-2">
+                    <div className="d-flex align-items-center gap-2 ps-2 cursor-pointer" onClick={() => setShowFeatures(true)}>
                         <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style={{ width: 34, height: 34 }}>
                             <Bot size={20} />
                         </div>
@@ -353,11 +470,18 @@ INSTRUCTIONS:
                             <h6 className="fw-bold mb-0 d-flex align-items-center gap-2" style={{ fontSize: '0.9rem' }}>
                                 AI Tutor <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: '0.6rem' }}>BETA</span>
                             </h6>
-                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>Powered Data Science department</small>
+                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>Tap for features</small>
                         </div>
                     </div>
                 </div>
                 <div className="d-flex align-items-center gap-2">
+                    <button
+                        onClick={() => setShowFeatures(true)}
+                        className="btn btn-light btn-sm rounded-pill d-flex align-items-center gap-1 px-3 border"
+                        title="All AI Features"
+                    >
+                        <LayoutGrid size={16} /> <span className="d-none d-sm-inline">Apps</span>
+                    </button>
                     <button
                         onClick={createNewChat}
                         className="btn btn-primary btn-sm rounded-pill d-flex align-items-center gap-1 px-3"
@@ -424,7 +548,17 @@ INSTRUCTIONS:
                                             const lang = match ? match[1] : '';
 
                                             if (!inline && lang === 'mermaid') {
-                                                return <Mermaid chart={String(children).replace(/\n$/, '')} />;
+                                                // Cleaner for common AI failures in mermaid
+                                                let chartCode = String(children).replace(/\n$/, '');
+
+                                                // Basic cleanup for parens/brackets in labels if not properly quoted
+                                                // This is a heuristic.
+
+                                                // Ensure 'graph TD' or similar exists
+                                                if (!chartCode.includes('graph ') && !chartCode.includes('sequenceDiagram') && !chartCode.includes('mindmap') && !chartCode.includes('flowchart')) {
+                                                    chartCode = 'graph TD\n' + chartCode;
+                                                }
+                                                return <Mermaid chart={chartCode} />;
                                             }
 
                                             if (!inline && lang === 'svg') {
@@ -470,7 +604,7 @@ INSTRUCTIONS:
                         </div>
                     )}
 
-                    <div className="bg-white rounded-4 shadow-lg p-2 d-flex gap-2 align-items-end border">
+                    <div className="bg-white rounded-4 shadow-lg p-2 d-flex gap-2 align-items-end border border-secondary-subtle">
                         {/* Navigation Buttons */}
                         <div className="d-flex gap-1 flex-shrink-0">
                             <button
@@ -492,7 +626,7 @@ INSTRUCTIONS:
                         </div>
 
                         <textarea
-                            className="form-control border-0 bg-light shadow-none py-2 px-3 rounded-3"
+                            className="form-control bg-light shadow-none py-2 px-3"
                             placeholder="Message Justin..."
                             value={input}
                             onChange={e => setInput(e.target.value)}
@@ -503,7 +637,13 @@ INSTRUCTIONS:
                                 }
                             }}
                             rows={1}
-                            style={{ resize: 'none', minHeight: '44px', maxHeight: '120px' }}
+                            style={{
+                                resize: 'none',
+                                minHeight: '44px',
+                                maxHeight: '120px',
+                                borderRadius: '24px',
+                                border: '1px solid #e2e8f0' // Very thin subtle border
+                            }}
                             disabled={loading}
                         />
                         <button
@@ -518,7 +658,7 @@ INSTRUCTIONS:
                 </div>
             </div>
 
-            <style jsx>{`
+            <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
                 .typing-dots:after {

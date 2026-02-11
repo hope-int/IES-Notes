@@ -5,6 +5,7 @@ import {
     MoreHorizontal, User, RefreshCw, Send, Ghost, Trash2, CornerDownRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import SkeletonLoader from './SkeletonLoader';
 
 export default function CommunityFeed({ profile }) {
     const [posts, setPosts] = useState([]);
@@ -122,7 +123,28 @@ export default function CommunityFeed({ profile }) {
             if (postsError) throw postsError;
 
             if (postsData) {
-                setPosts(postsData);
+                // Fetch comment counts for these posts
+                const { data: commentCounts, error: countError } = await supabase
+                    .from('community_comments')
+                    .select('post_id');
+
+                // Aggregate counts locally since we can't do a join count easily without a view or rpc
+                // Optimally we'd use .select('post_id, count') but supabase requires strict grouping.
+                // A better approach for scale is a .rpc or a view, but for now we'll fetch all comments IDs (lightweight) or just use a separate query for each post (bad n+1).
+                // Actually, best way without RPC is: select post_id from comments where post_id in (ids).
+
+                const counts = {};
+                if (commentCounts) {
+                    commentCounts.forEach(c => {
+                        counts[c.post_id] = (counts[c.post_id] || 0) + 1;
+                    });
+                }
+
+                setPosts(postsData.map(p => ({
+                    ...p,
+                    comment_count: counts[p.id] || 0
+                })));
+
 
                 // Fetch User Votes for these posts
                 if (profile?.id) {
@@ -472,13 +494,14 @@ export default function CommunityFeed({ profile }) {
                                     {/* Action Buttons */}
                                     <div className="d-flex gap-2 mt-auto">
                                         <button
-                                            onClick={() => toggleComments(post)}
-                                            className={`btn btn-sm d-flex align-items-center gap-2 rounded-1 ${activePostId === post.id ? 'btn-light text-primary' : 'btn-light text-muted'}`}
+                                            onClick={() => setActivePostId(activePostId === post.id ? null : post.id)}
+                                            className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1"
                                         >
-                                            <MessageSquare size={16} /> <span className="small fw-bold">Comments</span>
+                                            <MessageSquare size={16} />
+                                            {post.comment_count > 0 && <span className="small fw-bold">{post.comment_count}</span>}
                                         </button>
                                         <button className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1">
-                                            <Share2 size={16} /> <span className="small fw-bold">Share</span>
+                                            <Share2 size={16} />
                                         </button>
                                         <button className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1 ms-auto">
                                             <MoreHorizontal size={16} />
@@ -517,7 +540,9 @@ export default function CommunityFeed({ profile }) {
 
                                         {/* Comments List */}
                                         {loadingComments ? (
-                                            <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-muted"></div></div>
+                                            <div className="py-2">
+                                                <SkeletonLoader type="text" count={3} />
+                                            </div>
                                         ) : comments.length > 0 ? (
                                             <div className="d-flex flex-column gap-3">
                                                 {comments.map(comment => (
