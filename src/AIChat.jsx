@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText } from 'lucide-react';
+import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
 import ReactMarkdown from 'react-markdown';
@@ -260,33 +260,83 @@ export default function AIChat({ profile, setActiveTab }) {
     };
 
     if (showFeatures) {
-        if (selectedFeature === 'content-tools') {
+        if (selectedFeature?.type === 'content-tools') {
             return (
-                <div className="container py-5 min-vh-100 pb-5 mb-5">
-                    <ContentGenerator onBack={() => setSelectedFeature(null)} />
+                <div className="container py-5 min-vh-100 pb-5 mb-5 relative z-10">
+                    <ContentGenerator
+                        onBack={() => setSelectedFeature(null)}
+                        initialType={selectedFeature.tool}
+                    />
                 </div>
             );
         }
         return (
-            <div className="container py-5 d-flex flex-column align-items-center justify-content-center min-vh-100 pb-5 mb-5">
+            <div className="container py-5 d-flex flex-column align-items-center justify-content-center min-vh-100 pb-5 mb-5 relative z-10">
                 <div className="text-center mb-5">
-                    <Sparkles size={48} className="text-primary mb-3" />
-                    <h2 className="fw-bold">AI Tutor Features</h2>
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                        className="d-inline-block p-4 rounded-circle mb-4 clay-card"
+                    >
+                        <Sparkles size={48} className="text-primary" />
+                    </motion.div>
+                    <motion.h2
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="fw-bold display-5 mb-3"
+                    >
+                        AI Tutor Features
+                    </motion.h2>
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-muted fs-5"
+                    >
+                        Your personal learning assistant
+                    </motion.p>
                 </div>
-                <div className="row g-4 justify-content-center w-100" style={{ maxWidth: '800px' }}>
-                    <div className="col-md-6">
-                        <div className="card h-100 border-0 shadow-sm hover-shadow cursor-pointer p-4 text-center" onClick={() => setShowFeatures(false)}>
-                            <MessageSquare size={32} className="text-primary mx-auto mb-3" />
-                            <h4>AI Chat Tutor</h4>
-                            <p className="text-muted small">Q&A and explanations.</p>
+
+                <div className="w-100" style={{ maxWidth: '1000px' }}>
+                    {/* Chat Hero Card */}
+                    <motion.div
+                        whileHover={{ y: -5 }}
+                        className="clay-card p-5 mb-4 text-center cursor-pointer position-relative overflow-hidden"
+                        onClick={() => setShowFeatures(false)}
+                    >
+                        <div className="position-absolute top-0 start-0 w-100 h-100 bg-primary opacity-10" style={{ zIndex: 0 }}></div>
+                        <div className="position-relative" style={{ zIndex: 1 }}>
+                            <div className="bg-white p-4 rounded-circle d-inline-block mb-4 shadow-sm">
+                                <MessageSquare size={48} className="text-primary" />
+                            </div>
+                            <h3 className="fw-bold mb-2 display-6">AI Chat Tutor</h3>
+                            <p className="text-muted fs-5">Interactive Q&A and detailed explanations for your studies.</p>
                         </div>
-                    </div>
-                    <div className="col-md-6">
-                        <div className="card h-100 border-0 shadow-sm hover-shadow cursor-pointer p-4 text-center" onClick={() => setSelectedFeature('content-tools')}>
-                            <Presentation size={32} className="text-success mx-auto mb-3" />
-                            <h4>Content Generator</h4>
-                            <p className="text-muted small">Create PPTs and Reports.</p>
-                        </div>
+                    </motion.div>
+
+                    {/* Content Generator Tools Grid */}
+                    <h4 className="fw-bold mb-4 mt-5 text-center">Create Content</h4>
+                    <div className="row g-4">
+                        {[
+                            { id: 'presentation', icon: Presentation, title: "Presentation", desc: "Generate PPT slides.", color: 'text-primary', bg: 'bg-primary' },
+                            { id: 'report', icon: FileText, title: "Report", desc: "Create academic reports.", color: 'text-success', bg: 'bg-success' },
+                            { id: 'assignment', icon: Sparkles, title: "Assignment", desc: "Generate quizzes & questions.", color: 'text-warning', bg: 'bg-warning' }
+                        ].map(tool => (
+                            <div key={tool.id} className="col-md-4">
+                                <motion.div
+                                    whileHover={{ y: -5 }}
+                                    className="clay-card h-100 p-4 text-center cursor-pointer"
+                                    onClick={() => setSelectedFeature({ type: 'content-tools', tool: tool.id })}
+                                >
+                                    <div className={`${tool.bg} bg-opacity-10 p-3 rounded-circle d-inline-block mb-3 ${tool.color}`}>
+                                        <tool.icon size={32} />
+                                    </div>
+                                    <h5 className="fw-bold mb-1">{tool.title}</h5>
+                                    <p className="text-muted small mb-0">{tool.desc}</p>
+                                </motion.div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -294,34 +344,84 @@ export default function AIChat({ profile, setActiveTab }) {
     }
 
     return (
-        <div className="d-flex flex-column vh-100 bg-light" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1050 }}>
+        <div className="d-flex flex-column vh-100 position-fixed top-0 start-0 w-100" style={{ zIndex: 1050, background: 'var(--bg-color)' }}>
+
+            {/* Background Orbs (inherited from body but ensured here if needed, transparent bg allows body orbs to show) */}
+
             <AnimatePresence>
                 {showWarning && (
-                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="position-absolute top-0 start-0 w-100 p-3 z-3" style={{ marginTop: '70px' }}>
-                        <div className="alert alert-warning shadow border-0 rounded-4 d-flex gap-3">
-                            <div className="small"><strong>Privacy:</strong> Data saved locally.</div>
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="position-absolute top-0 start-0 w-100 p-3"
+                        style={{ zIndex: 1100, pointerEvents: 'none' }}
+                    >
+                        <div className="clay-card p-3 d-flex gap-3 align-items-center mx-auto" style={{ maxWidth: '600px', pointerEvents: 'auto', background: 'rgba(255,255,255,0.95)' }}>
+                            <div className="text-warning"><FileText size={20} /></div>
+                            <div className="small flex-grow-1"><strong>Privacy Notice:</strong> Conversations are saved locally on your device.</div>
                             <button className="btn-close small" onClick={() => setShowWarning(false)}></button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* Sidebar Slider */}
             <AnimatePresence>
                 {isSidebarOpen && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="position-fixed top-0 start-0 w-100 h-100 bg-black bg-opacity-50" style={{ zIndex: 1070 }} />
-                        <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="position-fixed top-0 start-0 h-100 bg-white shadow-lg d-flex flex-column" style={{ zIndex: 1080, width: '280px' }}>
-                            <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
-                                <h6 className="fw-bold mb-0">History</h6>
-                                <button className="btn btn-sm" onClick={() => setIsSidebarOpen(false)}><X size={18} /></button>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="position-fixed top-0 start-0 w-100 h-100 bg-black bg-opacity-25"
+                            style={{ zIndex: 1060, backdropFilter: 'blur(2px)' }}
+                        />
+                        <motion.div
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                            className="position-fixed top-0 start-0 h-100 clay-card border-0 rounded-0 d-flex flex-column"
+                            style={{ zIndex: 1070, width: '300px', background: 'rgba(255,255,255,0.95)' }}
+                        >
+                            <div className="p-4 border-bottom d-flex justify-content-between align-items-center">
+                                <h5 className="fw-bold mb-0 d-flex align-items-center gap-2">
+                                    <History size={20} className="text-primary" /> History
+                                </h5>
+                                <button className="btn btn-sm btn-light rounded-circle" onClick={() => setIsSidebarOpen(false)}><X size={18} /></button>
                             </div>
-                            <div className="p-3"><button onClick={createNewChat} className="btn btn-primary w-100 py-2"><Plus size={18} /> New Chat</button></div>
-                            <div className="flex-grow-1 overflow-auto p-2">
+
+                            <div className="p-3">
+                                <button onClick={createNewChat} className="clay-button w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2">
+                                    <Plus size={20} /> New Chat
+                                </button>
+                            </div>
+
+                            <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar">
+                                <h6 className="text-muted text-uppercase small fw-bold mb-3 ms-1">Previous 7 Days</h6>
+                                {sessions.length === 0 && <p className="text-muted small text-center py-4">No previous chats.</p>}
                                 {sessions.map(s => (
-                                    <div key={s.id} onClick={() => { setActiveSessionId(s.id); setIsSidebarOpen(false); }} className={`p-3 rounded-3 cursor-pointer d-flex justify-content-between align-items-center ${activeSessionId === s.id ? 'bg-primary text-white' : 'hover-bg-gray'}`}>
-                                        <div className="d-flex align-items-center gap-2 overflow-hidden"><MessageCircle size={16} /><span className="text-truncate small">{s.title}</span></div>
-                                        <button onClick={(e) => deleteSession(s.id, e)} className="btn btn-link p-0 text-white"><Trash2 size={14} /></button>
-                                    </div>
+                                    <motion.div
+                                        key={s.id}
+                                        whileHover={{ scale: 1.02 }}
+                                        onClick={() => { setActiveSessionId(s.id); setIsSidebarOpen(false); }}
+                                        className={`p-3 rounded-4 cursor-pointer mb-2 d-flex justify-content-between align-items-center border ${activeSessionId === s.id ? 'bg-white border-primary shadow-sm' : 'bg-transparent border-transparent hover-bg-light'}`}
+                                    >
+                                        <div className="d-flex align-items-center gap-3 overflow-hidden">
+                                            <div className={`p-2 rounded-circle ${activeSessionId === s.id ? 'bg-primary text-white' : 'bg-light text-muted'}`}>
+                                                <MessageCircle size={16} />
+                                            </div>
+                                            <span className="text-truncate small fw-medium" style={{ maxWidth: '140px' }}>{s.title}</span>
+                                        </div>
+                                        <button
+                                            onClick={(e) => deleteSession(s.id, e)}
+                                            className="btn btn-link p-0 text-muted hover-text-danger"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </motion.div>
                                 ))}
                             </div>
                         </motion.div>
@@ -329,40 +429,188 @@ export default function AIChat({ profile, setActiveTab }) {
                 )}
             </AnimatePresence>
 
-            <div className="d-flex align-items-center justify-content-between px-3 py-2 bg-white border-bottom shadow-sm flex-shrink-0" style={{ height: '60px' }}>
-                <div className="d-flex align-items-center gap-2">
-                    <button className="btn btn-light btn-sm d-md-none" onClick={() => setIsSidebarOpen(true)}><Menu size={20} /></button>
-                    <div className="ps-2 cursor-pointer" onClick={() => setShowFeatures(true)}><Bot size={24} className="text-primary" /></div>
+            {/* Header */}
+            <div className="d-flex align-items-center justify-content-between px-4 py-3 bg-white bg-opacity-80 backdrop-blur border-bottom flex-shrink-0" style={{ height: '70px', zIndex: 1040 }}>
+                <div className="d-flex align-items-center gap-3">
+                    <button
+                        className="btn btn-light rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm"
+                        onClick={() => setIsSidebarOpen(true)}
+                        title="History"
+                    >
+                        <History size={20} className="text-muted" />
+                    </button>
+                    <div className="d-none d-md-block w-1px h-24px bg-secondary opacity-25"></div>
+                    <div>
+                        <h5 className="fw-bold mb-0 d-flex align-items-center gap-2">
+                            Justin <span className="badge bg-primary rounded-pill px-2 py-1 text-white" style={{ fontSize: '0.6rem' }}>AI</span>
+                        </h5>
+                        <small className="text-muted d-none d-sm-block">Always here to help.</small>
+                    </div>
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                    <button onClick={() => setShowFeatures(true)} className="btn btn-light btn-sm rounded-pill"><LayoutGrid size={16} /></button>
-                    <button onClick={handleClearChat} className="btn btn-light btn-sm rounded-circle"><RefreshCw size={16} /></button>
+                    <button onClick={() => setShowFeatures(true)} className="btn btn-light rounded-pill px-3 py-2 d-flex align-items-center gap-2 shadow-sm">
+                        <LayoutGrid size={16} /> <span className="d-none d-sm-inline small fw-bold">Features</span>
+                    </button>
+                    <button onClick={handleClearChat} className="btn btn-light rounded-circle p-2 shadow-sm text-muted hover-text-danger" title="Clear Chat">
+                        <RefreshCw size={20} />
+                    </button>
+                    <button onClick={() => setActiveTab('home')} className="btn btn-light rounded-circle p-2 shadow-sm text-muted" title="Close">
+                        <X size={20} />
+                    </button>
                 </div>
             </div>
 
-            <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar" style={{ background: '#f0f2f5', paddingBottom: '150px' }}>
-                <div className="d-flex flex-column gap-3">
-                    {messages.map((msg, idx) => (
-                        <div key={idx} className={`d-flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                            <div className={`p-3 rounded-3 ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white border'}`} style={{ maxWidth: '85%' }}>
-                                <ReactMarkdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown>
-                            </div>
+            {/* Chat Area */}
+            <div className="flex-grow-1 overflow-auto p-3 p-md-5 custom-scrollbar d-flex flex-column" style={{ paddingBottom: '160px' }}>
+                <div className="container" style={{ maxWidth: '800px' }}>
+                    {messages.length === 0 && (
+                        <div className="text-center py-5 mt-5 opacity-50">
+                            <Bot size={64} className="text-muted mb-3" />
+                            <h3>How can I help you today?</h3>
                         </div>
+                    )}
+
+                    {messages.map((msg, idx) => (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            key={idx}
+                            className={`d-flex gap-3 mb-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+                        >
+                            <div className={`rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-primary'}`} style={{ width: 40, height: 40 }}>
+                                {msg.role === 'user' ? <User size={20} /> : <Bot size={24} />}
+                            </div>
+
+                            <div
+                                className={`p-4 rounded-4 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'clay-card border-0'}`}
+                                style={{ maxWidth: '80%', borderTopLeftRadius: msg.role === 'assistant' ? 0 : 20, borderTopRightRadius: msg.role === 'user' ? 0 : 20 }}
+                            >
+                                {msg.role === 'assistant' ? (
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkMath, remarkGfm]}
+                                        rehypePlugins={[rehypeKatex]}
+                                        components={{
+                                            code({ node, inline, className, children, ...props }) {
+                                                if (inline) return <code className="bg-light px-1 rounded text-danger" {...props}>{children}</code>;
+                                                return <div className="bg-dark text-white p-3 rounded-3 my-2 overflow-auto"><code {...props}>{children}</code></div>
+                                            }
+                                        }}
+                                    >
+                                        {msg.content}
+                                    </ReactMarkdown>
+                                ) : (
+                                    <>
+                                        {msg.filePreview && (
+                                            <div className="mb-2 rounded overflow-hidden">
+                                                {msg.fileType?.startsWith('image/') ?
+                                                    <img src={msg.filePreview} alt="Upload" className="img-fluid rounded" style={{ maxHeight: '200px' }} /> :
+                                                    <div className="bg-white bg-opacity-20 p-2 rounded d-flex align-items-center gap-2 small"><FileText size={16} /> {msg.fileName}</div>
+                                                }
+                                            </div>
+                                        )}
+                                        <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
                     ))}
-                    {loading && <div className="text-muted small">Thinking...</div>}
-                    <div ref={messagesEndRef} style={{ height: '20px' }} />
+                    {loading && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="d-flex gap-3 text-muted align-items-center">
+                            <div className="bg-white p-2 rounded-circle shadow-sm"><Bot size={24} className="text-primary" /></div>
+                            <div className="typing-loader">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </motion.div>
+                    )}
+                    <div ref={messagesEndRef} style={{ height: '40px' }} />
                 </div>
             </div>
 
-            <div className="fixed-bottom p-3 d-flex justify-content-center" style={{ zIndex: 1051, pointerEvents: 'none' }}>
-                <div className="w-100 d-flex gap-2 bg-white rounded-4 shadow-lg p-2 border" style={{ maxWidth: '800px', pointerEvents: 'auto' }}>
-                    <button onClick={() => setActiveTab('home')} className="btn btn-light btn-sm"><Home size={20} /></button>
+            {/* Input Area */}
+            <div className="position-fixed bottom-0 start-0 w-100 p-3 p-md-4 d-flex justify-content-center" style={{ zIndex: 1051, pointerEvents: 'none' }}>
+                <div className="w-100 glass-panel shadow-lg p-2 rounded-pill d-flex align-items-center gap-2 pe-2 border-white border-2" style={{ maxWidth: '800px', pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(20px)' }}>
+
+                    <button
+                        onClick={() => setActiveTab('home')}
+                        className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center text-muted hover-bg-gray flex-shrink-0"
+                        style={{ width: 44, height: 44 }}
+                        title="Home"
+                    >
+                        <Home size={20} />
+                    </button>
+
+                    {/* Community Button */}
+                    <button
+                        onClick={() => setActiveTab('community')}
+                        className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center text-primary bg-primary bg-opacity-10 hover-bg-primary hover-text-white transition-all flex-shrink-0"
+                        style={{ width: 44, height: 44 }}
+                        title="Community"
+                    >
+                        <Users size={20} />
+                    </button>
+
                     <input type="file" ref={fileInputRef} className="d-none" onChange={handleFileChange} />
-                    <textarea value={input} onChange={e => setInput(e.target.value)} className="form-control" rows={1} placeholder="Ask Justin..." />
-                    <button onClick={() => { input.trim() || selectedFile ? handleSend() : fileInputRef.current?.click() }} className="btn btn-primary">{(input.trim() || selectedFile) ? <Send size={20} /> : <Plus size={20} />}</button>
+
+                    <div className="flex-grow-1 position-relative">
+                        <textarea
+                            value={input}
+                            onChange={e => setInput(e.target.value)}
+                            className="form-control border-0 bg-transparent shadow-none py-2 px-1"
+                            rows={1}
+                            placeholder="Ask Justin..."
+                            style={{ resize: 'none', height: '44px', lineHeight: '28px' }}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    if (input.trim() || selectedFile) handleSend();
+                                }
+                            }}
+                        />
+                        {selectedFile && (
+                            <div className="position-absolute bottom-100 start-0 mb-2 p-2 bg-white rounded shadow-sm border d-flex align-items-center gap-2 small">
+                                <FileText size={14} className="text-primary" />
+                                <span className="text-truncate" style={{ maxWidth: '150px' }}>{selectedFile.name}</span>
+                                <button onClick={clearFile} className="btn btn-link p-0 text-muted"><X size={14} /></button>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center text-muted hover-text-primary flex-shrink-0"
+                        style={{ width: 44, height: 44 }}
+                    >
+                        <Plus size={22} />
+                    </button>
+
+                    <button
+                        onClick={() => { input.trim() || selectedFile ? handleSend() : null }}
+                        disabled={!input.trim() && !selectedFile}
+                        className={`btn rounded-circle p-0 d-flex align-items-center justify-content-center text-white flex-shrink-0 transition-transform ${input.trim() || selectedFile ? 'bg-primary hover-scale' : 'bg-secondary'}`}
+                        style={{ width: 48, height: 48, opacity: input.trim() || selectedFile ? 1 : 0.5 }}
+                    >
+                        <Send size={20} />
+                    </button>
                 </div>
             </div>
-            <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; }`}</style>
+            <style>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                .typing-loader span {
+                    display: inline-block;
+                    width: 6px;
+                    height: 6px;
+                    background-color: #cbd5e1;
+                    border-radius: 50%;
+                    margin: 0 2px;
+                    animation: typing 1s infinite;
+                }
+                .typing-loader span:nth-child(2) { animation-delay: 0.2s; }
+                .typing-loader span:nth-child(3) { animation-delay: 0.4s; }
+                @keyframes typing {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-4px); }
+                }
+            `}</style>
         </div>
     );
 }
