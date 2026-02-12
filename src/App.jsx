@@ -445,7 +445,7 @@ function App() {
           <button
             onClick={() => {
               if (currentView.type === 'favorites') {
-                setNavStack(prev => prev.slice(0, -1)); // Toggle Off (Go Back)
+                setNavStack(prev => prev.slice(0, -1)); // Toggle Off 
               } else {
                 setNavStack(prev => [...prev, { type: 'favorites', title: 'My Favorites', id: 'favs' }]); // Toggle On
               }
