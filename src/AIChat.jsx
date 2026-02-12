@@ -311,7 +311,7 @@ export default function AIChat({ profile, setActiveTab }) {
                                 <MessageSquare size={48} className="text-primary" />
                             </div>
                             <h3 className="fw-bold mb-2 display-6">AI Chat Tutor</h3>
-                            <p className="text-muted fs-5">Interactive Q&A and detailed explanations for your studies.</p>
+                            <p className="text-white fs-5">Interactive Q&A and detailed explanations for your studies.</p>
                         </div>
                     </motion.div>
 
