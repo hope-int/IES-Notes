@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import {
     MessageSquare, Share2, ArrowBigUp, ArrowBigDown,
-    MoreHorizontal, User, RefreshCw, Send, Ghost, Trash2, CornerDownRight
+    MoreHorizontal, User, RefreshCw, Send, Ghost, Trash2, CornerDownRight, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SkeletonLoader from './SkeletonLoader';
@@ -32,29 +32,6 @@ export default function CommunityFeed({ profile }) {
             const isBan = newCount > 2;
             const status = isBan ? 'banned' : 'warned';
             const msg = `Your content matched our filter ("${text.substring(0, 10)}..."). Strike ${newCount}/3.`;
-
-            // 2. Update Profile (We ideally use an RPC for safety, but for now we try direct update or trigger an RPC)
-            // Let's assume we have an RPC 'report_violation' or we update directly if RLS allows self-update of stats (unlikely).
-            // Better: Use the 'update_user_status' RPC but that's admin only... 
-            // WE NEED A SERVER-SIDE TRIGGER or an RPC accessible to user to "self-report" violation? No.
-            // Actually, we should call an RPC `log_content_violation` that increments the count.
-            // Since we didn't make that, I'll use a direct update attempt (if RLS allows own update) OR just block it client side + generic alert.
-            // TO MAKE IT ROBUST: I will just block it client side for now and show alert.
-            // BUT requirements said "Auto-Warning System". So we must persist it.
-            // I'll call a hypothetical RPC 'log_violation' or just try updating profile if open.
-            // Start simple: Client-side block + Toast.
-
-            // Wait, I created 'update_user_status' SECURITY DEFINER. I can make a 'log_violation' RPC quickly if needed.
-            // Let's try to update using a new internal helper or just block it.
-            // "Automatically banning users...". I need to persist this status.
-
-            // I will implement a quick client-side ban reflection for the session, 
-            // and try to update the DB using a 'system' call if possible, or just fail safely.
-
-            // REALISTIC APPROACH for this task:
-            // Since I cannot change SQL easily without another step and I want to finish, 
-            // I will assume I can update my own profile's warning message/count if the policy I set earlier allows it.
-            // (Most dev setups allow update(auth.uid()) = id).
 
             const { error } = await supabase.from('profiles').update({
                 warnings_count: newCount,
@@ -143,11 +120,6 @@ export default function CommunityFeed({ profile }) {
                 const { data: commentCounts, error: countError } = await supabase
                     .from('community_comments')
                     .select('post_id');
-
-                // Aggregate counts locally since we can't do a join count easily without a view or rpc
-                // Optimally we'd use .select('post_id, count') but supabase requires strict grouping.
-                // A better approach for scale is a .rpc or a view, but for now we'll fetch all comments IDs (lightweight) or just use a separate query for each post (bad n+1).
-                // Actually, best way without RPC is: select post_id from comments where post_id in (ids).
 
                 const counts = {};
                 if (commentCounts) {
@@ -406,17 +378,17 @@ export default function CommunityFeed({ profile }) {
 
             {/* Header / Sort */}
             <div className="d-flex align-items-center justify-content-between mb-4">
-                <h4 className="fw-bold mb-0">Community</h4>
-                <div className="d-flex bg-white rounded-pill p-1 shadow-sm border">
+                <h4 className="fw-bold mb-0 text-dark">Community</h4>
+                <div className="d-flex glass-panel rounded-pill p-1 shadow-sm border border-secondary border-opacity-10">
                     <button
                         onClick={() => setSortMethod('new')}
-                        className={`btn btn-sm rounded-pill px-3 fw-bold ${sortMethod === 'new' ? 'btn-secondary text-white' : 'text-muted'}`}
+                        className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${sortMethod === 'new' ? 'btn-secondary text-white' : 'text-muted hover-text-white'}`}
                     >
                         New
                     </button>
                     <button
                         onClick={() => setSortMethod('hot')}
-                        className={`btn btn-sm rounded-pill px-3 fw-bold ${sortMethod === 'hot' ? 'btn-danger text-white' : 'text-muted'}`}
+                        className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${sortMethod === 'hot' ? 'btn-danger text-white' : 'text-muted hover-text-white'}`}
                     >
                         Hot
                     </button>
@@ -427,6 +399,8 @@ export default function CommunityFeed({ profile }) {
             </div>
 
             {/* Create Post Input (Reddit Style) */}
+
+
             {/* Create Post Input (Reddit Style) */}
             {isBanned ? (
                 <div className="alert alert-danger d-flex align-items-center gap-2 mb-4">
@@ -434,21 +408,24 @@ export default function CommunityFeed({ profile }) {
                     <strong>You are banned from posting. Read-only mode active.</strong>
                 </div>
             ) : (
-                <div className="bg-white border rounded p-2 mb-4 d-flex align-items-center gap-2 shadow-sm">
-                    <div className="bg-light rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 36, height: 36 }}>
-                        <span className="fw-bold text-primary small">{profile?.full_name?.charAt(0) || <User size={18} />}</span>
+                <div className="mb-4">
+                    <div className="clay-card border-0 rounded p-2 d-flex align-items-center gap-2 shadow-sm">
+                        <div className="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 36, height: 36 }}>
+                            <span className="fw-bold text-primary small">{profile?.full_name?.charAt(0) || <User size={18} />}</span>
+                        </div>
+                        <input
+                            type="text"
+                            className="form-control bg-transparent border-0 small"
+                            placeholder="Create Post"
+                            value={newPost}
+                            onChange={e => setNewPost(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handlePost()}
+                            style={{ color: 'var(--text-main)' }}
+                        />
+                        <button disabled={!newPost.trim() || isPosting} onClick={handlePost} className="btn btn-link p-2 text-primary">
+                            <Send size={20} />
+                        </button>
                     </div>
-                    <input
-                        type="text"
-                        className="form-control bg-light border-0 small"
-                        placeholder="Create Post"
-                        value={newPost}
-                        onChange={e => setNewPost(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handlePost()}
-                    />
-                    <button disabled={!newPost.trim() || isPosting} onClick={handlePost} className="btn btn-link p-2 text-primary">
-                        <Send size={20} />
-                    </button>
                 </div>
             )}
 
@@ -460,12 +437,12 @@ export default function CommunityFeed({ profile }) {
                             key={post.id}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-white border rounded shadow-sm d-flex flex-column overflow-hidden"
+                            className="clay-card border-0 rounded shadow-sm d-flex flex-column overflow-hidden"
                             style={{ minHeight: '100px' }}
                         >
                             <div className="d-flex flex-grow-1">
                                 {/* Vote Column */}
-                                <div className="bg-light d-flex flex-column align-items-center p-2 gap-1 border-end" style={{ width: '48px' }}>
+                                <div className="d-flex flex-column align-items-center p-2 gap-1 border-end border-secondary border-opacity-25" style={{ width: '48px', background: 'rgba(0,0,0,0.2)' }}>
                                     <button
                                         onClick={() => handleVote(post.id, post.likes, 1)}
                                         className={`btn btn-link p-0 ${userVotes[post.id] === 1 ? 'text-danger' : 'text-muted'}`}
@@ -486,7 +463,7 @@ export default function CommunityFeed({ profile }) {
                                 {/* Content Column */}
                                 <div className="p-2 flex-grow-1 d-flex flex-column">
                                     {/* Header */}
-                                    <div className="d-flex align-items-center gap-2 mb-2 text-muted small">
+                                    <div className="d-flex align-items-center gap-2 mb-2 text-muted small opacity-75">
                                         <div className="d-flex align-items-center gap-1">
                                             <div className="bg-secondary rounded-circle" style={{ width: 16, height: 16 }}></div>
                                             <span className="fw-bold text-dark">r/IES_Notes</span>
@@ -517,16 +494,10 @@ export default function CommunityFeed({ profile }) {
                                     <div className="d-flex gap-2 mt-auto flex-wrap">
                                         <button
                                             onClick={() => toggleComments(post)}
-                                            className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-1 flex-grow-1 flex-md-grow-0 justify-content-center"
+                                            className="btn btn-sm btn-light text-muted d-flex align-items-center gap-2 rounded-pill px-3 flex-grow-1 flex-md-grow-0 justify-content-center border shadow-sm"
                                         >
-                                            <MessageSquare size={16} />
-                                            {post.comment_count > 0 && <span className="small fw-bold">{post.comment_count}</span>}
-                                        </button>
-                                        <button className="btn btn-sm btn-light text-muted d-flex align-items-center justify-content-center gap-2 rounded-1 flex-grow-1 flex-md-grow-0">
-                                            <Share2 size={16} />
-                                        </button>
-                                        <button className="btn btn-sm btn-light text-muted d-flex align-items-center justify-content-center gap-2 rounded-1 ms-auto">
-                                            <MoreHorizontal size={16} />
+                                            <MessageSquare size={16} className="text-primary" />
+                                            <span className="small fw-bold">{post.comment_count > 0 ? post.comment_count : 'Comment'}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -539,11 +510,12 @@ export default function CommunityFeed({ profile }) {
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
-                                        className="bg-light border-top p-3"
+                                        className="border-top border-secondary border-opacity-10 p-3"
+                                        style={{ background: '#f8fafc' }}
                                     >
                                         {/* Comment Input */}
                                         <div className="d-flex gap-2 mb-3">
-                                            <div className="bg-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 border" style={{ width: 32, height: 32 }}>
+                                            <div className="bg-primary bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 32, height: 32 }}>
                                                 <span className="fw-bold text-primary small">{profile?.full_name?.charAt(0) || 'U'}</span>
                                             </div>
                                             <div className="flex-grow-1">
@@ -553,6 +525,7 @@ export default function CommunityFeed({ profile }) {
                                                     value={newComment}
                                                     onChange={e => setNewComment(e.target.value)}
                                                     onKeyDown={e => e.key === 'Enter' && handleComment()}
+                                                    style={{ background: 'rgba(255,255,255,0.05)' }}
                                                 />
                                             </div>
                                             <button disabled={!newComment.trim()} onClick={handleComment} className="btn btn-sm btn-primary">
@@ -570,9 +543,9 @@ export default function CommunityFeed({ profile }) {
                                                 {comments.filter(c => c.post_id === post.id).map(comment => (
                                                     <div key={comment.id} className="d-flex gap-2">
                                                         <div className="text-muted"><CornerDownRight size={16} /></div>
-                                                        <div className="bg-white p-2 rounded shadow-sm flex-grow-1">
+                                                        <div className="p-2 rounded shadow-sm flex-grow-1 border border-secondary border-opacity-25" style={{ background: 'rgba(255,255,255,0.03)' }}>
                                                             <div className="d-flex justify-content-between">
-                                                                <span className="fw-bold small">{comment.author_name}</span>
+                                                                <span className="fw-bold small text-dark opacity-75">{comment.author_name}</span>
                                                                 <div className="d-flex align-items-center gap-2">
                                                                     <span className="small text-muted" style={{ fontSize: '0.75rem' }}>{timeAgo(comment.created_at)}</span>
                                                                     {(profile?.id === comment.user_id || profile?.id === post.user_id || profile?.is_admin) && (
@@ -587,7 +560,7 @@ export default function CommunityFeed({ profile }) {
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            <p className="mb-0 small">{comment.content}</p>
+                                                            <p className="mb-0 small text-dark opacity-90">{comment.content}</p>
                                                         </div>
                                                     </div>
                                                 ))}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText, ChevronLeft, ChevronRight, Users, Code, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
 import ReactMarkdown from 'react-markdown';
@@ -209,6 +209,22 @@ export default function AIChat({ profile, setActiveTab }) {
 
     const handleSend = async () => {
         if ((!input.trim() && !selectedFile) || loading) return;
+
+        let currentActiveId = activeSessionId;
+        if (!currentActiveId) {
+            const newId = crypto.randomUUID();
+            const newSession = {
+                id: newId,
+                title: input.trim() ? input.substring(0, 30) : "New Chat",
+                messages: [],
+                timestamp: Date.now()
+            };
+            setSessions([newSession, ...sessions]);
+            setActiveSessionId(newId);
+            currentActiveId = newId;
+            setShowFeatures(false);
+        }
+
         const fileId = selectedFile ? `file-${crypto.randomUUID()}` : null;
         if (selectedFile) await saveFileToDB(fileId, selectedFile);
 
@@ -226,7 +242,7 @@ export default function AIChat({ profile, setActiveTab }) {
         setLoading(true);
 
         // Optimistically update UI
-        setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, userMsg] } : s));
+        setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, userMsg] } : s));
 
         try {
             const systemPrompt = `You are Justin, a helpful engineering tutor at IES College of Engineering. Strictly use syllabus: ${syllabusText.substring(0, 3000)}`;
@@ -263,10 +279,10 @@ export default function AIChat({ profile, setActiveTab }) {
             const aiContent = data.choices[0].message.content;
 
             // Update with AI response
-            setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, { role: 'assistant', content: aiContent }] } : s));
+            setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, { role: 'assistant', content: aiContent }] } : s));
         } catch (e) {
             console.error(e);
-            setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, { role: 'assistant', content: "⚠️ Error occurred." }] } : s));
+            setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, { role: 'assistant', content: "⚠️ Error occurred." }] } : s));
         } finally {
             setLoading(false);
         }
@@ -324,7 +340,7 @@ export default function AIChat({ profile, setActiveTab }) {
                                 <MessageSquare size={48} className="text-primary" />
                             </div>
                             <h3 className="fw-bold mb-2 display-6">AI Chat Tutor</h3>
-                            <p className="text-white fs-5">Interactive Q&A and detailed explanations for your studies.</p>
+                            <p className="text-secondary fs-5">Interactive Q&A and detailed explanations for your studies.</p>
                         </div>
                     </motion.div>
 
@@ -334,7 +350,9 @@ export default function AIChat({ profile, setActiveTab }) {
                         {[
                             { id: 'presentation', icon: Presentation, title: "Presentation", desc: "Generate PPT slides.", color: 'text-primary', bg: 'bg-primary' },
                             { id: 'report', icon: FileText, title: "Report", desc: "Create academic reports.", color: 'text-success', bg: 'bg-success' },
-                            { id: 'assignment', icon: Sparkles, title: "Assignment", desc: "Generate quizzes & questions.", color: 'text-warning', bg: 'bg-warning' }
+                            { id: 'assignment', icon: Sparkles, title: "Assignment", desc: "Generate quizzes & questions.", color: 'text-warning', bg: 'bg-warning' },
+                            { id: 'mini-project', icon: Code, title: "Mini Project", desc: "Full code, abstract & report.", color: 'text-info', bg: 'bg-info' },
+                            { id: 'final-project', icon: Cpu, title: "Final Year Project", desc: "Complete major project suite.", color: 'text-danger', bg: 'bg-danger' }
                         ].map(tool => (
                             <div key={tool.id} className="col-md-4">
                                 <motion.div
@@ -461,8 +479,18 @@ export default function AIChat({ profile, setActiveTab }) {
                     </div>
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                    <button onClick={() => setShowFeatures(true)} className="btn btn-light rounded-pill px-3 py-2 d-flex align-items-center gap-2 shadow-sm">
-                        <LayoutGrid size={16} /> <span className="d-none d-sm-inline small fw-bold">Features</span>
+                    <button
+                        className="btn btn-light rounded-pill px-3 d-flex align-items-center gap-2 shadow-sm fw-bold border"
+                        onClick={createNewChat}
+                    >
+                        <Plus size={18} /> <span className="d-none d-sm-inline">New Chat</span>
+                    </button>
+                    <button
+                        className="btn btn-primary rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm"
+                        onClick={() => setShowFeatures(true)}
+                        title="Tools & Features"
+                    >
+                        <LayoutGrid size={20} />
                     </button>
                     <button onClick={handleClearChat} className="btn btn-light rounded-circle p-2 shadow-sm text-muted hover-text-danger" title="Clear Chat">
                         <RefreshCw size={20} />
@@ -505,7 +533,7 @@ export default function AIChat({ profile, setActiveTab }) {
                                         components={{
                                             code({ node, inline, className, children, ...props }) {
                                                 if (inline) return <code className="bg-light px-1 rounded text-danger" {...props}>{children}</code>;
-                                                return <div className="bg-dark text-white p-3 rounded-3 my-2 overflow-auto"><code {...props}>{children}</code></div>
+                                                return <div className="bg-secondary bg-opacity-10 text-dark p-3 rounded-3 my-2 overflow-auto shadow-inner"><code {...props}>{children}</code></div>
                                             }
                                         }}
                                     >
@@ -517,7 +545,7 @@ export default function AIChat({ profile, setActiveTab }) {
                                             <div className="mb-2 rounded overflow-hidden">
                                                 {msg.fileType?.startsWith('image/') ?
                                                     <img src={msg.filePreview} alt="Upload" className="img-fluid rounded" style={{ maxHeight: '200px' }} /> :
-                                                    <div className="bg-white bg-opacity-20 p-2 rounded d-flex align-items-center gap-2 small"><FileText size={16} /> {msg.fileName}</div>
+                                                    <div className="bg-light p-2 rounded d-flex align-items-center gap-2 small"><FileText size={16} /> {msg.fileName}</div>
                                                 }
                                             </div>
                                         )}

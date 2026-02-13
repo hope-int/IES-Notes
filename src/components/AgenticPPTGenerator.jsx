@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, Pause, Sidebar, CheckCircle, Loader2, Maximize2, Minimize2, Download, Smartphone, Monitor, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Sidebar, CheckCircle, Loader2, Maximize2, Minimize2, Download, Smartphone, Monitor, AlertCircle, RefreshCw } from 'lucide-react';
 
 const AgenticPPTGenerator = ({ topic, details, onBack }) => {
     const [status, setStatus] = useState('planning'); // planning, generating, completed
@@ -44,16 +44,25 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
             const firstBracket = cleaned.indexOf('[');
             const lastBracket = cleaned.lastIndexOf(']');
 
-            if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+            // Determine if we should look for array or object
+            // If we have both, prefer the one that starts earlier
+            if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+                if (lastBracket !== -1) cleaned = cleaned.substring(firstBracket, lastBracket + 1);
+            } else if (firstBrace !== -1 && lastBrace !== -1) {
                 cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-            } else if (firstBracket !== -1 && lastBracket !== -1) {
-                cleaned = cleaned.substring(firstBracket, lastBracket + 1);
             }
 
             return JSON.parse(cleaned);
         } catch (e) {
             console.error("JSON Parse Error:", e, text);
-            throw new Error("Failed to parse AI response");
+            // Fallback: try to basically extract anything that looks like a title list
+            // formatting: ["Title 1", "Title 2"]
+            const rudimentaryMatch = text.match(/"([^"]+)"/g);
+            if (rudimentaryMatch && rudimentaryMatch.length >= 3) { // Lowered threshold
+                // Filter out keys like "role", "content" if they appear accidentally
+                return rudimentaryMatch.map(s => s.replace(/"/g, '')).filter(s => s.length > 3 && !['user', 'system', 'assistant'].includes(s));
+            }
+            throw new Error("Failed to parse AI response. Raw: " + text.substring(0, 50) + "...");
         }
     };
 
@@ -94,7 +103,7 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
                 const initialSlides = slideTitles.map(title => ({
                     title,
                     html: null,
-                    status: 'pending' // pending, generating, completed
+                    status: 'pending' // pending, generating, completed, error
                 }));
 
                 setSlides(initialSlides);
@@ -115,10 +124,16 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
         if (status !== 'generating' || isPaused) return;
 
         const generateNextSlide = async () => {
-            const nextSlideIdx = slides.findIndex(s => s.status === 'pending');
+            const nextSlideIdx = slides.findIndex(s => s.status === 'pending' || s.status === 'retry');
             if (nextSlideIdx === -1) {
-                setStatus('completed');
-                addLog("All slides generated successfully!");
+                // If there are errors, stop but don't mark all complete if some failed
+                if (slides.some(s => s.status === 'error')) {
+                    setIsPaused(true);
+                    addLog("Generation paused due to errors. check slides.");
+                } else {
+                    setStatus('completed');
+                    addLog("All slides generated successfully!");
+                }
                 return;
             }
 
@@ -183,6 +198,9 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
                 // Clean markdown
                 html = html.replace(/```html/g, '').replace(/```/g, '').trim();
 
+                // Content validation
+                if (!html || html.length < 50) throw new Error("Generated content too short");
+
                 setSlides(prev => prev.map((s, i) => i === nextSlideIdx ? { ...s, html, status: 'completed' } : s));
                 addLog(`Slide ${nextSlideIdx + 1} completed.`);
 
@@ -192,6 +210,7 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
             } catch (err) {
                 addLog(`Error generating slide ${nextSlideIdx + 1}: ${err.message}`);
                 setSlides(prev => prev.map((s, i) => i === nextSlideIdx ? { ...s, status: 'error' } : s)); // basic error handling
+                setIsPaused(true);
             }
         };
 
@@ -203,6 +222,12 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
     };
 
     const togglePause = () => setIsPaused(!isPaused);
+
+    const retrySlide = (index) => {
+        setSlides(prev => prev.map((s, i) => i === index ? { ...s, status: 'retry' } : s));
+        setIsPaused(false);
+        setStatus('generating');
+    };
 
     const downloadHTML = () => {
         const fullContent = `
@@ -275,12 +300,12 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
     };
 
     return (
-        <div className={`d-flex flex-column bg-dark text-white ${isFullscreen ? 'fixed-top w-100 h-100' : 'h-100 w-100 rounded-4 overflow-hidden'}`} style={{ zIndex: isFullscreen ? 1080 : 'auto', background: 'radial-gradient(circle at center, #1a202c 0%, #000 100%)' }}>
+        <div className={`d-flex flex-column bg-white text-dark ${isFullscreen ? 'fixed-top w-100 h-100' : 'h-100 w-100 rounded-4 overflow-hidden'}`} style={{ zIndex: isFullscreen ? 1080 : 'auto', background: 'white' }}>
 
             {/* Header */}
-            <div className="p-2 p-md-3 border-bottom border-secondary border-opacity-25 d-flex flex-wrap justify-content-between align-items-center gap-3" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)' }}>
+            <div className="p-2 p-md-3 border-bottom border-secondary border-opacity-20 d-flex flex-wrap justify-content-between align-items-center gap-3" style={{ background: '#f8fafc' }}>
                 <div className="d-flex align-items-center gap-3">
-                    <button onClick={onBack} className="btn btn-outline-light rounded-circle p-2 d-flex align-items-center justify-content-center border-0 bg-white bg-opacity-10" style={{ width: 40, height: 40 }}>
+                    <button onClick={onBack} className="btn btn-outline-secondary rounded-circle p-2 d-flex align-items-center justify-content-center border-0 bg-light" style={{ width: 40, height: 40 }}>
                         <ArrowLeft size={20} />
                     </button>
                     <div className="d-none d-sm-block">
@@ -289,18 +314,18 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
                     </div>
                 </div>
                 <div className="d-flex gap-2 align-items-center flex-wrap">
-                    <button onClick={() => setShowLogs(!showLogs)} className={`btn btn-sm btn-outline-light rounded-pill p-2 ${showLogs ? 'active' : ''}`} title="Toggle Logs">
+                    <button onClick={() => setShowLogs(!showLogs)} className={`btn btn-sm btn-outline-secondary rounded-pill p-2 ${showLogs ? 'active' : ''}`} title="Toggle Logs">
                         <Sidebar size={16} />
                     </button>
                     <button onClick={togglePause} className="btn btn-sm btn-outline-warning d-flex align-items-center gap-2 rounded-pill px-3">
                         {isPaused ? <Play size={16} /> : <Pause size={16} />}
                         <span className="d-none d-md-inline">{isPaused ? "Resume" : "Pause"}</span>
                     </button>
-                    <button onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')} className="btn btn-sm btn-outline-light rounded-pill px-3 d-flex align-items-center gap-2">
+                    <button onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')} className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-flex align-items-center gap-2">
                         {previewMode === 'desktop' ? <Smartphone size={16} /> : <Monitor size={16} />}
                         <span className="d-none d-md-inline">{previewMode === 'desktop' ? 'Mobile View' : 'Desktop View'}</span>
                     </button>
-                    <button onClick={() => setIsFullscreen(!isFullscreen)} className="btn btn-sm btn-outline-light rounded-pill p-2" title="Toggle Fullscreen">
+                    <button onClick={() => setIsFullscreen(!isFullscreen)} className="btn btn-sm btn-outline-secondary rounded-pill p-2" title="Toggle Fullscreen">
                         {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                     </button>
                     {status === 'completed' && (
@@ -321,8 +346,8 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
                             initial={{ width: 0, opacity: 0 }}
                             animate={{ width: 300, opacity: 1 }}
                             exit={{ width: 0, opacity: 0 }}
-                            className="border-end border-secondary border-opacity-25 h-100 overflow-hidden d-flex flex-column"
-                            style={{ background: 'rgba(0,0,0,0.3)', minWidth: 0 }}
+                            className="border-end border-secondary border-opacity-20 h-100 overflow-hidden d-flex flex-column"
+                            style={{ background: '#f1f5f9', minWidth: 0 }}
                         >
                             <div className="p-3 overflow-auto custom-scrollbar flex-grow-1" style={{ fontSize: '0.85rem' }}>
                                 <h6 className="fw-bold text-uppercase text-secondary mb-3 small tracking-wider">Agent Logs</h6>
@@ -332,7 +357,7 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
                                             key={i}
                                             initial={{ opacity: 0, x: -10 }}
                                             animate={{ opacity: 1, x: 0 }}
-                                            className="d-flex gap-2 font-monospace border-bottom border-secondary border-opacity-10 pb-2"
+                                            className="d-flex gap-2 font-monospace border-bottom border-light border-opacity-10 pb-2"
                                         >
                                             <span className="text-secondary flex-shrink-0 opacity-50" style={{ fontSize: '0.7em', marginTop: '3px' }}>{log.time}</span>
                                             <span className={log.msg.includes('Error') ? 'text-danger' : 'text-success'}>
@@ -401,11 +426,14 @@ const AgenticPPTGenerator = ({ topic, details, onBack }) => {
                                 </div>
                             ) : (
                                 <div className="w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-dark text-white rounded-inner">
-                                    {status === 'error' ? (
+                                    {slides[currentSlideIndex]?.status === 'error' ? (
                                         <div className="text-center p-4">
                                             <AlertCircle size={48} className="text-danger mb-3" />
                                             <h5 className="text-danger">Generation Error</h5>
-                                            <p className="text-secondary small">Please try again or check logs</p>
+                                            <p className="text-secondary small mb-3">Failed to generate this slide.</p>
+                                            <button onClick={() => retrySlide(currentSlideIndex)} className="btn btn-outline-light btn-sm d-flex align-items-center gap-2 mx-auto">
+                                                <RefreshCw size={14} /> Retry Slide
+                                            </button>
                                         </div>
                                     ) : (
                                         <>

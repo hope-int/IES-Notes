@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -376,7 +375,7 @@ function App() {
 
   if (initializing) return (
     /* Initial Loading - Full Screen */
-    <div className="d-flex align-items-center justify-content-center min-vh-100 bg-white">
+    <div className="d-flex align-items-center justify-content-center min-vh-100" style={{ background: 'var(--bg-darker)' }}>
       <SkeletonLoader type="banner" count={1} />
     </div>
   );
@@ -400,21 +399,12 @@ function App() {
     <div className="min-vh-100 pb-5 transition-colors">
       {/* Navigation / Header */}
       <nav className="container py-4 d-flex justify-content-between align-items-center">
-        {/* ... (Nav content) ... we can leave this as is if we matched the context correctly, but I need to be careful about what I replaced. 
-             Wait, I am replacing a huge block from 'initializing' check down to render start? 
-             The view showed lines 374+. Let's target the exact block around line 374 for initializing and then the loading check inside the main return.
-          */
-        }
-        {/* I will only replace the top level returns first, then the inner loading state separately to be safe. 
-             Actually, I can do the top level returns now. 
-          */}
-
         <div className="d-flex align-items-center gap-4">
           <div
             onClick={() => setShowAdminLogin(true)}
             className="d-flex align-items-center gap-2 cursor-pointer"
           >
-            <div className="clay-card d-flex align-items-center justify-content-center p-2 rounded-3">
+            <div className="clay-card d-flex align-items-center justify-content-center p-2 rounded-3 border-0">
               <Book size={28} style={{ color: 'var(--primary-accent)' }} />
             </div>
             <span className="fw-bold fs-3 d-none d-md-block lh-1" style={{ color: 'var(--text-main)' }}>IES<span style={{ color: 'var(--primary-accent)' }}>Notes</span></span>
@@ -423,13 +413,15 @@ function App() {
           <div className="d-none d-md-flex align-items-center gap-2 overflow-auto ms-3 hide-scrollbar" style={{ maxWidth: '40vw' }}>
             {navStack.map((step, index) => (
               <React.Fragment key={index}>
-                {index > 0 && <ChevronRight size={14} className="text-muted mx-1" />}
+                {index > 0 && <ChevronRight size={14} className="text-secondary mx-1" />}
                 <span
                   onClick={() => handleBreadcrumbClick(index)}
-                  className={`text - nowrap px - 2 py - 1 rounded transition - all ${index === navStack.length - 1 ? 'fw-bold bg-white shadow-sm' : 'text-muted'} `}
+                  className={`text - nowrap px - 2 py - 1 rounded transition - all ${index === navStack.length - 1 ? 'fw-bold glass-panel shadow-sm' : 'text-secondary'} `}
                   style={{
                     cursor: 'pointer',
-                    color: index === navStack.length - 1 ? 'var(--primary-accent)' : undefined
+                    color: index === navStack.length - 1 ? 'var(--primary-accent)' : undefined,
+                    background: index === navStack.length - 1 ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+                    border: index === navStack.length - 1 ? '1px solid var(--primary-accent)' : 'none'
                   }}
                 >
                   {step.type === 'home' ? 'Home' : step.title}
@@ -441,7 +433,6 @@ function App() {
 
         <div className="d-flex align-items-center gap-3">
           {/* Favorites Button */}
-          {/* Favorites Button */}
           <button
             onClick={() => {
               if (currentView.type === 'favorites') {
@@ -450,8 +441,8 @@ function App() {
                 setNavStack(prev => [...prev, { type: 'favorites', title: 'My Favorites', id: 'favs' }]); // Toggle On
               }
             }}
-            className={`clay - button p - 2 rounded - circle d - flex align - items - center justify - content - center ${currentView.type === 'favorites' ? 'active-fav-btn' : ''} `}
-            style={{ width: '48px', height: '48px', padding: 0, background: currentView.type === 'favorites' ? 'var(--secondary-accent)' : undefined }}
+            className={`btn btn-link p-2 rounded-circle d-flex align-items-center justify-content-center ${currentView.type === 'favorites' ? 'active-fav-btn' : ''}`}
+            style={{ width: '48px', height: '48px', padding: 0, border: 'none' }}
             title="My Favorites"
           >
             <Heart size={22} className={favorites.length > 0 ? "text-danger" : ""} fill={favorites.length > 0 || currentView.type === 'favorites' ? "currentColor" : "none"} />
@@ -464,11 +455,11 @@ function App() {
             style={{ maxHeight: '48px', transition: 'transform 0.2s' }}
             title="Student Dashboard"
           >
-            <div className="bg-light rounded-circle p-1 d-flex shadow-inner align-items-center justify-content-center" style={{ width: 32, height: 32 }}>
+            <div className="bg-primary bg-opacity-25 rounded-circle p-1 d-flex shadow-inner align-items-center justify-content-center" style={{ width: 32, height: 32 }}>
               {userProfile && userProfile.full_name ? (
-                <span className="fw-bold text-primary">{userProfile.full_name.charAt(0).toUpperCase()}</span>
+                <span className="fw-bold text-white">{userProfile.full_name.charAt(0).toUpperCase()}</span>
               ) : (
-                <User size={20} className="text-primary" />
+                <User size={20} className="text-white" />
               )}
             </div>
             <span className="fw-bold" style={{ color: 'var(--text-main)' }}>
@@ -480,10 +471,10 @@ function App() {
           {/* Mobile Menu Button - Also opens Dashboard */}
           <button
             onClick={() => setShowProfile(true)}
-            className="d-flex d-md-none clay-button p-2 rounded-circle align-items-center justify-content-center"
-            style={{ width: '48px', height: '48px', padding: 0 }}
+            className="d-flex d-md-none btn btn-primary p-0 rounded-circle align-items-center justify-content-center"
+            style={{ width: '48px', height: '48px' }}
           >
-            <span className="fw-bold text-primary">{userProfile?.full_name?.charAt(0) || <User size={22} />}</span>
+            <span className="fw-bold text-white">{userProfile?.full_name?.charAt(0) || <User size={22} />}</span>
           </button>
         </div>
       </nav >
@@ -531,13 +522,13 @@ function App() {
                 <div className="clay-card p-4 h-100">
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <h4 className="fw-bold mb-0">Latest Updates</h4>
-                    <Bell size={20} className="text-muted" />
+                    <Bell size={20} className="text-secondary" />
                   </div>
                   <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '160px' }}>
                     {announcements.length > 0 ? announcements.map((ann, i) => (
-                      <div key={i} className="glass-panel p-2 mb-2 rounded d-flex align-items-center gap-2">
-                        <div className="bg-primary rounded-circle flex-shrink-0" style={{ width: 6, height: 6 }}></div>
-                        <div className="small text-muted">{ann.content}</div>
+                      <div key={i} className="glass-panel p-3 mb-2 rounded d-flex align-items-center gap-2 border-0" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                        <div className="bg-primary rounded-circle flex-shrink-0" style={{ width: 8, height: 8 }}></div>
+                        <div className="small text-secondary">{ann.content}</div>
                       </div>
                     )) : <p className="text-muted small">No new updates.</p>}
                   </div>
@@ -559,12 +550,13 @@ function App() {
                     <ArrowLeft size={24} />
                   </button>
                 )}
-                <div className="clay-card p-2 rounded-pill d-flex align-items-center flex-grow-1 ps-4 shadow-sm">
+                <div className="clay-card p-2 rounded-pill d-flex align-items-center flex-grow-1 ps-4 shadow-sm border border-secondary border-opacity-25 search-focus">
                   <Search size={22} className="text-muted" />
                   <input
                     type="text"
                     placeholder="Search..."
-                    className="clay-input bg-transparent shadow-none border-0 p-3 ms-2 w-100 fs-5"
+                    className="bg-transparent border-0 p-3 ms-2 w-100 fs-5 outline-none"
+                    style={{ outline: 'none', boxShadow: 'none' }}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -575,7 +567,7 @@ function App() {
                   <button
                     onClick={() => setShowCreateModal(true)}
                     className="btn btn-light rounded-circle p-0 shadow-sm d-flex align-items-center justify-content-center flex-shrink-0"
-                    style={{ width: '56px', height: '56px', border: 'none', background: 'var(--clay-bg)' }}
+                    style={{ width: '56px', height: '56px', border: '1px solid #e2e8f0' }}
                     title="Add Folder"
                   >
                     <FolderPlus size={24} className="text-secondary" />
@@ -610,11 +602,10 @@ function App() {
                       }
                     } else {
                       // If no semester assigned, maybe go to home but keep filter active?
-                      // Or just prompt user. For now, we'll just set filter.
                     }
                   }}
-                  className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'My' ? 'text-white' : 'text-muted'} `}
-                  style={{ background: activeFilter === 'My' ? 'var(--primary-accent)' : 'var(--clay-bg)' }}
+                  className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'My' ? 'text-white shadow-lg' : 'text-muted'} `}
+                  style={{ background: activeFilter === 'My' ? 'var(--primary-accent)' : 'var(--glass-surface)' }}
                 >
                   My
                 </button>
@@ -622,17 +613,13 @@ function App() {
                 <button
                   onClick={() => {
                     setActiveFilter('All');
-                    // "All" should take us to the Home (Departments) view if we are "stuck" in a specific semester view that is "My Semester"
-                    // But if user just wants to see 'All' items in current view? 
-                    // Requirement: "the 'My' button is not working when we choose the 'All' button or any just we can't go back to my sort."
-                    // Implies we want to switch SCOPE.
                     if (navStack.length > 0 && navStack[0].type !== 'home') {
                       setNavStack([{ type: 'home', title: 'Home', id: null }]);
                       fetchDepartments();
                     }
                   }}
-                  className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'All' ? 'text-white' : 'text-muted'} `}
-                  style={{ background: activeFilter === 'All' ? 'var(--primary-accent)' : 'var(--clay-bg)' }}
+                  className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'All' ? 'text-white shadow-lg' : 'text-muted'} `}
+                  style={{ background: activeFilter === 'All' ? 'var(--primary-accent)' : 'var(--glass-surface)' }}
                 >
                   All
                 </button>
@@ -640,13 +627,13 @@ function App() {
                 {/* Subject Filters (Only visible in Semester View) */}
                 {currentView.type === 'sem' && (
                   <>
-                    <div className="vr mx-2"></div>
+                    <div className="vr mx-2 bg-secondary opacity-50"></div>
                     {['Core', 'Labs'].map(filter => (
                       <button
                         key={filter}
                         onClick={() => setActiveFilter(filter)}
-                        className={`btn rounded - pill px - 4 py - 2 fw - bold border - 0 ${activeFilter === filter ? 'text-white' : 'text-muted'} `}
-                        style={{ background: activeFilter === filter ? 'var(--primary-accent)' : 'var(--clay-bg)' }}
+                        className={`btn rounded - pill px - 4 py - 2 fw - bold border - 0 ${activeFilter === filter ? 'text-white shadow-lg' : 'text-muted'} `}
+                        style={{ background: activeFilter === filter ? 'var(--primary-accent)' : 'var(--glass-surface)' }}
                       >
                         {filter}
                       </button>
@@ -687,46 +674,56 @@ function App() {
                     >
                       {currentView.type === 'subject' || (currentView.type === 'favorites' && item.file_url) ? (
                         <a href={item.file_url} target="_blank" rel="noopener noreferrer" className="text-decoration-none text-dark d-block h-100">
-                          <div className="clay-card h-100 p-4 d-flex flex-column gap-3">
-                            <div className="d-flex justify-content-between">
-                              <div className="p-3 bg-light rounded-4"><FileText size={28} className="text-danger" /></div>
-                              <Download size={20} className="text-muted" />
-                            </div>
-                            <div>
-                              <h6 className="fw-bold mb-1">{item.title || item.name}</h6>
-                              <small className="text-muted">{item.year ? `Year: ${item.year} ` : '2026'}</small>
-                              {item.description && <p className="small text-muted mb-0 mt-1 text-truncate">{item.description}</p>}
+                          <div className="clay-card h-100">
+                            <div className="p-4 d-flex flex-column gap-3 hover-scale h-100">
+                              <div className="d-flex justify-content-between">
+                                <div className="p-3 rounded-4" style={{ background: 'rgba(239, 68, 68, 0.1)' }}><FileText size={28} className="text-danger" /></div>
+                                <Download size={20} className="text-muted" />
+                              </div>
+                              <div>
+                                <h6 className="fw-bold mb-1">{item.title || item.name}</h6>
+                                <small className="text-muted">{item.year ? `Year: ${item.year} ` : '2026'}</small>
+                                {item.description && <p className="small text-secondary mb-0 mt-1 text-truncate opacity-75">{item.description}</p>}
+                              </div>
                             </div>
                           </div>
                         </a>
                       ) : currentView.type === 'sem' || (currentView.type === 'favorites' && !item.file_url) ? (
-                        <div className="clay-card h-100 p-4 d-flex flex-column gap-3 cursor-pointer">
-                          <div className="d-flex justify-content-between">
-                            <div className="p-3 bg-light rounded-4"><Book size={28} className="text-primary" /></div>
-                            <button
-                              onClick={(e) => toggleFavorite(e, item)}
-                              className="btn btn-link p-0 text-muted favorite-btn"
-                              style={{ transform: favorites.some(f => f.id === item.id) ? 'scale(1.1)' : 'scale(1)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
-                            >
-                              <Heart
-                                size={24}
-                                fill={favorites.some(f => f.id === item.id) ? "#ef4444" : "none"}
-                                className={favorites.some(f => f.id === item.id) ? "text-danger" : ""}
-                                style={{ filter: favorites.some(f => f.id === item.id) ? 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' : 'none' }}
-                              />
-                            </button>
-                          </div>
-                          <div>
-                            <h5 className="fw-bold mb-1">{item.name || item.title}</h5>
-                            <small className="text-muted">Tap to view notes</small>
+                        <div className="clay-card h-100">
+                          <div className="p-4 d-flex flex-column gap-3 cursor-pointer hover-scale h-100">
+                            <div className="d-flex justify-content-between">
+                              <div className="p-3 rounded-4" style={{ background: 'rgba(56, 189, 248, 0.1)' }}><Book size={28} className="text-primary" /></div>
+                              <button
+                                onClick={(e) => toggleFavorite(e, item)}
+                                className="btn btn-link p-0 text-muted favorite-btn"
+                                style={{ transform: favorites.some(f => f.id === item.id) ? 'scale(1.1)' : 'scale(1)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+                              >
+                                <Heart
+                                  size={24}
+                                  fill={favorites.some(f => f.id === item.id) ? "#ef4444" : "none"}
+                                  className={favorites.some(f => f.id === item.id) ? "text-danger" : ""}
+                                  style={{ filter: favorites.some(f => f.id === item.id) ? 'drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3))' : 'none' }}
+                                />
+                              </button>
+                            </div>
+                            <div>
+                              <h5 className="fw-bold mb-1">{item.name || item.title}</h5>
+                              <small className="text-muted">Tap to view notes</small>
+                            </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="clay-card h-100 p-4 d-flex align-items-center gap-3 cursor-pointer">
-                          <div className="p-3 bg-light rounded-4">
-                            {currentView.type === 'home' ? renderIcon(item.icon) : <Folder size={32} />}
+                        <div className="clay-card h-100">
+                          <div className="p-4 d-flex align-items-center gap-3 cursor-pointer hover-scale h-100">
+                            <div className="p-3 rounded-4" style={{ background: 'rgba(56, 189, 248, 0.1)' }}>
+                              {currentView.type === 'home' ? (
+                                <div className="text-primary">
+                                  {renderIcon(item.icon)}
+                                </div>
+                              ) : <Folder size={32} className="text-warning" />}
+                            </div>
+                            <span className="fw-bold fs-5">{item.name}</span>
                           </div>
-                          <span className="fw-bold fs-5">{item.name}</span>
                         </div>
                       )}
                     </motion.div>
@@ -746,27 +743,36 @@ function App() {
       {activeTab === 'ai' && <AIChat profile={userProfile} setActiveTab={setActiveTab} />}
 
       {/* Floating Navigation Bar */}
-      <div className="position-fixed bottom-0 start-0 w-100 p-3 z-3 d-flex justify-content-center" style={{ pointerEvents: 'none' }}>
-        <div className="clay-card rounded-pill p-2 d-flex gap-2 shadow-lg" style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)' }}>
+      <div className="position-fixed bottom-0 start-0 w-100 p-4 z-3 d-flex justify-content-center" style={{ pointerEvents: 'none' }}>
+        <motion.div
+          whileHover={{
+            y: -10,
+            scale: 1.02,
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+          }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          className="clay-card rounded-pill p-2 d-flex gap-2 shadow-lg glass-panel"
+          style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}
+        >
           <button
             onClick={() => setActiveTab('home')}
-            className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' ? 'bg-primary text-white shadow' : 'text-muted hover-bg-light'}`}
+            className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'}`}
           >
             <Home size={20} /> <span className={activeTab === 'home' ? 'd-inline' : 'd-none d-sm-inline'}>Home</span>
           </button>
           <button
             onClick={() => setActiveTab('community')}
-            className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'community' ? 'bg-primary text-white shadow' : 'text-muted hover-bg-light'}`}
+            className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'community' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'}`}
           >
             <MessageCircle size={20} /> <span className={activeTab === 'community' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
           </button>
           <button
             onClick={() => setActiveTab('ai')}
-            className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'ai' ? 'bg-primary text-white shadow' : 'text-muted hover-bg-light'}`}
+            className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'ai' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'}`}
           >
             <Sparkles size={20} /> <span className={activeTab === 'ai' ? 'd-inline' : 'd-none d-sm-inline'}>AI Tutor</span>
           </button>
-        </div>
+        </motion.div>
       </div>
 
       {/* Upload Modal */}
@@ -798,38 +804,36 @@ function App() {
           <AdminLoginModal
             isOpen={showAdminLogin}
             onClose={() => setShowAdminLogin(false)}
-            onLoginSuccess={(session) => {
-              setSession(session);
-              fetchProfile(session.user.id);
-              setShowAdminLogin(false);
-            }}
           />
         )}
       </AnimatePresence>
 
       {/* Warning Modal */}
       <AnimatePresence>
-        {showWarningModal && (
-          <div className="modal-overlay d-flex align-items-center justify-content-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000 }}>
+        {showWarningModal && warningMessage && (
+          <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)' }}>
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-white p-4 rounded-4 shadow-lg text-center mx-3"
-              style={{ maxWidth: '400px' }}
+              className="modal-dialog modal-dialog-centered"
             >
-              <div className="mb-3 text-warning">
-                <Shield size={48} />
+              <div className="modal-content clay-card border-0">
+                <div className="modal-header border-bottom border-secondary border-opacity-25">
+                  <h5 className="modal-title fw-bold text-warning">Notice</h5>
+                </div>
+                <div className="modal-body">
+                  <p className="mb-0">{warningMessage}</p>
+                </div>
+                <div className="modal-footer border-top border-secondary border-opacity-25">
+                  <button type="button" className="btn btn-primary rounded-pill px-4" onClick={dismissWarning}>
+                    Acknowledge
+                  </button>
+                </div>
               </div>
-              <h4 className="fw-bold text-danger">Community Warning</h4>
-              <p className="text-muted mb-4">{warningMessage}</p>
-              <button onClick={dismissWarning} className="btn btn-warning w-100 rounded-pill fw-bold text-white py-2">
-                I Understand
-              </button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }
