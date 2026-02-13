@@ -260,7 +260,18 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                                             onChange={e => setFormData({ ...formData, topic: e.target.value })}
                                         />
                                     </div>
-
+                                    {contentType === 'presentation' && (
+                                        <div className="mb-4">
+                                            <label className="form-label fw-bold text-muted small text-uppercase">Number of Slides</label>
+                                            <input
+                                                type="number"
+                                                className="clay-input"
+                                                min="3" max="15"
+                                                value={formData.slideCount}
+                                                onChange={e => setFormData({ ...formData, slideCount: e.target.value })}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="row g-4 mb-4">
                                         <div className="col-md-6">
                                             <label className="form-label fw-bold text-muted small text-uppercase">Target Audience</label>
@@ -316,7 +327,7 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                             )}
 
                             {step === 4 && contentType === 'presentation' && (
-                                <AgenticPPTGenerator topic={formData.topic} details={formData.details} onBack={() => setStep(2)} />
+                                <AgenticPPTGenerator topic={formData.topic} details={formData.details} slideCount={formData.slideCount} onBack={() => setStep(2)} />
                             )}
 
                             {step === 3 && generatedContent && (
