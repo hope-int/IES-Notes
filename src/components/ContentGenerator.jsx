@@ -4,10 +4,12 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AgenticPPTGenerator from './AgenticPPTGenerator';
 
 const ContentGenerator = ({ onBack, initialType = null }) => {
     const [step, setStep] = useState(initialType ? 2 : 1); // 1: Select Type, 2: Input Details, 3: Generating/Preview
     const [contentType, setContentType] = useState(initialType); // 'presentation', 'report', 'assignment'
+    const [generationMode, setGenerationMode] = useState('quick'); // 'quick' | 'agentic'
     const [formData, setFormData] = useState({
         topic: '',
         audience: 'University Students',
@@ -299,6 +301,28 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
 
                                 {contentType === 'presentation' && (
                                     <div className="mb-4">
+                                        <label className="form-label fw-bold text-muted small text-uppercase">Generation Mode</label>
+                                        <div className="d-flex gap-3">
+                                            <div
+                                                className={`p-3 rounded border cursor-pointer flex-grow-1 ${generationMode === 'quick' ? 'border-primary bg-primary bg-opacity-10' : 'bg-light'}`}
+                                                onClick={() => setGenerationMode('quick')}
+                                            >
+                                                <div className="fw-bold"><Icons.Zap size={16} className="mb-1 me-1" /> Quick PPTX</div>
+                                                <small className="text-muted">Standard downloadable PowerPoint</small>
+                                            </div>
+                                            <div
+                                                className={`p-3 rounded border cursor-pointer flex-grow-1 ${generationMode === 'agentic' ? 'border-primary bg-primary bg-opacity-10' : 'bg-light'}`}
+                                                onClick={() => setGenerationMode('agentic')}
+                                            >
+                                                <div className="fw-bold"><Icons.Bot size={16} className="mb-1 me-1" /> Agentic Web Slides</div>
+                                                <small className="text-muted">Iterative AI HTML generation</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {contentType === 'presentation' && generationMode === 'agentic' ? null : (
+                                    <div className="mb-4">
                                         <label className="form-label fw-bold text-muted small text-uppercase">Number of Slides</label>
                                         <input
                                             type="number"
@@ -323,7 +347,13 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
 
                                 <button
                                     className="clay-button w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 fs-5 shadow-lg"
-                                    onClick={handleGenerate}
+                                    onClick={() => {
+                                        if (generationMode === 'agentic' && contentType === 'presentation') {
+                                            setStep(4); // Special step for Agentic Mode
+                                        } else {
+                                            handleGenerate();
+                                        }
+                                    }}
                                     disabled={!formData.topic || loading}
                                 >
                                     {loading ? (
@@ -333,12 +363,23 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                                         </>
                                     ) : (
                                         <>
-                                            Generate Content <Icons.Sparkles size={20} />
+                                            {generationMode === 'agentic' && contentType === 'presentation' ? 'Start Agent' : 'Generate Content'} <Icons.Sparkles size={20} />
                                         </>
                                     )}
                                 </button>
                                 {error && <div className="alert alert-danger mt-3 rounded-4">{error}</div>}
                             </motion.div>
+                        </div>
+                    )}
+
+                    {/* Step 4: Agentic Generator Mode */}
+                    {step === 4 && (
+                        <div className="h-100 w-100 absolute-fill">
+                            <AgenticPPTGenerator
+                                topic={formData.topic}
+                                details={formData.details}
+                                onBack={() => setStep(2)}
+                            />
                         </div>
                     )}
 

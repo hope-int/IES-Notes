@@ -101,6 +101,14 @@ export default function AIChat({ profile, setActiveTab }) {
     const [filePreview, setFilePreview] = useState(null);
     const fileInputRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const textareaRef = useRef(null);
+
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+        }
+    }, [input]);
 
     const activeSession = sessions.find(s => s.id === activeSessionId);
     const messages = activeSession?.messages || [];
@@ -217,9 +225,13 @@ export default function AIChat({ profile, setActiveTab }) {
         setInput('');
         setLoading(true);
 
+        // Optimistically update UI
+        setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, userMsg] } : s));
+
         try {
             const systemPrompt = `You are Justin, a helpful engineering tutor at IES College of Engineering. Strictly use syllabus: ${syllabusText.substring(0, 3000)}`;
             const filteredHistory = messages.filter(m => m.content && !m.content.startsWith('⚠️'));
+            // Include the new user message in the history for the API call
             const requestMessages = [
                 { role: "system", content: systemPrompt },
                 ...filteredHistory.map(m => ({ role: m.role, content: m.content })),
@@ -250,10 +262,11 @@ export default function AIChat({ profile, setActiveTab }) {
             const data = await response.json();
             const aiContent = data.choices[0].message.content;
 
-            setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, userMsg, { role: 'assistant', content: aiContent }] } : s));
+            // Update with AI response
+            setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, { role: 'assistant', content: aiContent }] } : s));
         } catch (e) {
             console.error(e);
-            setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, userMsg, { role: 'assistant', content: "⚠️ Error occurred." }] } : s));
+            setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, messages: [...s.messages, { role: 'assistant', content: "⚠️ Error occurred." }] } : s));
         } finally {
             setLoading(false);
         }
@@ -553,12 +566,13 @@ export default function AIChat({ profile, setActiveTab }) {
 
                     <div className="flex-grow-1 position-relative">
                         <textarea
+                            ref={textareaRef}
                             value={input}
                             onChange={e => setInput(e.target.value)}
-                            className="form-control border-0 bg-transparent shadow-none py-2 px-1"
+                            className="form-control border-0 bg-transparent shadow-none py-2 px-1 custom-scrollbar"
                             rows={1}
                             placeholder="Ask Justin..."
-                            style={{ resize: 'none', height: '44px', lineHeight: '28px' }}
+                            style={{ resize: 'none', maxHeight: '120px', minHeight: '44px', lineHeight: '24px' }}
                             onKeyDown={e => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
@@ -578,7 +592,7 @@ export default function AIChat({ profile, setActiveTab }) {
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center text-muted hover-text-primary flex-shrink-0"
-                        style={{ width: 44, height: 44 }}
+                        style={{ width: 44, height: 44, alignSelf: 'flex-end' }}
                     >
                         <Plus size={22} />
                     </button>

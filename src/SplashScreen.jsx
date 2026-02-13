@@ -1,31 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lottie from 'lottie-react';
-// We'll need a lottie file. If we don't have one, we'll try to fetch a generic one or use a placeholder.
-// For now, I'll use a placeholder URL or just a simple animation if no file exists.
-// Ideally the user would provide a JSON file. I'll create a simple "loading" style or use a CSS fallback if lottie fails.
 
 const SplashScreen = ({ onComplete }) => {
     const [isVisible, setIsVisible] = useState(true);
+    const [animationData, setAnimationData] = useState(null);
 
     useEffect(() => {
-        // Show for at least 3 seconds
+        // Fetch a cool Lottie animation
+        fetch('https://lottie.host/980b18dc-8319-4d69-beeb-09af7658c49e/H6bJ2y5yjJ.json')
+            .then(res => res.json())
+            .then(data => setAnimationData(data))
+            .catch(err => {
+                console.error("Failed to load Lottie:", err);
+                // Fallback to a simple dot loader if fetch fails
+            });
+
         const timer = setTimeout(() => {
             setIsVisible(false);
             setTimeout(onComplete, 500); // Allow exit animation
-        }, 3000);
+        }, 3500); // Slightly longer to show off the animation
         return () => clearTimeout(timer);
     }, [onComplete]);
-
-    // Placeholder Lottie Data (Simple dots or similar if we could embed it, but safer to use a network URL or just standard CSS for now if no asset)
-    // Since I can't easily browse the web for a JSON to download, I will use a very nice CSS/Framer animation instead of Lottie 
-    // UNLESS I can create a simple Lottie JSON structure. 
-    // User asked for "cool lotties animations". I will attempt to fetch one from a public CDN if possible or just use Framer.
-    // Actually, I can use a public URL for Lottie player? Lottie-react takes animationData (json obj) or valid path.
-    // I will use a simple Framer Motion animation that LOOKS like a lottie for high quality, 
-    // OR I will simply use a CSS loader if lottie file is missing. 
-    // BUT the user explicitly asked for "lottie animations".
-    // I'll try to leave a placeholder for them to drop the file in: `src/assets/splash.json`.
 
     return (
         <AnimatePresence>
@@ -43,10 +39,14 @@ const SplashScreen = ({ onComplete }) => {
                         transition={{ duration: 0.8, ease: "easeOut" }}
                         className="text-center"
                     >
-                        {/* If we had a lottie, it would go here. For now, a placeholder or CSS animation */}
-                        <div className="mb-4" style={{ width: 200, height: 200, background: '#f8f9fa', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span className="text-muted small">Place Lottie JSON here</span>
-                            {/* <Lottie animationData={require('./assets/splash.json')} loop={true} /> */}
+                        <div className="mb-4 d-flex justify-content-center align-items-center" style={{ width: 200, height: 200 }}>
+                            {animationData ? (
+                                <Lottie animationData={animationData} loop={true} style={{ width: 180, height: 180 }} />
+                            ) : (
+                                <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+                                    <span className="visually-hidden">Loading...</span>
+                                </div>
+                            )}
                         </div>
 
                         <h1 className="fw-bold display-4 mb-2" style={{ color: 'var(--text-main)' }}>
