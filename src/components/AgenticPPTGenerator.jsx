@@ -42,20 +42,41 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
 
     const cleanAndParseJSON = (text) => {
         try {
+            // Remove markdown formatters
             let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const firstBrace = cleaned.indexOf('{');
-            const lastBrace = cleaned.lastIndexOf('}');
-            const firstBracket = cleaned.indexOf('[');
-            const lastBracket = cleaned.lastIndexOf(']');
 
-            if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
-                if (lastBracket !== -1) cleaned = cleaned.substring(firstBracket, lastBracket + 1);
-            } else if (firstBrace !== -1 && lastBrace !== -1) {
-                cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+            // Try direct parse first
+            try {
+                return JSON.parse(cleaned);
+            } catch (e) {
+                // Determine if we are looking for an Object {} or Array []
+                const firstBrace = cleaned.indexOf('{');
+                const firstBracket = cleaned.indexOf('[');
+
+                let startIdx = -1;
+                let endIdx = -1;
+
+                // Find the first occurrence of { or [
+                if (firstBrace !== -1 && firstBracket !== -1) {
+                    startIdx = Math.min(firstBrace, firstBracket);
+                } else if (firstBrace !== -1) {
+                    startIdx = firstBrace;
+                } else if (firstBracket !== -1) {
+                    startIdx = firstBracket;
+                }
+
+                if (startIdx === -1) throw new Error("No JSON structure found");
+
+                // Determine likely end character based on start character
+                const isObject = cleaned[startIdx] === '{';
+                endIdx = isObject ? cleaned.lastIndexOf('}') : cleaned.lastIndexOf(']');
+
+                if (endIdx === -1 || endIdx <= startIdx) throw new Error("Incomplete JSON structure");
+
+                return JSON.parse(cleaned.substring(startIdx, endIdx + 1));
             }
-            return JSON.parse(cleaned);
         } catch (e) {
-            console.error("JSON Parse Error:", e, text);
+            console.error("JSON Parse Error:", e, "\nOriginal Text:", text);
             throw new Error("Failed to parse AI response.");
         }
     };
@@ -91,7 +112,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                             2. 'type': 'hero' | 'grid' | 'split' | 'quote' | 'data' | 'conclusion'.
                             3. 'detailedPrompt': Visual instructions for a developer. Describe the layout, icons, and specific points.
                             
-                            RETURN ONLY A JSON ARRAY OF OBJECTS:
+                            RETURN ONLY A JSON ARRAY OF OBJECTS (Do not wrap in an object):
                             [
                               { "title": "...", "type": "...", "detailedPrompt": "..." },
                               ...
@@ -104,7 +125,14 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
             });
 
             const data = await response.json();
-            let plan = cleanAndParseJSON(data.choices[0].message.content);
+
+            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                console.error("Invalid AI Response:", data);
+                throw new Error("Invalid response from AI provider");
+            }
+
+            let planLines = data.choices[0].message.content;
+            let plan = cleanAndParseJSON(planLines);
 
             // Robust handling for AI returning an object instead of array
             if (!Array.isArray(plan)) {
@@ -118,6 +146,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                     if (potentialArray) {
                         plan = potentialArray;
                     } else {
+                        console.error("Plan Validation Action:", plan);
                         throw new Error("AI did not return a valid list of slides.");
                     }
                 }
@@ -136,6 +165,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
             addLog(`✨ Concept Approved: Visual storyboard ready for synthesis.`);
 
         } catch (err) {
+            console.error("Planning Error:", err);
             addLog("❌ Planning Error: " + err.message);
             setStatus('error');
         }
@@ -252,6 +282,12 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
         });
 
         const data = await response.json();
+
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            console.error("Slide Synthesis Error:", data);
+            throw new Error("Invalid response from AI provider");
+        }
+
         let html = data.choices[0].message.content;
         html = html.replace(/```html/g, '').replace(/```/g, '').trim();
 
