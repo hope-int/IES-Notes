@@ -31,13 +31,11 @@ const iconMap = {
 };
 
 import SplashScreen from './SplashScreen';
-import SkeletonLoader from './SkeletonLoader';
+// SkeletonLoader removed as requested
 
 function App() {
   // Splash Screen State
-  const [showSplash, setShowSplash] = useState(() => {
-    return window.innerWidth < 768; // Show only on mobile by default
-  });
+  const [showSplash, setShowSplash] = useState(true);
 
   // Auth State
   const [session, setSession] = useState(null);
@@ -373,14 +371,9 @@ function App() {
     else if (currentView.type === 'subject') await fetchNotes(currentView.id);
   };
 
-  if (initializing) return (
-    /* Initial Loading - Full Screen */
-    <div className="d-flex align-items-center justify-content-center min-vh-100" style={{ background: 'var(--bg-darker)' }}>
-      <SkeletonLoader type="banner" count={1} />
-    </div>
-  );
-
   if (showSplash) return <SplashScreen onComplete={() => setShowSplash(false)} />;
+
+  if (initializing) return null; // Wait for splash or data
 
   if (!session && !userProfile) return <Registration onComplete={handleRegistrationComplete} />;
 

@@ -34,7 +34,7 @@ const ProjectBuilder = ({ type, onBack }) => {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    "model": "google/gemini-2.0-flash-001",
+                    "model": "arcee-ai/trinity-large-preview:free",
                     "messages": [{ "role": "user", "content": prompt }],
                     "response_format": { "type": "json_object" }
                 })
@@ -119,7 +119,7 @@ const ProjectBuilder = ({ type, onBack }) => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                "model": "google/gemini-2.0-flash-001",
+                "model": "arcee-ai/trinity-large-preview:free",
                 "messages": [{ "role": "user", "content": prompt }],
                 ...(isJson && { "response_format": { "type": "json_object" } })
             })

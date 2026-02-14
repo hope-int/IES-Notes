@@ -16,11 +16,22 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
         audience: 'University Students',
         tone: 'Academic',
         slideCount: 5,
-        details: ''
+        details: '',
+        customInstructions: '',
+        theme: 'modern',
+        descriptionLength: 'short', // 'short' | 'long'
+        includeDiagrams: true
     });
     const [loading, setLoading] = useState(false);
     const [generatedContent, setGeneratedContent] = useState(null);
     const [error, setError] = useState(null);
+
+    const themesList = [
+        { id: 'modern', name: 'Modern Dark', color: '#1e1b4b' },
+        { id: 'minimal', name: 'Minimal Light', color: '#f8fafc' },
+        { id: 'nature', name: 'Nature', color: '#064e3b' },
+        { id: 'corporate', name: 'Corporate', color: '#1e3a8a' },
+    ];
 
     const handleGenerate = async () => {
         setLoading(true);
@@ -32,13 +43,13 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
             if (contentType === 'presentation') {
                 prompt = `Generate a high-quality ${formData.slideCount}-slide presentation deck on "${formData.topic}". 
  Audience: ${formData.audience}. Tone: ${formData.tone}.
+ Theme Preference: ${formData.theme}.
  OUTPUT FORMAT: JSON ONLY.
  
  Structure:
  {
    "title": "Main Presentation Title",
    "subtitle": "Informative subtitle",
-   "theme": "simple" | "corporate" | "academic" | "modern", 
    "slides": [
      { 
        "title": "Slide Title", 
@@ -89,7 +100,7 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "google/gemini-2.0-flash-001",
+                    "model": "arcee-ai/trinity-large-preview:free",
                     "messages": [
                         { "role": "system", "content": "You are a helpful academic assistant. You generate structured content in strict JSON format. IMPORTANT: Only return the JSON object, do not include markdown code blocks or any other text." },
                         { "role": "user", "content": prompt }
@@ -126,9 +137,11 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
             simple: { bg: 'FFFFFF', primary: '3182CE', text: '1A202C' },
             corporate: { bg: 'F7FAFC', primary: '2C5282', text: '2D3748' },
             academic: { bg: 'FFFFFF', primary: '4A5568', text: '1A202C' },
-            modern: { bg: 'FFFFFF', primary: '805AD5', text: '2D3748' }
+            modern: { bg: 'FFFFFF', primary: '805AD5', text: '2D3748' },
+            minimal: { bg: 'f8fafc', primary: '0f172a', text: '334155' },
+            nature: { bg: 'f0fdf4', primary: '15803d', text: '14532d' }
         };
-        const theme = themes[generatedContent.theme] || themes.simple;
+        const theme = themes[formData.theme] || themes[generatedContent.theme] || themes.simple;
 
         pres.defineSlideMaster({
             title: 'MASTER_SLIDE',
@@ -232,7 +245,7 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                             <button
                                 onClick={() => step === 2 ? onBack() : setStep(2)}
                                 className="btn btn-secondary rounded-circle p-2 shadow-sm d-flex align-items-center justify-content-center me-3"
-                                style={{ width: 44, height: 44 }}
+                                style={{ width: 44, height: 44, background: '#64748b', border: 'none' }}
                             >
                                 <Icons.ArrowLeft size={20} className="text-white" />
                             </button>
@@ -249,86 +262,183 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                         <div className="flex-grow-1 overflow-auto px-4 pb-5 custom-scrollbar">
                             {step === 2 && (
                                 <div className="container" style={{ maxWidth: '600px' }}>
-                                    <h3 className="fw-bold mb-4 text-dark">Customize your {contentType}</h3>
-                                    <div className="mb-4">
-                                        <label className="form-label fw-bold text-muted small text-uppercase">Topic</label>
-                                        <input
-                                            type="text"
-                                            className="clay-input"
-                                            placeholder="e.g. Artificial Intelligence in 2025"
-                                            value={formData.topic}
-                                            onChange={e => setFormData({ ...formData, topic: e.target.value })}
-                                        />
-                                    </div>
-                                    {contentType === 'presentation' && (
+                                    <div className="clay-card p-4 mb-4">
+                                        <h3 className="fw-bold mb-4 text-dark">Customize your {contentType}</h3>
+
+                                        {/* Topic Inputs */}
                                         <div className="mb-4">
-                                            <label className="form-label fw-bold text-muted small text-uppercase">Number of Slides</label>
+                                            <label className="form-label fw-bold text-muted small text-uppercase">Topic</label>
                                             <input
-                                                type="number"
-                                                className="clay-input"
-                                                min="3" max="15"
-                                                value={formData.slideCount}
-                                                onChange={e => setFormData({ ...formData, slideCount: e.target.value })}
+                                                type="text"
+                                                className="clay-input w-100"
+                                                placeholder="e.g. Artificial Intelligence in 2025"
+                                                value={formData.topic}
+                                                onChange={e => setFormData({ ...formData, topic: e.target.value })}
                                             />
                                         </div>
-                                    )}
-                                    <div className="row g-4 mb-4">
-                                        <div className="col-md-6">
-                                            <label className="form-label fw-bold text-muted small text-uppercase">Target Audience</label>
-                                            <select className="clay-input form-select" value={formData.audience} onChange={e => setFormData({ ...formData, audience: e.target.value })}>
-                                                <option>High School Students</option>
-                                                <option>University Students</option>
-                                                <option>Professionals</option>
-                                                <option>General Public</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label fw-bold text-muted small text-uppercase">Tone</label>
-                                            <select className="clay-input form-select" value={formData.tone} onChange={e => setFormData({ ...formData, tone: e.target.value })}>
-                                                <option>Academic</option>
-                                                <option>Casual</option>
-                                                <option>Professional</option>
-                                                <option>Creative</option>
-                                            </select>
-                                        </div>
-                                    </div>
 
-                                    {contentType === 'presentation' && (
+                                        {/* Custom Instructions (New) */}
                                         <div className="mb-4">
-                                            <label className="form-label fw-bold text-muted small text-uppercase">Generation Mode</label>
-                                            <div className="d-flex gap-3">
-                                                <div
-                                                    className={`p-3 rounded border cursor-pointer flex-grow-1 ${generationMode === 'quick' ? 'border-primary bg-primary bg-opacity-10' : 'bg-light'}`}
-                                                    onClick={() => setGenerationMode('quick')}
-                                                >
-                                                    <div className="fw-bold"><Icons.Zap size={16} className="me-1 text-warning" /> Quick PPTX</div>
-                                                </div>
-                                                <div
-                                                    className={`p-3 rounded border cursor-pointer flex-grow-1 ${generationMode === 'agentic' ? 'border-primary bg-primary bg-opacity-10' : 'bg-light'}`}
-                                                    onClick={() => setGenerationMode('agentic')}
-                                                >
-                                                    <div className="fw-bold"><Icons.Bot size={16} className="me-1 text-info" /> Agentic Web Slides</div>
-                                                </div>
+                                            <label className="form-label fw-bold text-muted small text-uppercase">Custom Instructions (Optional)</label>
+                                            <textarea
+                                                className="clay-input w-100"
+                                                rows="2"
+                                                placeholder="e.g. Focus on medical applications, include recent statistics..."
+                                                value={formData.customInstructions}
+                                                onChange={e => setFormData({ ...formData, customInstructions: e.target.value })}
+                                            />
+                                        </div>
+
+                                        {/* Slide Count */}
+                                        {contentType === 'presentation' && (
+                                            <div className="mb-4">
+                                                <label className="form-label fw-bold text-muted small text-uppercase">Number of Slides</label>
+                                                <input
+                                                    type="number"
+                                                    className="clay-input w-100"
+                                                    min="3" max="15"
+                                                    value={formData.slideCount}
+                                                    onChange={e => setFormData({ ...formData, slideCount: e.target.value })}
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="row g-4 mb-4">
+                                            <div className="col-md-6">
+                                                <label className="form-label fw-bold text-muted small text-uppercase">Target Audience</label>
+                                                <select className="clay-input form-select w-100" value={formData.audience} onChange={e => setFormData({ ...formData, audience: e.target.value })}>
+                                                    <option>High School Students</option>
+                                                    <option>University Students</option>
+                                                    <option>Professionals</option>
+                                                    <option>General Public</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-md-6">
+                                                <label className="form-label fw-bold text-muted small text-uppercase">Tone</label>
+                                                <select className="clay-input form-select w-100" value={formData.tone} onChange={e => setFormData({ ...formData, tone: e.target.value })}>
+                                                    <option>Academic</option>
+                                                    <option>Casual</option>
+                                                    <option>Professional</option>
+                                                    <option>Creative</option>
+                                                </select>
                                             </div>
                                         </div>
-                                    )}
 
-                                    <button
-                                        className="clay-button w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 fs-5 shadow-lg"
-                                        onClick={() => {
-                                            if (generationMode === 'agentic' && contentType === 'presentation') setStep(4);
-                                            else handleGenerate();
-                                        }}
-                                        disabled={!formData.topic || loading}
-                                    >
-                                        {loading ? <span className="spinner-border spinner-border-sm"></span> : <>Start Generation <Icons.Sparkles size={20} /></>}
-                                    </button>
+                                        {/* New Advanced PPT Options */}
+                                        {contentType === 'presentation' && (
+                                            <>
+                                                {/* Description Length & Diagrams */}
+                                                <div className="row g-4 mb-4">
+                                                    <div className="col-md-6">
+                                                        <label className="form-label fw-bold text-muted small text-uppercase">Description Length</label>
+                                                        <select
+                                                            className="clay-input form-select w-100"
+                                                            value={formData.descriptionLength}
+                                                            onChange={e => setFormData({ ...formData, descriptionLength: e.target.value })}
+                                                        >
+                                                            <option value="short">Short (Concise)</option>
+                                                            <option value="long">Long (Detailed)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="col-md-6">
+                                                        <label className="form-label fw-bold text-muted small text-uppercase">Diagrams</label>
+                                                        <div className="d-flex align-items-center gap-3 pt-2">
+                                                            <div className="form-check form-switch cursor-pointer">
+                                                                <input
+                                                                    className="form-check-input"
+                                                                    type="checkbox"
+                                                                    role="switch"
+                                                                    id="diagramsToggle"
+                                                                    checked={formData.includeDiagrams}
+                                                                    onChange={e => setFormData({ ...formData, includeDiagrams: e.target.checked })}
+                                                                />
+                                                                <label className="form-check-label" htmlFor="diagramsToggle">No / Yes</label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Presets / Themes */}
+                                                <div className="mb-4">
+                                                    <label className="form-label fw-bold text-muted small text-uppercase">Preset Theme</label>
+                                                    <div className="d-flex gap-2 overflow-auto pb-2 custom-scrollbar">
+                                                        {themesList.map(t => (
+                                                            <div
+                                                                key={t.id}
+                                                                onClick={() => setFormData({ ...formData, theme: t.id })}
+                                                                className={`rounded p-3 cursor-pointer d-flex flex-column align-items-center justify-content-center border transition-all ${formData.theme === t.id ? 'ring-2 ring-primary shadow-md' : 'opacity-75 hover-opacity-100'}`}
+                                                                style={{
+                                                                    minWidth: '100px',
+                                                                    background: t.color,
+                                                                    color: t.id === 'minimal' ? '#333' : 'white',
+                                                                    border: formData.theme === t.id ? '2px solid var(--primary-accent)' : '1px solid transparent',
+                                                                    borderRadius: '16px'
+                                                                }}
+                                                            >
+                                                                <div className="fw-bold small">{t.name}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div className="mb-4">
+                                                    <label className="form-label fw-bold text-muted small text-uppercase">Generation Mode</label>
+                                                    <div className="d-flex gap-3">
+                                                        <div
+                                                            className={`clay-card p-3 cursor-pointer flex-grow-1 ${generationMode === 'quick' ? 'border-primary' : 'border-transparent'}`}
+                                                            style={{
+                                                                background: generationMode === 'quick' ? 'var(--bg-card)' : '#f8fafc',
+                                                                transform: generationMode === 'quick' ? 'translateY(-2px)' : 'none',
+                                                                boxShadow: generationMode === 'quick' ? 'var(--shadow-md)' : 'none'
+                                                            }}
+                                                            onClick={() => setGenerationMode('quick')}
+                                                        >
+                                                            <div className="fw-bold d-flex align-items-center justify-content-center gap-2"><Icons.Zap size={18} className="text-warning" /> Quick PPTX</div>
+                                                        </div>
+                                                        <div
+                                                            className={`clay-card p-3 cursor-pointer flex-grow-1 ${generationMode === 'agentic' ? 'border-primary' : 'border-transparent'}`}
+                                                            style={{
+                                                                background: generationMode === 'agentic' ? 'var(--bg-card)' : '#f8fafc',
+                                                                transform: generationMode === 'agentic' ? 'translateY(-2px)' : 'none',
+                                                                boxShadow: generationMode === 'agentic' ? 'var(--shadow-md)' : 'none'
+                                                            }}
+                                                            onClick={() => setGenerationMode('agentic')}
+                                                        >
+                                                            <div className="fw-bold d-flex align-items-center justify-content-center gap-2"><Icons.Bot size={18} className="text-info" /> Agentic Web Slides</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        <button
+                                            className="clay-button w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 fs-5 shadow-lg mt-2"
+                                            onClick={() => {
+                                                if (generationMode === 'agentic' && contentType === 'presentation') setStep(4);
+                                                else handleGenerate();
+                                            }}
+                                            disabled={!formData.topic || loading}
+                                        >
+                                            {loading ? <span className="spinner-border spinner-border-sm"></span> : <>Start Generation <Icons.Sparkles size={20} /></>}
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
                             {step === 4 && contentType === 'presentation' && (
-                                <AgenticPPTGenerator topic={formData.topic} details={formData.details} slideCount={formData.slideCount} onBack={() => setStep(2)} />
+                                <AgenticPPTGenerator
+                                    topic={formData.topic}
+                                    details={formData.details}
+                                    slideCount={formData.slideCount}
+                                    // New Props
+                                    customInstructions={formData.customInstructions}
+                                    theme={formData.theme}
+                                    descriptionLength={formData.descriptionLength}
+                                    includeDiagrams={formData.includeDiagrams}
+                                    onBack={() => setStep(2)}
+                                />
                             )}
+
 
                             {step === 3 && generatedContent && (
                                 <div className="container h-100 flex-column d-flex">

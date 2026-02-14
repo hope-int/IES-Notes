@@ -276,13 +276,24 @@ export default function AIChat({ profile, setActiveTab }) {
 
             clearFile();
             const data = await response.json();
+
+            if (data.error) {
+                console.error("API Error:", data.error);
+                throw new Error(data.error.message || "API Error");
+            }
+
+            if (!data.choices || data.choices.length === 0) {
+                console.error("No choices returned:", data);
+                throw new Error("No response from AI.");
+            }
+
             const aiContent = data.choices[0].message.content;
 
             // Update with AI response
             setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, { role: 'assistant', content: aiContent }] } : s));
         } catch (e) {
             console.error(e);
-            setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, { role: 'assistant', content: "⚠️ Error occurred." }] } : s));
+            setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, { role: 'assistant', content: `⚠️ Error occurred: ${e.message || "Please try again."}` }] } : s));
         } finally {
             setLoading(false);
         }
@@ -340,7 +351,7 @@ export default function AIChat({ profile, setActiveTab }) {
                                 <MessageSquare size={48} className="text-primary" />
                             </div>
                             <h3 className="fw-bold mb-2 display-6">AI Chat Tutor</h3>
-                            <p className="text-secondary fs-5">Interactive Q&A and detailed explanations for your studies.</p>
+                            <p className="text-white fs-5">Interactive Q&A and detailed explanations for your studies.</p>
                         </div>
                     </motion.div>
 
@@ -464,9 +475,10 @@ export default function AIChat({ profile, setActiveTab }) {
             <div className="d-flex align-items-center justify-content-between px-4 py-3 bg-white bg-opacity-80 backdrop-blur border-bottom flex-shrink-0" style={{ height: '70px', zIndex: 1040 }}>
                 <div className="d-flex align-items-center gap-3">
                     <button
-                        className="btn btn-light rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm"
+                        className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
                         onClick={() => setIsSidebarOpen(true)}
                         title="History"
+                        style={{ width: '40px', height: '40px' }}
                     >
                         <History size={20} className="text-muted" />
                     </button>
@@ -486,16 +498,27 @@ export default function AIChat({ profile, setActiveTab }) {
                         <Plus size={18} /> <span className="d-none d-sm-inline">New Chat</span>
                     </button>
                     <button
-                        className="btn btn-primary rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm"
+                        className="btn btn-primary rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
                         onClick={() => setShowFeatures(true)}
                         title="Tools & Features"
+                        style={{ width: '40px', height: '40px' }}
                     >
                         <LayoutGrid size={20} />
                     </button>
-                    <button onClick={handleClearChat} className="btn btn-light rounded-circle p-2 shadow-sm text-muted hover-text-danger" title="Clear Chat">
+                    <button
+                        onClick={handleClearChat}
+                        className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm text-muted hover-text-danger"
+                        title="Clear Chat"
+                        style={{ width: '40px', height: '40px' }}
+                    >
                         <RefreshCw size={20} />
                     </button>
-                    <button onClick={() => setActiveTab('home')} className="btn btn-light rounded-circle p-2 shadow-sm text-muted" title="Close">
+                    <button
+                        onClick={() => setActiveTab('home')}
+                        className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm text-muted"
+                        title="Close"
+                        style={{ width: '40px', height: '40px' }}
+                    >
                         <X size={20} />
                     </button>
                 </div>

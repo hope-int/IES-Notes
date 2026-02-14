@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Pause, Sidebar, CheckCircle, Loader2, Maximize2, Minimize2, Download, Smartphone, Monitor, AlertCircle, RefreshCw, Sparkles, Layout } from 'lucide-react';
 
-const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
-    const [status, setStatus] = useState('planning'); // planning, generating, completed
+const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customInstructions = '', theme = 'modern', descriptionLength = 'short', includeDiagrams = true }) => {
+    const [status, setStatus] = useState('planning'); // planning, generating, completed, error
     const [slides, setSlides] = useState([]);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [logs, setLogs] = useState([]);
@@ -11,6 +11,30 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, mobile
     const [showLogs, setShowLogs] = useState(true);
+    const [chatInput, setChatInput] = useState('');
+    const [isRefining, setIsRefining] = useState(false);
+
+    const logsEndRef = useRef(null);
+
+    // Auto-scroll logs
+    useEffect(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [logs, showLogs]);
+
+    // Mobile Check
+    useEffect(() => {
+        const checkMobile = () => {
+            if (window.innerWidth < 768) {
+                setShowLogs(false);
+                setPreviewMode('mobile');
+            }
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // ... (rest of the component)
 
     const addLog = (msg) => {
         setLogs(prev => [{ time: new Date().toLocaleTimeString(), msg }, ...prev]);
@@ -36,78 +60,89 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
         }
     };
 
+    const generatePlan = async () => {
+        addLog(`🎨 Creative Brief: Designing a premium ${slideCount}-slide experience for "${topic}"`);
+        setStatus('planning');
+
+        try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": window.location.origin,
+                    "X-Title": "IES Notes AI"
+                },
+                body: JSON.stringify({
+                    "model": "arcee-ai/trinity-large-preview:free",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": `You are a world-class presentation director and visual storyteller. 
+                            Create a detailed visual and content plan for a ${slideCount}-slide presentation on "${topic}".
+                            
+                            CONTEXT: ${customInstructions ? `User Instructions: "${customInstructions}"` : 'No specific user instructions.'}
+                            LENGTH: ${descriptionLength === 'short' ? 'Keep content concise and punchy.' : 'Provide detailed, comprehensive content.'}
+                            DIAGRAMS: ${includeDiagrams ? 'Aggressively suggest diagrams/visuals for complex concepts.' : 'Do NOT suggest complex diagrams, focus on text/images.'}
+
+                            Your goal is to make a "Wow" presentation that is readable, aesthetic, and professionally structured.
+                            For each slide, define:
+                            1. 'title': Engaging and bold.
+                            2. 'type': 'hero' | 'grid' | 'split' | 'quote' | 'data' | 'conclusion'.
+                            3. 'detailedPrompt': Visual instructions for a developer. Describe the layout, icons, and specific points.
+                            
+                            RETURN ONLY A JSON ARRAY OF OBJECTS:
+                            [
+                              { "title": "...", "type": "...", "detailedPrompt": "..." },
+                              ...
+                            ]`
+                        },
+                        { "role": "user", "content": `Topic: ${topic}. Context: ${details}` }
+                    ],
+                    "response_format": { "type": "json_object" }
+                })
+            });
+
+            const data = await response.json();
+            const plan = cleanAndParseJSON(data.choices[0].message.content);
+
+            const initialSlides = plan.map(item => ({
+                title: item.title,
+                type: item.type,
+                prompt: item.detailedPrompt,
+                html: null,
+                status: 'pending'
+            }));
+
+            setSlides(initialSlides);
+            setStatus('generating');
+            addLog(`✨ Concept Approved: Visual storyboard ready for synthesis.`);
+
+        } catch (err) {
+            addLog("❌ Planning Error: " + err.message);
+            setStatus('error');
+        }
+    };
+
     // Phase 1: Planning (Generate prompts for all slides)
     useEffect(() => {
-        const generatePlan = async () => {
-            addLog(`🎨 Creative Brief: Designing a premium ${slideCount}-slide experience for "${topic}"`);
-            setStatus('planning');
-
-            try {
-                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": window.location.origin,
-                        "X-Title": "IES Notes AI"
-                    },
-                    body: JSON.stringify({
-                        "model": "google/gemini-2.0-flash-001",
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": `You are a world-class presentation director and visual storyteller. 
-                                Create a detailed visual and content plan for a ${slideCount}-slide presentation on "${topic}".
-                                
-                                Your goal is to make a "Wow" presentation that is readable, aesthetic, and professionally structured.
-                                For each slide, define:
-                                1. 'title': Engaging and bold.
-                                2. 'type': 'hero' | 'grid' | 'split' | 'quote' | 'data' | 'conclusion'.
-                                3. 'detailedPrompt': Visual instructions for a developer. Describe the layout, icons, and specific points.
-                                
-                                RETURN ONLY A JSON ARRAY OF OBJECTS:
-                                [
-                                  { "title": "...", "type": "...", "detailedPrompt": "..." },
-                                  ...
-                                ]`
-                            },
-                            { "role": "user", "content": `Topic: ${topic}. Context: ${details}` }
-                        ],
-                        "response_format": { "type": "json_object" }
-                    })
-                });
-
-                const data = await response.json();
-                const plan = cleanAndParseJSON(data.choices[0].message.content);
-
-                const initialSlides = plan.map(item => ({
-                    title: item.title,
-                    type: item.type,
-                    prompt: item.detailedPrompt,
-                    html: null,
-                    status: 'pending'
-                }));
-
-                setSlides(initialSlides);
-                setStatus('generating');
-                addLog(`✨ Concept Approved: Visual storyboard ready for synthesis.`);
-
-            } catch (err) {
-                addLog("❌ Planning Error: " + err.message);
-                setStatus('error');
-            }
-        };
-
-        generatePlan();
+        if (slides.length === 0 && status === 'planning') {
+            generatePlan();
+        }
     }, [topic, slideCount]);
 
     // Phase 2: Iterative Slide Generation
     useEffect(() => {
-        if (status !== 'generating' || isPaused) return;
+        if (status !== 'generating' || isPaused || isRefining) return;
 
         const generateNextSlide = async () => {
             const nextSlideIdx = slides.findIndex(s => s.status === 'pending');
             if (nextSlideIdx === -1) {
+                // Check if any error slides exist
+                if (slides.some(s => s.status === 'error')) {
+                    setStatus('error');
+                    return;
+                }
                 setStatus('completed');
                 addLog("🏆 Presentation synthesized successfully. Ready for preview.");
                 return;
@@ -120,55 +155,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
             addLog(`🏗️ Building Slide ${nextSlideIdx + 1}: ${slide.title}...`);
 
             try {
-                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": window.location.origin,
-                        "X-Title": "IES Notes AI"
-                    },
-                    body: JSON.stringify({
-                        "model": "google/gemini-2.0-flash-001",
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": `You are a senior Web UI Designer creating ultra-premium presentation slides.
-                                Create a stunning, high-contrast, and extremely readable HTML slide for: "${slide.title}".
-                                
-                                DESIGN SYSTEM:
-                                - Theme: Royal Dark Mode (Background: radial-gradient(circle at 0% 0%, #1e1b4b 0%, #020617 100%)).
-                                - Cards: Glassmorphism (background: rgba(255, 255, 255, 0.03), backdrop-filter: blur(12px), border: 1px solid rgba(255, 255, 255, 0.1)).
-                                - Typography: Use 'Outfit' or 'Inter'. Title: 4rem-5rem bold. Body: 1.5rem-2rem light/regular. High contrast (White/Silver text).
-                                - Colors: Primary: #3b82f6 (Vibrant Blue), Accent: #a855f7 (Purple), Success: #10b981 (Emerald).
-                                - Visuals: AVOID plain <ul>/<li>. Use flexbox grids with styled cards, icons (use SVG code), or split layouts.
-                                - Spacing: Enormous padding (min 10% on all sides). No text should touch the screen edges.
-                                - Motion: Add entrance animations for elements using CSS keyframes (@keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }).
-                                
-                                LAYOUT RULES for Slide Type "${slide.type}":
-                                - hero: Massive centered title, huge subtext, 1 focal point icon.
-                                - grid: 3-4 glass cards with icons and short headers.
-                                - split: 50% Visual/Icon + 50% Content.
-                                - quote: Large italicized text with horizontal accent lines.
-                                
-                                TECHNICAL:
-                                - NO <html>, <head>, or <body> tags.
-                                - Return ONLY the containing <div>.
-                                - Include an inline <style> block for slide-specific animations.
-                                - Use 'Outfit' font. Ensure ALL text is visible on the dark background.
-                                - Use inline SVGs for all icons.`
-                            },
-                            { "role": "user", "content": `Synthesis Directive: ${slide.prompt}. Topic: ${topic}. Make it look like a \$10k presentation.` }
-                        ]
-                    })
-                });
-
-                const data = await response.json();
-                let html = data.choices[0].message.content;
-                html = html.replace(/```html/g, '').replace(/```/g, '').trim();
-
-                if (!html.includes('<div')) throw new Error("Synthesis failed to produce valid markup.");
-
+                const html = await generateSlideHTML(slide.title, slide.type, slide.prompt, topic);
                 setSlides(prev => prev.map((s, i) => i === nextSlideIdx ? { ...s, html, status: 'completed' } : s));
                 addLog(`✅ Slide ${nextSlideIdx + 1} refined and rendered.`);
 
@@ -180,9 +167,125 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
         };
 
         generateNextSlide();
-    }, [slides, status, isPaused]);
+    }, [slides, status, isPaused, isRefining]);
+
+    const generateSlideHTML = async (title, type, prompt, topic, currentHTML = null, userInstruction = null) => {
+
+        // Dynamic Theme Generator
+        const getThemeRules = (t) => {
+            if (t === 'minimal') return `Theme: Minimalist Light. Background: #f8fafc. Text: #0f172a (Primary), #475569 (Secondary). Accents: #3b82f6 (Blue). Card Background: rgba(255,255,255,0.8) with border #e2e8f0.`;
+            if (t === 'nature') return `Theme: Nature/Earth. Background: linear-gradient(135deg, #064e3b 0%, #14532d 100%). Text: #ecfdf5. Accents: #34d399. Cards: Glassmorphism heavy blur.`;
+            if (t === 'corporate') return `Theme: Corporate Professional. Background: #eff6ff. Text: #1e3a8a. Accents: #2563eb. Cards: White shadow cards.`;
+            return `Theme: Royal Dark Mode (Background: radial-gradient(circle at 0% 0%, #1e1b4b 0%, #020617 100%)). Text: White/Silver. Cards: Glassmorphism.`; // Modern/Default
+        };
+
+        const themeRules = getThemeRules(theme);
+
+        let systemPrompt = `You are a senior Web UI Designer creating ultra-premium presentation slides.
+        Create a stunning, high-contrast, and extremely readable HTML slide for: "${title}".
+        
+        DESIGN SYSTEM:
+        - ${themeRules}
+        - Typography: Use 'Outfit' or 'Inter'. Title: 5vh bold (max 8vh). Body: 2.5vh-3vh light/regular.
+        - Visuals: Use flexbox/grid. Enforce 'flex-shrink: 1' on all internal elements.
+        - Spacing: Use 'vh' for margins and gaps (e.g., gap: 2vh).
+        - Motion: Add entrance animations (@keyframes fadeInDown { from { opacity: 0; transform: translateY(-2vh); } to { opacity: 1; transform: translateY(0); } }).
+        
+        VISUAL CONTENT RULES (CRITICAL):
+        1. **Mermaid Diagrams**: ${includeDiagrams ? 'For ANY data, process, workflow, or structure, YOU MUST use a Mermaid.js diagram. Embed inside: <div class="mermaid"> ...graph definition... </div>' : 'DO NOT use Mermaid diagrams. Use CSS shapes, icons, or text layouts instead.'}
+        2. **Vector Graphics**: Use ONLY inline SVGs for icons and illustrations.
+           - DO NOT use <img> tags with external URLs.
+        
+        LAYOUT RULES for Slide Type "${type}":
+        - hero: Massive centered title (7vh), subtext, 1 focal icon or Visual.
+        - grid: 3-4 cards.
+        - split: 45% Visual + 55% Content.
+        - quote: 4vh italicized text with horizontal accent lines.
+        
+        TECHNICAL:
+        - NO <html>, <head>, or <body> tags.
+        - Return ONLY the containing <div>.
+        - Wrapper style: width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4vh; box-sizing: border-box;
+        - VERTICAL SPACE: This slide is 16:9. You MUST NOT overflow the bottom. If there is a lot of text, truncate it or use smaller fonts.`;
+
+        let userPrompt = `Synthesis Directive: ${prompt}. Topic: ${topic}. 
+        Constraint: ${descriptionLength === 'short' ? 'Keep text concise (bullet points, short sentences).' : 'Explain in detail with fuller sentences.'}
+        IMPORTANT: Content MUST be perfectly contained within the 16:9 frame. Use 'vh' units for all font-sizes and spacing.`;
+
+        if (userInstruction && currentHTML) {
+            systemPrompt += `\n\nTASK: The user wants to Modify the existing slide. Retain the core structure but apply the change.`;
+            userPrompt += `\n\nCURRENT HTML: ${currentHTML}\n\nUSER MODIFICATION REQUEST: ${userInstruction}`;
+        }
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": window.location.origin,
+                "X-Title": "IES Notes AI"
+            },
+            body: JSON.stringify({
+                "model": "arcee-ai/trinity-large-preview:free",
+                "messages": [
+                    { "role": "system", "content": systemPrompt },
+                    { "role": "user", "content": userPrompt }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        let html = data.choices[0].message.content;
+        html = html.replace(/```html/g, '').replace(/```/g, '').trim();
+
+        if (!html.includes('<div')) throw new Error("Synthesis failed to produce valid markup.");
+        return html;
+    };
+
 
     const togglePause = () => setIsPaused(!isPaused);
+
+    const handleRetry = () => {
+        if (status === 'error' && slides.length === 0) {
+            // Planning failed
+            generatePlan();
+        } else {
+            // Reset error slides to pending
+            setSlides(prev => prev.map(s => s.status === 'error' ? { ...s, status: 'pending' } : s));
+            setStatus('generating');
+            setIsPaused(false);
+        }
+    };
+
+    const handleRefineSlide = async () => {
+        if (!chatInput.trim() || isRefining) return;
+
+        const currentSlide = slides[currentSlideIndex];
+        if (!currentSlide || !currentSlide.html) return;
+
+        setIsRefining(true);
+        const originalInput = chatInput;
+        setChatInput('');
+        addLog(`🛠️ Refining Slide ${currentSlideIndex + 1}: "${originalInput}"...`);
+
+        try {
+            const newHtml = await generateSlideHTML(
+                currentSlide.title,
+                currentSlide.type,
+                currentSlide.prompt,
+                topic,
+                currentSlide.html,
+                originalInput
+            );
+
+            setSlides(prev => prev.map((s, i) => i === currentSlideIndex ? { ...s, html: newHtml } : s));
+            addLog(`✅ Slide ${currentSlideIndex + 1} updated.`);
+        } catch (err) {
+            addLog(`❌ Refinement Failed: ${err.message}`);
+        } finally {
+            setIsRefining(false);
+        }
+    };
 
     const downloadHTML = () => {
         const fullContent = `
@@ -192,6 +295,8 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
                 <meta charset="UTF-8">
                 <title>${topic} - IES AI Presentation</title>
                 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+                <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+                <script>mermaid.initialize({startOnLoad:true, theme: 'dark'});</script>
                 <style>
                     * { box-sizing: border-box; }
                     body { 
@@ -250,6 +355,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
                     <button id="prevBtn" onclick="prevSlide()">Pre</button>
                     <span id="slideCounter" class="slide-num">1 / ${slides.length}</span>
                     <button id="nextBtn" onclick="nextSlide()">Next</button>
+                    <button id="fsBtn" onclick="toggleFS()">⛶</button>
                 </div>
 
                 <script>
@@ -265,6 +371,10 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
                     }
                     function nextSlide() { if(current < total - 1) { current++; updateUI(); } }
                     function prevSlide() { if(current > 0) { current--; updateUI(); } }
+                    function toggleFS() {
+                        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+                        else if (document.exitFullscreen) document.exitFullscreen();
+                    }
                     document.addEventListener('keydown', (e) => {
                         if(e.key === 'ArrowRight' || e.key === ' ') nextSlide();
                         if(e.key === 'ArrowLeft') prevSlide();
@@ -286,45 +396,62 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
     return (
         <div className={`d-flex flex-column bg-white text-dark ${isFullscreen ? 'fixed-top w-100 h-100' : 'h-100 w-100 rounded-4 overflow-hidden'}`} style={{ zIndex: isFullscreen ? 1080 : 'auto' }}>
             {/* Header */}
-            <div className="p-3 border-bottom d-flex justify-content-between align-items-center" style={{ background: '#f8fafc' }}>
-                <div className="d-flex align-items-center gap-3">
-                    <button onClick={onBack} className="btn btn-secondary rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm border-0" style={{ width: 40, height: 40, background: '#e2e8f0', color: '#475569' }}>
-                        <ArrowLeft size={18} />
-                    </button>
-                    <div>
-                        <h6 className="mb-0 fw-bold text-dark">{topic}</h6>
-                        <small className="text-secondary opacity-75">{status === 'completed' ? 'Synthesis Complete' : 'AI Engine is Crafting...'}</small>
+            {!isFullscreen && (
+                <div className="p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-3" style={{ background: '#f8fafc' }}>
+                    <div className="d-flex align-items-center gap-3">
+                        <button onClick={onBack} className="btn btn-secondary rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm border-0" style={{ width: 40, height: 40, background: '#e2e8f0', color: '#475569' }}>
+                            <ArrowLeft size={18} />
+                        </button>
+                        <div>
+                            <h6 className="mb-0 fw-bold text-dark text-truncate" style={{ maxWidth: '200px' }}>{topic}</h6>
+                            <small className={`text-secondary opacity-75 ${status === 'error' ? 'text-danger fw-bold' : ''}`}>
+                                {status === 'completed' ? 'Synthesis Complete' : status === 'error' ? 'Generation Stopped' : 'AI Engine is Crafting...'}
+                            </small>
+                        </div>
+                    </div>
+                    <div className="d-flex gap-2 flex-wrap">
+                        {status === 'error' && (
+                            <button onClick={handleRetry} className="btn btn-sm btn-danger rounded-pill px-3 fw-bold animate-pulse">
+                                <RefreshCw size={14} className="me-1" /> Retry
+                            </button>
+                        )}
+                        <button onClick={() => setShowLogs(!showLogs)} className={`btn btn-sm ${showLogs ? 'btn-primary' : 'btn-outline-primary'} rounded-pill px-3 fw-bold d-none d-md-flex align-items-center`}>
+                            <Sidebar size={14} className="me-1" /> {showLogs ? 'Hide Logs' : 'Logs'}
+                        </button>
+                        <button onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')} className="btn btn-sm btn-outline-secondary rounded-pill px-2 d-none d-md-block">
+                            {previewMode === 'desktop' ? <Smartphone size={16} /> : <Monitor size={16} />}
+                        </button>
+                        <button onClick={togglePause} className="btn btn-sm btn-outline-dark rounded-pill px-3 d-flex align-items-center">
+                            {isPaused ? <Play size={14} className="me-1" /> : <Pause size={14} className="me-1" />}
+                            {isPaused ? "Resume" : "Pause"}
+                        </button>
+                        {status === 'completed' && (
+                            <button onClick={downloadHTML} className="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-lg d-flex align-items-center">
+                                <Download size={14} className="me-1" /> Download
+                            </button>
+                        )}
                     </div>
                 </div>
-                <div className="d-flex gap-2">
-                    <button onClick={() => setShowLogs(!showLogs)} className={`btn btn-sm ${showLogs ? 'btn-primary' : 'btn-outline-primary'} rounded-pill px-3 fw-bold`}>
-                        <Sidebar size={14} className="me-1" /> {showLogs ? 'Hide Logs' : 'Logs'}
-                    </button>
-                    <button onClick={togglePause} className="btn btn-sm btn-outline-dark rounded-pill px-3">
-                        {isPaused ? <Play size={14} className="me-1" /> : <Pause size={14} className="me-1" />}
-                        {isPaused ? "Resume" : "Pause"}
-                    </button>
-                    {status === 'completed' && (
-                        <button onClick={downloadHTML} className="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-lg">
-                            <Download size={14} className="me-1" /> Download
-                        </button>
-                    )}
-                </div>
-            </div>
+            )}
 
-            <div className="flex-grow-1 d-flex overflow-hidden">
+            <div className="d-flex overflow-hidden position-relative" style={{ height: isFullscreen ? '100%' : '75vh', minHeight: '500px' }}>
                 {/* Logs Sidebar */}
                 <AnimatePresence>
-                    {showLogs && (
+                    {showLogs && !isFullscreen && (
                         <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: 340 }}
-                            exit={{ width: 0 }}
-                            className="bg-dark text-white font-monospace p-4 overflow-auto custom-scrollbar small h-100 border-end border-primary border-opacity-10"
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: window.innerWidth < 768 ? '100%' : 340, opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            className={`bg-dark text-white font-monospace p-4 overflow-auto custom-scrollbar small border-end border-primary border-opacity-10 ${window.innerWidth < 768 ? 'position-absolute top-0 start-0 h-100 z-3' : 'h-100'}`}
                             style={{ background: '#020617' }}
                         >
-                            <div className="d-flex align-items-center gap-2 mb-4 text-primary opacity-90 border-bottom border-primary border-opacity-10 pb-3">
-                                <Sparkles size={16} /> <span className="text-uppercase tracking-widest fw-bold">Synthesis Engine v2.0</span>
+                            <div className="d-flex align-items-center justify-content-between mb-4 text-primary opacity-90 border-bottom border-primary border-opacity-10 pb-3">
+                                <div className="d-flex align-items-center gap-2">
+                                    <Sparkles size={16} /> <span className="text-uppercase tracking-widest fw-bold">Synthesis Engine v2.0</span>
+                                </div>
+                                {window.innerWidth < 768 && (
+                                    <button onClick={() => setShowLogs(false)} className="btn btn-link text-white p-0"><Minimize2 size={16} /></button>
+                                )}
                             </div>
                             <div className="d-flex flex-column gap-3">
                                 {logs.map((log, i) => (
@@ -340,6 +467,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
                                         </div>
                                     </motion.div>
                                 ))}
+                                <div ref={logsEndRef} />
                             </div>
                             {status === 'generating' && !isPaused && (
                                 <div className="text-primary mt-4 d-flex align-items-center gap-3 ps-3">
@@ -351,17 +479,35 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
                 </AnimatePresence>
 
                 {/* Preview Window */}
-                <div className="flex-grow-1 p-4 p-md-5 bg-dark d-flex flex-column align-items-center justify-content-center overflow-hidden position-relative" style={{ background: '#0f172a' }}>
-                    <div className="w-100 h-100 d-flex align-items-center justify-content-center" style={{ perspective: '2000px' }}>
+                <div className={`flex-grow-1 ${isFullscreen ? 'p-0' : 'p-2 p-md-5'} bg-dark d-flex flex-column align-items-center justify-content-center overflow-hidden position-relative`} style={{ background: '#0f172a' }}>
+
+                    {/* Fullscreen Toggle (Floating) */}
+                    <button
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        className="position-absolute top-0 end-0 m-3 btn btn-dark bg-black bg-opacity-50 text-white rounded-circle p-2 z-3 hover-scale border border-white border-opacity-10"
+                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    >
+                        {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                    </button>
+
+                    <div className={`transition-all duration-500 d-flex align-items-center justify-content-center ${isFullscreen ? 'w-100 h-100' : ''}`} style={{ perspective: '2000px', width: '100%', height: '100%' }}>
                         <motion.div
-                            className="shadow-2xl overflow-hidden rounded-3 border border-white border-opacity-5"
+                            className="shadow-2xl overflow-hidden rounded-3 border border-white border-opacity-5 position-relative"
+                            layout
                             animate={{
-                                width: previewMode === 'mobile' ? '375px' : '100%',
-                                aspectRatio: previewMode === 'desktop' ? '16/9' : '9/16',
-                                scale: previewMode === 'mobile' ? 0.8 : 1
+                                width: isFullscreen ? '100%' : (previewMode === 'mobile' ? '375px' : 'calc((100vh - 280px) * 16 / 9)'),
+                                aspectRatio: isFullscreen ? 'auto' : (previewMode === 'desktop' ? '16/9' : '9/16'),
+                                height: isFullscreen ? '100%' : 'auto',
+                                scale: (previewMode === 'mobile' && !isFullscreen) ? 0.8 : 1
                             }}
                             transition={{ type: "spring", stiffness: 200, damping: 25 }}
-                            style={{ maxWidth: '1000px', maxHeight: '100%', background: '#020617', boxShadow: '0 50px 100px -20px rgba(0, 0, 0, 0.7)' }}
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: isFullscreen ? '100%' : 'calc(100vh - 280px)',
+                                background: '#020617',
+                                boxShadow: '0 50px 100px -20px rgba(0, 0, 0, 0.7)',
+                                borderRadius: isFullscreen ? '0' : '0.5rem'
+                            }}
                         >
                             {slides[currentSlideIndex]?.html ? (
                                 <iframe
@@ -370,6 +516,8 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
                                         <html>
                                             <head>
                                                 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+                                                <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+                                                <script>mermaid.initialize({startOnLoad:true, theme: 'dark'});</script>
                                                 <style>
                                                     * { box-sizing: border-box; }
                                                     body { 
@@ -402,33 +550,56 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack }) => {
                         </motion.div>
                     </div>
 
-                    {/* Navigation Controls */}
-                    <div className="position-absolute bottom-0 p-5 w-100 d-flex justify-content-center gap-3">
-                        <button
-                            disabled={currentSlideIndex === 0}
-                            onClick={() => setCurrentSlideIndex(currentSlideIndex - 1)}
-                            className="btn btn-outline-light rounded-pill px-4 btn-sm border-opacity-25"
-                        >Prev</button>
-                        <div className="px-4 py-2 bg-white bg-opacity-5 rounded-pill text-white small border border-white border-opacity-10 d-flex align-items-center fw-bold backdrop-blur">
-                            {currentSlideIndex + 1} / {slides.length}
+                    {/* Navigation Controls & Chat Bar */}
+                    <div className="position-absolute bottom-0 w-100 d-flex flex-column align-items-center justify-content-end p-3 p-md-4 gap-3 pointer-events-none" style={{ background: 'linear-gradient(to top, #0f172a 0%, transparent 100%)' }}>
+
+                        {/* Chat Bar for Editing - Hidden in Fullscreen */}
+                        {!isFullscreen && (
+                            <div className="w-100 pointer-events-auto" style={{ maxWidth: '600px' }}>
+                                <div className="glass-panel p-1 rounded-pill d-flex align-items-center gap-2 border border-white border-opacity-10 shadow-lg" style={{ background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(10px)' }}>
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleRefineSlide()}
+                                        placeholder={isRefining ? "AI is updating slide..." : "Ask AI to change this slide (e.g. 'Make it blue')..."}
+                                        disabled={isRefining || !slides[currentSlideIndex]?.html}
+                                        className="form-control bg-transparent border-0 text-white shadow-none px-3 py-2 small"
+                                        style={{ outline: 'none' }}
+                                    />
+                                    <button
+                                        onClick={handleRefineSlide}
+                                        disabled={!chatInput.trim() || isRefining}
+                                        className="btn btn-primary rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0"
+                                        style={{ width: 36, height: 36 }}
+                                    >
+                                        {isRefining ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Slide Nav */}
+                        <div className="d-flex justify-content-center gap-3 pointer-events-auto">
+                            <button
+                                disabled={currentSlideIndex === 0}
+                                onClick={() => setCurrentSlideIndex(currentSlideIndex - 1)}
+                                className="btn btn-outline-light rounded-pill px-4 btn-sm border-opacity-25 bg-black bg-opacity-20 backdrop-blur"
+                            >Prev</button>
+                            <div className="px-4 py-2 bg-white bg-opacity-5 rounded-pill text-black small border border-white border-opacity-10 d-flex align-items-center fw-bold backdrop-blur">
+                                {currentSlideIndex + 1} / {slides.length}
+                            </div>
+                            <button
+                                disabled={currentSlideIndex >= slides.length - 1}
+                                onClick={() => setCurrentSlideIndex(currentSlideIndex + 1)}
+                                className="btn btn-outline-light rounded-pill px-4 btn-sm border-opacity-25 bg-black bg-opacity-20 backdrop-blur"
+                            >Next</button>
                         </div>
-                        <button
-                            disabled={currentSlideIndex >= slides.length - 1}
-                            onClick={() => setCurrentSlideIndex(currentSlideIndex + 1)}
-                            className="btn btn-outline-light rounded-pill px-4 btn-sm border-opacity-25"
-                        >Next</button>
                     </div>
                 </div>
             </div>
 
-            <style>{`
-                .spin { animation: spin 3s linear infinite; }
-                @keyframes spin { 100% { transform: rotate(360deg); } }
-                .custom-scrollbar { scroll-behavior: smooth; }
-                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.2); border-radius: 2px; }
-                .backdrop-blur { backdrop-filter: blur(10px); }
-            `}</style>
+
         </div>
     );
 };
