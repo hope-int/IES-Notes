@@ -100,7 +100,7 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "arcee-ai/trinity-large-preview:free",
+                    "model": "openrouter/aurora-alpha",
                     "messages": [
                         { "role": "system", "content": "You are a helpful academic assistant. You generate structured content in strict JSON format. IMPORTANT: Only return the JSON object, do not include markdown code blocks or any other text." },
                         { "role": "user", "content": prompt }

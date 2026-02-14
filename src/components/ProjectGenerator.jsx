@@ -34,7 +34,7 @@ const ProjectBuilder = ({ type, onBack }) => {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    "model": "arcee-ai/trinity-large-preview:free",
+                    "model": "openrouter/aurora-alpha",
                     "messages": [{ "role": "user", "content": prompt }],
                     "response_format": { "type": "json_object" }
                 })
@@ -119,7 +119,7 @@ const ProjectBuilder = ({ type, onBack }) => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                "model": "arcee-ai/trinity-large-preview:free",
+                "model": "openrouter/aurora-alpha",
                 "messages": [{ "role": "user", "content": prompt }],
                 ...(isJson && { "response_format": { "type": "json_object" } })
             })

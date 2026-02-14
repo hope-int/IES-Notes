@@ -74,7 +74,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "arcee-ai/trinity-large-preview:free",
+                    "model": "openrouter/aurora-alpha",
                     "messages": [
                         {
                             "role": "system",
@@ -104,7 +104,24 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
             });
 
             const data = await response.json();
-            const plan = cleanAndParseJSON(data.choices[0].message.content);
+            let plan = cleanAndParseJSON(data.choices[0].message.content);
+
+            // Robust handling for AI returning an object instead of array
+            if (!Array.isArray(plan)) {
+                // Try common keys
+                if (plan.slides && Array.isArray(plan.slides)) plan = plan.slides;
+                else if (plan.items && Array.isArray(plan.items)) plan = plan.items;
+                else if (plan.plan && Array.isArray(plan.plan)) plan = plan.plan;
+                else {
+                    // Try to find ANY array property
+                    const potentialArray = Object.values(plan).find(val => Array.isArray(val));
+                    if (potentialArray) {
+                        plan = potentialArray;
+                    } else {
+                        throw new Error("AI did not return a valid list of slides.");
+                    }
+                }
+            }
 
             const initialSlides = plan.map(item => ({
                 title: item.title,
@@ -226,7 +243,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                 "X-Title": "IES Notes AI"
             },
             body: JSON.stringify({
-                "model": "arcee-ai/trinity-large-preview:free",
+                "model": "openrouter/aurora-alpha",
                 "messages": [
                     { "role": "system", "content": systemPrompt },
                     { "role": "user", "content": userPrompt }

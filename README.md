@@ -70,7 +70,7 @@ The heart of IES Notes is its **Agentic Content Generator**, powered by the `arc
     *   **Animations**: `framer-motion` for complex entering/exiting sequences.
 
 ### AI & Data Layer
-*   **Model Provider**: OpenRouter (`arcee-ai/trinity-large-preview:free`).
+*   **Model Provider**: OpenRouter (`openrouter/aurora-alpha`).
 *   **Database**: Supabase (PostgreSQL) for user data, RLS policies, and realtime subscriptions.
 *   **Generative Libraries**:
     *   `pptxgenjs`: Client-side PowerPoint generation.
