@@ -100,7 +100,7 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "qwen/qwen3-next-80b-a3b-instruct:free",
+                    "model": "stepfun/step-3.5-flash:free",
                     "messages": [
                         { "role": "system", "content": "You are a helpful academic assistant. You generate structured content in strict JSON format. IMPORTANT: Only return the JSON object, do not include markdown code blocks or any other text." },
                         { "role": "user", "content": prompt }

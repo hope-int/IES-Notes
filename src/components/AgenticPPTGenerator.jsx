@@ -95,7 +95,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "qwen/qwen3-next-80b-a3b-instruct:free",
+                    "model": "stepfun/step-3.5-flash:free",
                     "messages": [
                         {
                             "role": "system",
@@ -275,7 +275,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                 "X-Title": "IES Notes AI"
             },
             body: JSON.stringify({
-                "model": "qwen/qwen3-next-80b-a3b-instruct:free",
+                "model": "stepfun/step-3.5-flash:free",
                 "messages": [
                     { "role": "system", "content": systemPrompt },
                     { "role": "user", "content": userPrompt }
