@@ -176,10 +176,10 @@ const fetchGroqDirectly = async (messages, jsonMode) => {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "llama-3.1-8b-instant", // Use latest supported model
+            model: "llama-3.1-8b-instant", // Absolute fastest model on Groq (~1200+ tps)
             messages,
             response_format: jsonMode ? { type: "json_object" } : undefined,
-            temperature: 0.1 // Low temperature for deterministic code execution
+            temperature: 0.1
         })
     });
 
@@ -242,26 +242,24 @@ export const getAICompletion = async (messages, options = {}) => {
 
 // J-Compiler: Simulation & Debugging
 export const simulateCodeExecution = async (code, language = "auto", inputs = []) => {
-    const systemPrompt = `You are J-Compiler, an Elite AI Code Execution & Static Analysis Engine.
+    const systemPrompt = `You are J-Compiler (Engine: Llama-3.1-8B-Turbo).
     
-    CRITICAL OBJECTIVE: 
-    Act as a Zero-Tolerance Debugger. Even if the code looks mostly correct, perform a recursive logic audit to find hidden bugs, typos, memory leaks, or syntax errors.
+    TASK: Execute/Audit code with Zero-Tolerance for errors.
 
-    STRICT EXECUTION RULES:
-    1.  **PEDANTIC AUDIT**: Scan every character. If there is a missing semicolon, case-sensitivity issue, or undefined variable—it is an ERROR.
-    2.  **LOGIC PROBING**: Analyze loop conditions and recursive calls. If a loop is infinite or a recursion has no base case—it is an ERROR.
-    3.  **NO INTERACTION**: Provide standard, logical sample inputs for any input requests.
-    4.  **CONSOLE REALISM**: The "output" property must contain the FULL terminal session, including prints, input prompts, and results.
-    5.  **REASONING SUPREMACY**: In the "reasoning" field, you must perform a line-by-line trace of the logic like a hardware CPU.
+    SYSTEM RULES:
+    1.  **AUDIT**: Flag ANY syntax/logic error (typos, loops, variables) as "status": "error".
+    2.  **EXECUTE**: If clean, simulate FULL console session (prompts + logic) in "output".
+    3.  **REASONING**: provide line-by-line logic trace.
+    4.  **REPAIR**: If error, provide optimized "fixedCode" and Markdown "errorExplanation".
 
-    RESPONSE FORMAT (Strict JSON):
+    JSON FORMAT:
     {
-      "reasoning": "Step-by-step logic tracing",
-      "language": "detected_language",
-      "output": "The full terminal session output string",
+      "reasoning": "Brief trace",
+      "language": "detected",
+      "output": "Console stream",
       "status": "success" | "error",
-      "errorExplanation": "### Analysis\nUse Markdown for a detailed, structured audit. Use bullet points for specific errors found.",
-      "fixedCode": "A 100% working, optimized version of the code that fixes the errors (only if status=error)"
+      "errorExplanation": "### Audit Results\n- Bullet points",
+      "fixedCode": "Full optimized source"
     }`;
 
     const messages = [
@@ -273,11 +271,11 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
     ];
 
     try {
-        // Enforce DeepSeek-R1 for J-Compiler for superior reasoning and error detection
+        // Enforce Llama-3.1-8B-Instant for LIGHTSPEED (~1200 tps) execution
         const responseText = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'groq',
-            model: 'deepseek-r1-distill-llama-70b'
+            model: 'llama-3.1-8b-instant'
         });
         return cleanAndParseJSON(responseText);
     } catch (e) {
@@ -288,17 +286,16 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
 
 // J-Compiler: Reverse Engineering (Output -> Code)
 export const reverseEngineerCode = async (expectedOutput, language = "javascript") => {
-    const systemPrompt = `You are J-Compiler, an Expert Reverse-Engineering AI specializing in Deep Logic Analysis.
+    const systemPrompt = `You are J-Compiler Architect (8B-Turbo).
     
-    TASK:
-    1. DEEP ANALYZE the 'Expected Output'.
-    2. ARCHITECT the most efficient and mathematically sound code in the target 'Language'.
-    3. ENSURE the generated code is error-free and follows industry best practices.
+    TASK: Convert output to optimized code.
+    1. ANALYZE 'Expected Output'.
+    2. WRITE most efficient, error-free code in target 'Language'.
     
-    RESPONSE FORMAT (Strict JSON):
+    JSON FORMAT:
     {
-      "code": "The perfectly architected source code...",
-      "explanation": "Deep explanation of the logic and algorithms used"
+      "code": "Source",
+      "explanation": "Logic"
     }`;
 
     const messages = [
@@ -307,11 +304,11 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
     ];
 
     try {
-        // Enforce DeepSeek-R1 for Reverse Engineering
+        // Enforce Llama-3.1-8B-Instant for instantaneous output
         const responseCallback = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'groq',
-            model: 'deepseek-r1-distill-llama-70b'
+            model: 'llama-3.1-8b-instant'
         });
         return cleanAndParseJSON(responseCallback);
     } catch (e) {
