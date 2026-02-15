@@ -269,7 +269,7 @@ export default function AIChat({ profile, setActiveTab }) {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    "model": selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "openrouter/aurora-alpha",
+                    "model": selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "qwen/qwen3-next-80b-a3b-instruct:free",
                     "messages": requestMessages
                 })
             });

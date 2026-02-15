@@ -24,8 +24,8 @@ const ProjectBuilder = ({ type, onBack }) => {
         try {
             const prompt = `You are a project supervisor. For a ${type === 'mini-project' ? 'Mini Project' : 'Final Year Major Project'} on topic "${topic}", 
             list 5 essential personalized architectural or functional questions to ask the student to define the project scope.
-            Return ONLY a JSON array of 5 strings.
-            Example: ["What technology stack do you prefer?", "Which specific module will be your main focus?"]`;
+            Return a JSON OBJECT with a "questions" key containing an array of 5 strings.
+            Example: { "questions": ["What technology stack do you prefer?", "Which specific module will be your main focus?"] }`;
 
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
@@ -34,7 +34,7 @@ const ProjectBuilder = ({ type, onBack }) => {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    "model": "openrouter/aurora-alpha",
+                    "model": "qwen/qwen3-next-80b-a3b-instruct:free",
                     "messages": [{ "role": "user", "content": prompt }],
                     "response_format": { "type": "json_object" }
                 })
@@ -119,7 +119,7 @@ const ProjectBuilder = ({ type, onBack }) => {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                "model": "openrouter/aurora-alpha",
+                "model": "qwen/qwen3-next-80b-a3b-instruct:free",
                 "messages": [{ "role": "user", "content": prompt }],
                 ...(isJson && { "response_format": { "type": "json_object" } })
             })

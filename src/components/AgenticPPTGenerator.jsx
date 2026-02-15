@@ -95,7 +95,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                     "X-Title": "IES Notes AI"
                 },
                 body: JSON.stringify({
-                    "model": "openrouter/aurora-alpha",
+                    "model": "qwen/qwen3-next-80b-a3b-instruct:free",
                     "messages": [
                         {
                             "role": "system",
@@ -112,11 +112,13 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                             2. 'type': 'hero' | 'grid' | 'split' | 'quote' | 'data' | 'conclusion'.
                             3. 'detailedPrompt': Visual instructions for a developer. Describe the layout, icons, and specific points.
                             
-                            RETURN ONLY A JSON ARRAY OF OBJECTS (Do not wrap in an object):
-                            [
-                              { "title": "...", "type": "...", "detailedPrompt": "..." },
-                              ...
-                            ]`
+                            RETURN A JSON OBJECT (not an array) with a "slides" key containing the array:
+                            {
+                              "slides": [
+                                { "title": "...", "type": "...", "detailedPrompt": "..." },
+                                ...
+                              ]
+                            }`
                         },
                         { "role": "user", "content": `Topic: ${topic}. Context: ${details}` }
                     ],
@@ -273,7 +275,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                 "X-Title": "IES Notes AI"
             },
             body: JSON.stringify({
-                "model": "openrouter/aurora-alpha",
+                "model": "qwen/qwen3-next-80b-a3b-instruct:free",
                 "messages": [
                     { "role": "system", "content": systemPrompt },
                     { "role": "user", "content": userPrompt }
