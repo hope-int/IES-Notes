@@ -4,7 +4,7 @@ import {
     User, Upload, Link as LinkIcon, Youtube, Book,
     FileText, Globe, CheckCircle, AlertCircle, Loader,
     ChevronDown, MapPin, Calendar, Hash, Edit2, Save, X,
-    LogOut, Shield, Copy
+    LogOut, Shield, Copy, GraduationCap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,7 +24,7 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
 
     const fetchProfile = async () => {
         // 1. Try Local Storage (Primary for Students)
-        const localData = localStorage.getItem('ies_student_profile');
+        const localData = localStorage.getItem('hope_student_profile');
         if (localData) {
             const parsed = JSON.parse(localData);
             setProfile(parsed);
@@ -75,7 +75,7 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
             if (error) throw error;
 
             // 2. Update Local Storage (Crucial for No-Login Flow)
-            localStorage.setItem('ies_student_profile', JSON.stringify(updates));
+            localStorage.setItem('hope_student_profile', JSON.stringify(updates));
 
             setProfile(updates);
             setIsEditing(false);
@@ -197,7 +197,7 @@ const ProfileField = ({ isEditing, icon, label, value, onChange, placeholder }) 
 
 // Helper for the icon in InputGroup
 const Building2 = ({ className, size }) => (
-    <Book className={className} size={size} /> // Shim if Building2 is missing from imports
+    <GraduationCap className={className} size={size} /> // Shim if Building2 is missing from imports
 );
 
 const ProfileMeta = ({ icon: Icon, label, value }) => (

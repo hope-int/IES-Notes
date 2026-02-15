@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Folder, ExternalLink, Search, Book, Zap, Database, Code, FolderPlus,
   Cpu, ChevronRight, ArrowLeft, Users, Building, Settings,
-  FileText, Heart, Shield, LogOut, User, Bell, MessageCircle, Home, Upload, Download, Sparkles
+  FileText, Heart, Shield, LogOut, User, Bell, MessageCircle, Home, Upload, Download, Sparkles, GraduationCap
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { useLocation, Routes, Route, Navigate } from 'react-router-dom';
@@ -80,7 +80,7 @@ function App() {
   });
   const [activeFilter, setActiveFilter] = useState('My');
   const [favorites, setFavorites] = useState(() => {
-    const saved = localStorage.getItem('ies-favorites');
+    const saved = localStorage.getItem('hope-favorites');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -100,7 +100,7 @@ function App() {
 
   const checkUserStatus = async () => {
     // 1. Check Local Storage for Student Profile (Main Flow)
-    const storedProfile = localStorage.getItem('ies_student_profile');
+    const storedProfile = localStorage.getItem('hope_student_profile');
     if (storedProfile) {
       const profile = JSON.parse(storedProfile);
       setUserProfile(profile);
@@ -209,7 +209,7 @@ function App() {
   }, [session, userProfile]);
 
   useEffect(() => {
-    localStorage.setItem('ies-favorites', JSON.stringify(favorites));
+    localStorage.setItem('hope-favorites', JSON.stringify(favorites));
   }, [favorites]);
 
   useEffect(() => {
@@ -349,7 +349,7 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('ies_student_profile');
+    localStorage.removeItem('hope_student_profile');
     setShowAdmin(false);
     setUserProfile(null);
     setNavStack([{ type: 'home', title: 'Home', id: null }]);
@@ -431,9 +431,9 @@ function App() {
                     className="d-flex align-items-center gap-2 cursor-pointer"
                   >
                     <div className="clay-card d-flex align-items-center justify-content-center p-2 rounded-3 border-0">
-                      <Book size={28} style={{ color: 'var(--primary-accent)' }} />
+                      <GraduationCap size={28} style={{ color: 'var(--primary-accent)' }} />
                     </div>
-                    <span className="fw-bold fs-3 d-none d-md-block lh-1" style={{ color: 'var(--text-main)' }}>IES<span style={{ color: 'var(--primary-accent)' }}>Notes</span></span>
+                    <span className="fw-bold fs-3 d-none d-md-block lh-1" style={{ color: 'var(--text-main)' }}>HOPE<span style={{ color: 'var(--primary-accent)' }}>-Edu-Hub</span></span>
                   </div >
 
                   <div className="d-none d-md-flex align-items-center gap-2 overflow-auto ms-3 hide-scrollbar" style={{ maxWidth: '40vw' }}>
@@ -541,7 +541,7 @@ function App() {
                               </>
                             )}
                           </h1>
-                          <p className="text-muted fs-6 fs-md-5 mb-5">Access all your IES College notes. Developed by Justin.</p>
+                          <p className="text-muted fs-6 fs-md-5 mb-5">Access all your HOPE Community notes. Developed by Justin.</p>
                         </motion.div>
                       </div>
                       <div className="col-lg-6 z-1 ps-lg-5">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { motion } from 'framer-motion';
-import { User, Book, ChevronRight, Loader, LogIn, KeyRound } from 'lucide-react';
+import { User, GraduationCap, ChevronRight, Loader, LogIn, KeyRound } from 'lucide-react';
 
 export default function Registration({ onComplete }) {
     const [step, setStep] = useState(1);
@@ -80,7 +80,7 @@ export default function Registration({ onComplete }) {
             }
 
             // Save and Complete
-            localStorage.setItem('ies_student_profile', JSON.stringify(data));
+            localStorage.setItem('hope_student_profile', JSON.stringify(data));
             onComplete(data);
         } catch (err) {
             console.error(err);
@@ -107,7 +107,7 @@ export default function Registration({ onComplete }) {
                 year: formData.year, // "1", "2", etc
                 department_id: formData.department_id, // Important for deep linking
                 semester_id: formData.semester_id,     // Important for deep linking
-                college: 'IES College', // Default or add field if needed
+                college: 'HOPE Community', // Default or add field if needed
                 is_admin: false,
                 created_at: new Date().toISOString()
             };
@@ -121,7 +121,7 @@ export default function Registration({ onComplete }) {
             }
 
             // 2. Save to Local Storage
-            localStorage.setItem('ies_student_profile', JSON.stringify(profileData));
+            localStorage.setItem('hope_student_profile', JSON.stringify(profileData));
 
             // 3. Complete
             onComplete(profileData);
@@ -143,9 +143,9 @@ export default function Registration({ onComplete }) {
             >
                 <div className="text-center mb-5">
                     <div className="bg-primary rounded-circle d-inline-flex p-3 mb-3 text-white shadow-sm">
-                        <Book size={32} />
+                        <GraduationCap size={32} />
                     </div>
-                    <h2 className="fw-bold mb-2">Welcome to IES Notes</h2>
+                    <h2 className="fw-bold mb-2">Welcome to HOPE Edu Hub</h2>
                     <p className="text-muted">
                         {isLoginMode ? "Enter your Secret UID to continue." : "Set up your profile to get started."}
                     </p>

@@ -18,9 +18,9 @@ export default defineConfig({
       },
       includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'IES Notes | Student Portal',
-        short_name: 'IES Notes',
-        description: 'Access all your IES College notes and academic resources easily.',
+        name: 'HOPE-Edu-Hub | Student Portal',
+        short_name: 'HOPE-Hub',
+        description: 'Access all your HOPE Community academic resources easily.',
         theme_color: '#eef2f6',
         background_color: '#eef2f6',
         display: 'standalone',

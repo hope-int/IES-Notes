@@ -71,9 +71,9 @@ const Mermaid = ({ chart }) => {
 
 export default function AIChat({ profile, setActiveTab }) {
     const [sessions, setSessions] = useState(() => {
-        const savedSessions = localStorage.getItem('ies_ai_sessions');
+        const savedSessions = localStorage.getItem('hope_ai_sessions');
         if (savedSessions) return JSON.parse(savedSessions);
-        const oldHistory = localStorage.getItem('ies_ai_chat_history');
+        const oldHistory = localStorage.getItem('hope_ai_chat_history');
         if (oldHistory) {
             const messages = JSON.parse(oldHistory);
             const initialSession = {
@@ -88,7 +88,7 @@ export default function AIChat({ profile, setActiveTab }) {
     });
 
     const [activeSessionId, setActiveSessionId] = useState(() => {
-        const lastId = localStorage.getItem('ies_ai_active_session_id');
+        const lastId = localStorage.getItem('hope_ai_active_session_id');
         return lastId || (sessions.length > 0 ? sessions[0].id : null);
     });
 
@@ -121,22 +121,22 @@ export default function AIChat({ profile, setActiveTab }) {
             .then(res => res.text())
             .then(text => setSyllabusText(text))
             .catch(err => console.error("Failed to load syllabus:", err));
-        const warned = localStorage.getItem('ies_chat_warning_dismissed');
+        const warned = localStorage.getItem('hope_chat_warning_dismissed');
         if (!warned) setShowWarning(true);
     }, []);
 
     useEffect(() => {
-        if (activeSessionId) localStorage.setItem('ies_ai_active_session_id', activeSessionId);
+        if (activeSessionId) localStorage.setItem('hope_ai_active_session_id', activeSessionId);
     }, [activeSessionId]);
 
     useEffect(() => {
         if (sessions.length > 0) {
             try {
-                localStorage.setItem('ies_ai_sessions', JSON.stringify(sessions));
+                localStorage.setItem('hope_ai_sessions', JSON.stringify(sessions));
             } catch (e) {
                 if (e.name === 'QuotaExceededError') {
                     const emergencySessions = sessions.filter(s => s.id === activeSessionId);
-                    localStorage.setItem('ies_ai_sessions', JSON.stringify(emergencySessions));
+                    localStorage.setItem('hope_ai_sessions', JSON.stringify(emergencySessions));
                     setSessions(emergencySessions);
                 }
             }
@@ -248,7 +248,7 @@ export default function AIChat({ profile, setActiveTab }) {
         setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, userMsg] } : s));
 
         try {
-            const systemPrompt = `You are Justin, a helpful engineering tutor at IES College of Engineering. Strictly use syllabus: ${syllabusText.substring(0, 3000)}`;
+            const systemPrompt = `You are Justin, a helpful engineering tutor at HOPE Community. Strictly use syllabus: ${syllabusText.substring(0, 3000)}`;
             const filteredHistory = messages.filter(m => m.content && !m.content.startsWith('⚠️'));
             // Include the new user message in the history for the API call
             const requestMessages = [

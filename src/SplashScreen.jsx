@@ -47,23 +47,19 @@ const SplashScreen = ({ onComplete, isAppReady = true }) => {
                         transition={{ duration: 0.8, ease: "easeOut" }}
                         className="d-flex flex-column align-items-center justify-content-center"
                     >
-                        {/* Lottie Animation Container */}
-                        <div style={{ width: 280, height: 280 }} className="mb-2">
-                            {animationData ? (
-                                <Lottie animationData={animationData} loop={true} />
-                            ) : (
-                                // Fallback if Lottie fails to load or is loading
-                                <div className="d-flex justify-content-center align-items-center h-100 w-100">
-                                    <div className="spinner-border text-primary" role="status" style={{ width: '4rem', height: '4rem' }}>
-                                        <span className="visually-hidden">Loading...</span>
-                                    </div>
-                                </div>
-                            )}
+                        {/* Logo Container */}
+                        <div className="mb-4 d-flex justify-content-center align-items-center" style={{ width: 180, height: 180 }}>
+                            <img
+                                src="/pwa-512x512.png"
+                                alt="HOPE-Edu-Hub Logo"
+                                className="img-fluid rounded-4 shadow-sm"
+                                style={{ objectFit: 'contain' }}
+                            />
                         </div>
 
-                        <div className="text-center" style={{ marginTop: '-40px', position: 'relative', zIndex: 2 }}>
+                        <div className="text-center" style={{ position: 'relative', zIndex: 2 }}>
                             <h1 className="fw-bold display-4 mb-2 tracking-tight" style={{ color: '#1e293b', letterSpacing: '-1px' }}>
-                                IES<span style={{ color: '#3b82f6' }}>Notes</span>
+                                HOPE<span style={{ color: '#3b82f6' }}>-Edu-Hub</span>
                             </h1>
                             <p className="text-muted small text-uppercase tracking-widest fw-bold">Your Academic Superpower</p>
                         </div>

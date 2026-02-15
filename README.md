@@ -1,16 +1,16 @@
 
-# IES Notes: The AI-Native Academic Ecosystem 🚀✨
+# HOPE-Edu-Hub: The AI-Native Academic Ecosystem 🚀✨
 
-![IES Notes](http://via.placeholder.com/1200x500?text=IES+Notes:+Your+Academic+Superpower)
+![HOPE-Edu-Hub](http://via.placeholder.com/1200x500?text=HOPE-Edu-Hub:+Your+Academic+Superpower)
 
 ## 🌟 Overview
-**IES Notes** is a next-generation academic platform designed exclusively for IES College of Engineering. It evolves beyond simple file sharing into a **comprehensive AI-powered academic assistant**. It combines instant note access, a self-moderating community, and a suite of **Agentic AI Tools** that can synthesize presentations, reports, simulate code execution, and generate entire engineering projects from scratch.
+**HOPE-Edu-Hub** is a next-generation academic platform designed for an open and collaborative learning experience. It evolves beyond simple file sharing into a **comprehensive AI-powered academic assistant**. It combines instant note access, a self-moderating community, and a suite of **Agentic AI Tools** that can synthesize presentations, reports, simulate code execution, and generate entire engineering projects from scratch.
 
 ---
 
 ## 🤖 The AI Content Engine (Architecture 4.0)
 
-IES Notes features a robust, **Zero-Tolerance AI Architecture** designed for clinical precision and developer-grade reliability.
+HOPE-Edu-Hub features a robust, **Zero-Tolerance AI Architecture** designed for clinical precision and developer-grade reliability.
 
 ### 🛡️ Puter AI Activation & Security
 The system now includes a **Mandatory Puter AI Environment Verification**. 
@@ -112,6 +112,6 @@ The system uses a sophisticated 3-layer cascade, now featuring high-reasoning mo
 
 ## 🤝 Philosophy
 
-**IES Notes** prioritizes **Speed, Beauty, and Accuracy**. Every feature—from the J-Compiler's audits to the Student Profile—is designed to empower engineering students with the tools of the future.
+**HOPE-Edu-Hub** prioritizes **Speed, Beauty, and Accuracy**. Every feature—from the J-Compiler's audits to the Student Profile—is designed to empower engineering students with the tools of the future.
 
-**Developed with ❤️ for IES College of Engineering.**
+**Developed with ❤️ for the HOPE Community.**

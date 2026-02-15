@@ -95,7 +95,7 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                 </button>
 
                 <p className="mt-4 text-muted small px-4">
-                    By setting up, you verify your account and authorize the Puter AI environment for IES Notes.
+                    By setting up, you verify your account and authorize the Puter AI environment for HOPE Community.
                 </p>
 
                 <motion.div
