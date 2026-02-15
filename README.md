@@ -8,70 +8,56 @@
 
 ---
 
-## 🤖 The AI Content Engine (Architecture 3.0)
+## 🤖 The AI Content Engine (Architecture 4.0)
 
-IES Notes features a robust, **Self-Healing AI Architecture** designed for maximum reliability, speed, and zero cost where possible.
+IES Notes features a robust, **Zero-Tolerance AI Architecture** designed for clinical precision and developer-grade reliability.
 
-### 🧠 Hybrid AI Fallback & Routing System
-The system uses a sophisticated 3-layer cascade to ensure the AI never fails, with intelligent routing based on the task type:
+### 🛡️ Puter AI Activation & Security
+The system now includes a **Mandatory Puter AI Environment Verification**. 
+*   **First-Time Setup**: New users are met with a premium, non-removable activation popup to authorize their Puter Cloud environment. 
+*   **Verified Compute**: This ensures all AI-driven simulations and background tasks run in a secure, authorized sandbox, providing enhanced reliability for the J-Compiler and AI Tutor.
 
-1.  **Task-Based Routing**:
-    *   **Advanced Code Tasks (J-Compiler)**: Privileged routing directly to **Groq (Llama 3.3 70B)** via high-performance server-side or client-side keys for minimum latency and maximum reasoning capability.
-    *   **General Tasks**: Routed to lighter, faster models first.
+### 🧠 Reasoning-First AI Routing
+The system uses a sophisticated 3-layer cascade, now featuring high-reasoning models:
 
-2.  **Resilience Layers**:
-    *   **Primary (Client-Side)**: **Puter.js** (Hosted LFM-2.5). Completely free, runs directly in the browser via CDN.
-        *   *Optimization*: Custom Circuit Breaker & Retry Logic (Exponential backoff) to handle network flakiness.
-    *   **Secondary (Server-Side)**: **Secure Vercel Function** (`/api/ai-completion`).
-        *   Routes to **OpenRouter** or **Groq** via secure backend.
-        *   *Security*: API keys are stored server-side.
-    *   **Tertiary (Local Dev/Emergency)**:
-        *   **Client-Side Groq Fallback**: If backend fails, the system automatically attempts a direct client-side connection using `VITE_` prefixed keys (only in dev/authorized envs) as a last resort.
+1.  **Elite Logic Routing (J-Compiler)**: 
+    *   **Model**: **DeepSeek-R1 Distill Llama 70B** via Groq.
+    *   **Capabilities**: Uses Chain-of-Thought reasoning to perform deep audits. It doesn't just guess; it "thinks" through the logic execution path like a human senior developer.
+2.  **General Tasks**: Routed to **Puter.js** (Hosted LFM-2.5) for instant, free responses.
+3.  **Resilience Layers**:
+    *   **Custom Circuit Breakers**: Automatic failure detection with exponential backoff.
+    *   **Secure Backend Proxy**: API calls are routed through Vercel Serverless Functions to protect keys.
 
 ---
 
 ## 🛠️ Feature Suite
 
 ### 1. 🖥️ J-Compiler: AI-Powered Code Studio
-*A next-gen innovative IDE that simulates a full compiler environment inside the browser.*
+*A next-gen innovative IDE that simulates a full compiler environment using deep reasoning.*
 
 **Key Capabilities:**
-*   **Interactive Terminal Simulation**: Not just a text box. The J-Compiler simulates a real shell session, handling standard input (`stdin`) interactively. You can run programs that ask for user input (e.g., `scanf`, `input()`, `cin`) and the AI will pause, wait for your input, and continue execution seamlessly.
-*   **Multi-Language Support**: Auto-detects and runs Python, JavaScript, Java, C++, and HTML/CSS.
-*   **AI Debugger**: If code fails, it doesn't just show an error. It provides a detailed **Error Explanation** and a **Suggested Fix** which you can copy with one click.
-*   **Reverse Engineer Mode**: Describe what you want (e.g., "A Fibonacci sequence generator"), and it generates the logic and code for you.
-*   **Smart UX**: 
-    *   Debounced input handling.
-    *   State-aware "Running" indicators.
-    *   Auto-scrolling terminal output.
-    *   Formatted code previews with syntax highlighting.
+*   **Zero-Tolerance Debugging**: The compiler acts as a **Pedantic Auditor**. It scans every character for typos, missing semicolons, case-sensitivity issues, and logic flaws (like infinite loops).
+*   **Interactive Terminal Simulation**: Simulates a real shell session, handling standard input (`stdin`) logically to provide a full execution flow without manual interaction.
+*   **Deep Analysis (Markdown)**: If a build fails, the AI provides a structured **Markdown Audit**. It uses headers and bullet points to list specific architectural flaws and syntax errors.
+*   **Auto-Correction**: Provides a "100% Valid" suggested fix that can be copied with one click, ensuring the fixed code is free of formatting artifacts.
+*   **Reverse Engineer Mode**: Uses DeepSeek-R1 to architect perfect, industry-standard code based on a desired output description.
 
 ### 2. 📽️ Agentic Web-Slides Generator
 *A multi-step AI agent acting as both Creative Director and UI Designer.*
 
 **Workflow:**
-1.  **Director Phase (Planning)**:
-    *   The user provides a topic (e.g., "Quantum Computing").
-    *   The **Planner Agent** drafts a "Creative Brief" & JSON Storyboard, deciding slide titles, layouts (Hero, Grid, Split), and visual prompts.
-2.  **Designer Phase (Iterative Synthesis)**:
-    *   The system iterates through the approved plan.
-    *   **Designer Agent** generates raw, high-fidelity HTML/CSS for each slide.
-    *   **Performance**: Uses `postMessage` isolation to render slides instantly without page reloads.
-3.  **Refine Loop**:
-    *   Users can chat with *individual slides* (e.g., "Make the background red," "Add a flowchart"). The AI modifies the DOM in real-time.
-4.  **Output**: Exports a single, self-contained `Presentation.html` file with embedded navigation scripts and Mermaid.js support.
+1.  **Director Phase (Planning)**: Drafts a "Creative Brief" & JSON Storyboard.
+2.  **Designer Phase (Iterative Synthesis)**: Generates high-fidelity HTML/CSS with `postMessage` isolation for instant rendering.
+3.  **Refine Loop**: Chat with individual slides to modify the DOM in real-time.
+4.  **Output**: Exports a self-contained `Presentation.html` with Mermaid.js support.
 
 ### 3. 🏗️ Intelligent Project Architect
 *An interview-based system for generating Mini & Major Projects.*
 
 **Workflow:**
-1.  **Initialization**: User enters a broad topic.
-2.  **Technical Interview**: The AI generates 5 context-aware questions (e.g., "Which tech stack?", "Hardware requirements?") to narrow the scope.
-3.  **Parallel Synthesis**: Once the interview is complete, the system forks into three parallel streams:
-    *   **Abstract Writer**: Creates a technical summary.
-    *   **Report Author**: Writes a full 5-chapter Markdown report.
-    *   **Code Architect**: Generates a file structure map and writes source code for all core modules.
-4.  **Output**: Bundles everything into a downloadable `.zip` file.
+1.  **Technical Interview**: Generates 5 context-aware questions to define project scope.
+2.  **Parallel Synthesis**: Forks into Abstract, Report (Markdown), and Code (full module architecture) streams.
+3.  **Output**: Bundles the entire documentation and source code into a `.zip` file.
 
 ---
 
@@ -80,99 +66,52 @@ The system uses a sophisticated 3-layer cascade to ensure the AI never fails, wi
 ### 📚 Visual Resource Hub
 *   **Deep Linking**: Navigate via `Department > Semester > Subject`.
 *   **Smart Filters**: Toggle between `Core` and `Labs` instantly.
-*   **Offline First**: Built as a PWA for seamless access without internet.
+*   **Claymorphism UI**: A tactile, 3D design system that feels responsive and "alive."
 
 ### ⚖️ Self-Governing Community
-*   **Weighted Voting**: A "Hacker News" style algorithm ranks notes and posts.
-*   **Auto-Moderation**: AI layers filter profanity and abusive content automatically.
-*   **Admin Panel**: A restricted dashboard for faculty to manage uploads and user content.
+*   **Weighted Ranking**: Notes are ranked by student interaction.
+*   **AI Moderation**: Real-time filtering of abusive content.
+*   **Student Dashboard**: Track favorites and manage academic preferences.
 
 ---
 
 ## 🛠️ Technical Architecture
 
 ### Frontend Layer
-*   **Framework**: React 18 + Vite
-*   **Routing**: Custom Stack Navigation (State-based) for fluid transitions + React Router for dedicated tools.
-*   **Styling**: 
-    *   **Claymorphism**: Custom CSS classes (`.clay-card`, `.clay-button`) for a tactile, 3D feel.
-    *   **Glassmorphism**: Backdrop filters for premium overlays.
-    *   **Animations**: `framer-motion` for complex entering/exiting sequences.
+*   **Framework**: React 19 + Vite
+*   **State Management**: custom-built stack navigation for fluid transitions.
+*   **Animations**: `framer-motion` for complex UI state changes.
 
 ### AI & Data Layer
-*   **Model Providers**: Groq (Primary for Code), Puter.js (General), OpenRouter (Fallback).
-*   **Backend**: Vercel Serverless Functions (`/api`).
-*   **Database**: Supabase (PostgreSQL) for user data, RLS policies, and realtime subscriptions.
-*   **Generative Libraries**:
-    *   `pptxgenjs`: Client-side PowerPoint generation.
-    *   `jspdf`: Client-side PDF generation.
-    *   `mermaid`: Client-side diagram rendering.
+*   **Primary Engine**: Groq (DeepSeek-R1 & Llama 3.3).
+*   **Identity & Persistence**: Supabase (PostgreSQL) + Puter Auth.
+*   **Realtime**: Supabase RLS policies and channel subscriptions.
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-*   Node.js (v18+)
-*   Supabase Account
-*   Groq API Key (Recommended for J-Compiler)
-
 ### Installation
 
-1.  **Clone the Repository**:
+1.  **Clone & Install**:
     ```bash
     git clone https://github.com/justin-john-mathew/ies-notes-clay.git
     cd ies-notes-clay
-    ```
-
-2.  **Install Dependencies**:
-    ```bash
     npm install
     ```
 
-3.  **Environment Setup**:
-    Create a `.env` file in the root.
-    
-    *For Production (Secure):*
-    ```env
-    VITE_SUPABASE_URL=your_supabase_url
-    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-    # Note: API Keys are NOT here. Set them in Vercel Project Settings!
-    ```
+2.  **Environment Setup**:
+    Create a `.env` file with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_GROQ_API_KEY`.
 
-    *For Local Dev (Hybrid):*
-    ```env
-    # Standard Keys
-    VITE_SUPABASE_URL=your_supabase_url
-    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-    # Local Dev Keys (Prefix with VITE_ to allow client-side fallback)
-    VITE_GROQ_API_KEY=your_key_here
-    VITE_OPENROUTER_API_KEY=your_key_here
-    ```
-
-4.  **Run Locally**:
-    
-    **Option A: Standard (Client-Side Fallback)**
+3.  **Run Dev Server**:
     ```bash
     npm run dev
     ```
-    *Use this for most UI work. The app will detect the missing backend and use your local VITE_ keys.*
-
-    **Option B: Full (Serverless Emulation)**
-    ```bash
-    vercel dev
-    ```
-    *Use this to test the actual secure backend logic.*
 
 ---
 
-## 🤝 Contribution & Philosophy
+## 🤝 Philosophy
 
-**IES Notes** follows a "Student-First" development philosophy. We prioritize:
-1.  **Speed**: No loading spinners where possible; aggressive caching.
-2.  **Beauty**: Interfaces should inspire usage.
-3.  **Safety**: Community spaces must be welcoming.
-4.  **Innovation**: Constantly pushing the boundaries of what a web app can do (e.g., J-Compiler).
+**IES Notes** prioritizes **Speed, Beauty, and Accuracy**. Every feature—from the J-Compiler's audits to the Student Profile—is designed to empower engineering students with the tools of the future.
 
 **Developed with ❤️ for IES College of Engineering.**

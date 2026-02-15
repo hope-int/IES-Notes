@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { simulateCodeExecution, reverseEngineerCode } from '../utils/aiService';
 import { Lightbulb, Play, Code, Terminal, ArrowRight, RotateCcw, Check, Copy, ArrowLeft, Cpu, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 
 export default function JCompiler() {
     const navigate = useNavigate();
@@ -239,7 +240,9 @@ export default function JCompiler() {
                                                     {output.status === 'error' ? <Lightbulb size={18} /> : <Sparkles size={18} />}
                                                     {output.status === 'error' ? 'AI Debugger Analysis' : 'Implementation Logic'}
                                                 </h6>
-                                                <p className="text-light small opacity-75 mb-0" style={{ lineHeight: '1.6' }}>{output.explanation}</p>
+                                                <div className="text-light small opacity-75 mb-0" style={{ lineHeight: '1.6' }}>
+                                                    <ReactMarkdown>{output.explanation}</ReactMarkdown>
+                                                </div>
 
                                                 {/* Fixed Code Preview */}
                                                 {output.fixedCode && (
@@ -248,15 +251,15 @@ export default function JCompiler() {
                                                             <span className="text-success small fw-bold">Suggested Fix:</span>
                                                             <button
                                                                 className="btn btn-sm btn-dark border border-secondary border-opacity-25 d-flex align-items-center gap-2 py-1 px-2"
-                                                                onClick={() => copyToClipboard(output.fixedCode.replace(/\\n/g, '\n'))}
+                                                                onClick={() => copyToClipboard(output.fixedCode)}
                                                                 style={{ fontSize: '11px' }}
                                                             >
                                                                 <Copy size={12} /> Copy Fix
                                                             </button>
                                                         </div>
                                                         <div className="position-relative">
-                                                            <pre className="p-3 rounded bg-black text-white border border-secondary border-opacity-25 small mb-0 custom-scrollbar" style={{ whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto' }}>
-                                                                {output.fixedCode.replace(/\\n/g, '\n')}
+                                                            <pre className="p-3 rounded bg-black text-white border border-secondary border-opacity-25 small mb-0 custom-scrollbar" style={{ whiteSpace: 'pre-wrap', maxHeight: '400px', overflowY: 'auto' }}>
+                                                                {output.fixedCode}
                                                             </pre>
                                                         </div>
                                                     </div>

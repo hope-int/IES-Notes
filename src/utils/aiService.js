@@ -242,29 +242,26 @@ export const getAICompletion = async (messages, options = {}) => {
 
 // J-Compiler: Simulation & Debugging
 export const simulateCodeExecution = async (code, language = "auto", inputs = []) => {
-    const systemPrompt = `You are J-Compiler, an Expert AI Code Execution Engine.
-
-    YOUR GOAL: Simulate the COMPLETE execution of the provided code and return the final console output.
+    const systemPrompt = `You are J-Compiler, an Elite AI Code Execution & Static Analysis Engine.
+    
+    CRITICAL OBJECTIVE: 
+    Act as a Zero-Tolerance Debugger. Even if the code looks mostly correct, perform a recursive logic audit to find hidden bugs, typos, memory leaks, or syntax errors.
 
     STRICT EXECUTION RULES:
-    1.  **NO INTERACTION**: Do not stop for user input. If the code requires input (e.g., scanf, cin, input(), prompt()), simulate the execution by providing standard, logical sample inputs.
-    2.  **CONSOLE REALISM**: The "output" property must contain the FULL terminal session. This includes:
-        - All printed prompts (e.g., "Enter a number: ").
-        - The simulated user inputs typed next to those prompts (e.g., "5").
-        - The final calculated results and any subsequent output.
-    3.  **ACCURACY**:
-        - Scan for syntax errors first. If found, set status="error".
-        - Perform all arithmetic and logic precisely. Do not hallucinate results.
-        - Follow all loops, conditionals, and logic paths until the program terminates.
+    1.  **PEDANTIC AUDIT**: Scan every character. If there is a missing semicolon, case-sensitivity issue, or undefined variable—it is an ERROR.
+    2.  **LOGIC PROBING**: Analyze loop conditions and recursive calls. If a loop is infinite or a recursion has no base case—it is an ERROR.
+    3.  **NO INTERACTION**: Provide standard, logical sample inputs for any input requests.
+    4.  **CONSOLE REALISM**: The "output" property must contain the FULL terminal session, including prints, input prompts, and results.
+    5.  **REASONING SUPREMACY**: In the "reasoning" field, you must perform a line-by-line trace of the logic like a hardware CPU.
 
     RESPONSE FORMAT (Strict JSON):
     {
-      "reasoning": "Internal step-by-step logic tracing",
+      "reasoning": "Step-by-step logic tracing",
       "language": "detected_language",
-      "output": "The full terminal session string",
+      "output": "The full terminal session output string",
       "status": "success" | "error",
-      "errorExplanation": "Explanation of errors (only if status=error)",
-      "fixedCode": "Corrected version of the code (only if status=error)"
+      "errorExplanation": "### Analysis\nUse Markdown for a detailed, structured audit. Use bullet points for specific errors found.",
+      "fixedCode": "A 100% working, optimized version of the code that fixes the errors (only if status=error)"
     }`;
 
     const messages = [
@@ -276,8 +273,12 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
     ];
 
     try {
-        // Enforce Groq for J-Compiler for reliability
-        const responseText = await getAICompletion(messages, { jsonMode: true, provider: 'groq' });
+        // Enforce DeepSeek-R1 for J-Compiler for superior reasoning and error detection
+        const responseText = await getAICompletion(messages, {
+            jsonMode: true,
+            provider: 'groq',
+            model: 'deepseek-r1-distill-llama-70b'
+        });
         return cleanAndParseJSON(responseText);
     } catch (e) {
         console.error("J-Compiler Simulation Failed:", e);
@@ -287,17 +288,17 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
 
 // J-Compiler: Reverse Engineering (Output -> Code)
 export const reverseEngineerCode = async (expectedOutput, language = "javascript") => {
-    const systemPrompt = `You are J-Compiler, an Expert Reverse-Engineering AI.
+    const systemPrompt = `You are J-Compiler, an Expert Reverse-Engineering AI specializing in Deep Logic Analysis.
     
     TASK:
-    1. ANALYZE the 'Expected Output'.
-    2. GENERATE the most efficient and clean code in the target 'Language' that produces EXACTLY this output.
-    3. EXPLAIN your implementation logic briefly.
+    1. DEEP ANALYZE the 'Expected Output'.
+    2. ARCHITECT the most efficient and mathematically sound code in the target 'Language'.
+    3. ENSURE the generated code is error-free and follows industry best practices.
     
     RESPONSE FORMAT (Strict JSON):
     {
-      "code": "The generated source code...",
-      "explanation": "Brief explanation of how it works"
+      "code": "The perfectly architected source code...",
+      "explanation": "Deep explanation of the logic and algorithms used"
     }`;
 
     const messages = [
@@ -306,9 +307,13 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
     ];
 
     try {
-        // Enforce Groq for Reverse Engineering
-        const responseCallback = await getAICompletion(messages, { jsonMode: true, provider: 'groq' });
-        return JSON.parse(responseCallback);
+        // Enforce DeepSeek-R1 for Reverse Engineering
+        const responseCallback = await getAICompletion(messages, {
+            jsonMode: true,
+            provider: 'groq',
+            model: 'deepseek-r1-distill-llama-70b'
+        });
+        return cleanAndParseJSON(responseCallback);
     } catch (e) {
         console.error("J-Compiler Reverse Engineering Failed:", e);
         throw new Error("Failed to reverse engineer code.");
