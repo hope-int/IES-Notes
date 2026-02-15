@@ -6,6 +6,7 @@ import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AgenticPPTGenerator from './AgenticPPTGenerator';
 import ProjectGenerator from './ProjectGenerator';
+import { getAICompletion } from '../utils/aiService';
 
 const ContentGenerator = ({ onBack, initialType = null }) => {
     const [step, setStep] = useState(initialType ? 2 : 1); // 1: Select Type, 2: Input Details, 3: Generating/Preview
@@ -91,28 +92,13 @@ const ContentGenerator = ({ onBack, initialType = null }) => {
  }`;
             }
 
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": window.location.origin,
-                    "X-Title": "IES Notes AI"
-                },
-                body: JSON.stringify({
-                    "model": "stepfun/step-3.5-flash:free",
-                    "messages": [
-                        { "role": "system", "content": "You are a helpful academic assistant. You generate structured content in strict JSON format. IMPORTANT: Only return the JSON object, do not include markdown code blocks or any other text." },
-                        { "role": "user", "content": prompt }
-                    ],
-                    "response_format": { "type": "json_object" }
-                })
-            });
-
-            if (!response.ok) throw new Error("AI Generation Failed");
-
-            const data = await response.json();
-            let aiText = data.choices[0].message.content;
+            let aiText = await getAICompletion(
+                [
+                    { "role": "system", "content": "You are a helpful academic assistant. You generate structured content in strict JSON format. IMPORTANT: Only return the JSON object, do not include markdown code blocks or any other text." },
+                    { "role": "user", "content": prompt }
+                ],
+                { jsonMode: true }
+            );
 
             // Clean markdown code blocks if present
             aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();

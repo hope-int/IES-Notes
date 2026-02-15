@@ -13,6 +13,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Explicitly setting worker for Vite compatibility
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import ContentGenerator from './components/ContentGenerator';
+import { getAICompletion } from './utils/aiService';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -262,32 +263,13 @@ export default function AIChat({ profile, setActiveTab }) {
                 requestMessages.push({ role: "user", content: currentInput });
             }
 
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    "model": selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "stepfun/step-3.5-flash:free",
-                    "messages": requestMessages
-                })
+            const aiContent = await getAICompletion(requestMessages, {
+                model: selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "liquid/lfm-2.5-1.2b-instruct:free",
+                onFallback: (msg) => {
+                    // Optional: You could show a toast here, but for now we rely on the final success/fail
+                    console.log("Fallback triggered:", msg);
+                }
             });
-
-            clearFile();
-            const data = await response.json();
-
-            if (data.error) {
-                console.error("API Error:", data.error);
-                throw new Error(data.error.message || "API Error");
-            }
-
-            if (!data.choices || data.choices.length === 0) {
-                console.error("No choices returned:", data);
-                throw new Error("No response from AI.");
-            }
-
-            const aiContent = data.choices[0].message.content;
 
             // Update with AI response
             setSessions(prev => prev.map(s => s.id === currentActiveId ? { ...s, messages: [...s.messages, { role: 'assistant', content: aiContent }] } : s));
@@ -547,7 +529,7 @@ export default function AIChat({ profile, setActiveTab }) {
 
                             <div
                                 className={`p-4 rounded-4 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'clay-card border-0'}`}
-                                style={{ maxWidth: '80%', borderTopLeftRadius: msg.role === 'assistant' ? 0 : 20, borderTopRightRadius: msg.role === 'user' ? 0 : 20 }}
+                                style={{ maxWidth: '80%', borderTopLeftRadius: msg.role === 'assistant' ? 0 : 20, borderTopRightRadius: msg.role === 'user' ? 0 : 20, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                             >
                                 {msg.role === 'assistant' ? (
                                     <ReactMarkdown

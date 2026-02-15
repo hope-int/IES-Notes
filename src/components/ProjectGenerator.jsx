@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Code, FileText, CheckCircle, Loader2, Download, MessageSquare, Send, Sparkles, Box } from 'lucide-react';
 import JSZip from 'jszip';
+import { getAICompletion } from '../utils/aiService';
 
 const ProjectBuilder = ({ type, onBack }) => {
     const [step, setStep] = useState('topic'); // topic -> interview -> generating -> completed
@@ -22,26 +23,18 @@ const ProjectBuilder = ({ type, onBack }) => {
         addLog("Analyzing topic scope...");
 
         try {
+
+
             const prompt = `You are a project supervisor. For a ${type === 'mini-project' ? 'Mini Project' : 'Final Year Major Project'} on topic "${topic}", 
             list 5 essential personalized architectural or functional questions to ask the student to define the project scope.
             Return a JSON OBJECT with a "questions" key containing an array of 5 strings.
             Example: { "questions": ["What technology stack do you prefer?", "Which specific module will be your main focus?"] }`;
 
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    "model": "stepfun/step-3.5-flash:free",
-                    "messages": [{ "role": "user", "content": prompt }],
-                    "response_format": { "type": "json_object" }
-                })
-            });
+            const resText = await getAICompletion(
+                [{ role: "user", content: prompt }],
+                { jsonMode: true }
+            );
 
-            const data = await response.json();
-            const resText = data.choices[0].message.content;
             const cleaned = resText.replace(/```json/g, '').replace(/```/g, '').trim();
             const questions = JSON.parse(cleaned).questions || JSON.parse(cleaned); // handle different JSON structures
 
@@ -112,25 +105,21 @@ const ProjectBuilder = ({ type, onBack }) => {
     };
 
     const fetchAI = async (prompt, isJson = false) => {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                "model": "stepfun/step-3.5-flash:free",
-                "messages": [{ "role": "user", "content": prompt }],
-                ...(isJson && { "response_format": { "type": "json_object" } })
-            })
-        });
-        const data = await response.json();
-        let content = data.choices[0].message.content;
-        if (isJson) {
-            content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(content);
+        try {
+            const content = await getAICompletion(
+                [{ role: "user", content: prompt }],
+                { jsonMode: isJson }
+            );
+
+            if (isJson) {
+                const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                return JSON.parse(cleaned);
+            }
+            return content;
+        } catch (error) {
+            console.error("AI Fetch Error:", error);
+            throw error;
         }
-        return content;
     };
 
     const downloadZip = async () => {

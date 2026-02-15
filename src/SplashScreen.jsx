@@ -1,16 +1,35 @@
+
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Lottie from 'lottie-react';
 
-const SplashScreen = ({ onComplete }) => {
+const SplashScreen = ({ onComplete, isAppReady = true }) => {
     const [isVisible, setIsVisible] = useState(true);
+    const [animationData, setAnimationData] = useState(null);
+    const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
     useEffect(() => {
+        // Fetch a cool "Science/Tech" themed Lottie animation
+        // URL Removed due to 403 error. Falling back to CSS loader.
+        // fetch("https://lottie.host/98695034-3151-4091-9577-62dc22883393/D2pL0B5O0I.json") 
+        //     .then(res => res.json())
+        //     .then(data => setAnimationData(data))
+        //     .catch(() => console.log("Using fallback loader"));
+        console.log("Using fallback loader");
+
+        // Minimum display time of 2.5s
         const timer = setTimeout(() => {
-            setIsVisible(false);
-            setTimeout(onComplete, 500); // Allow exit animation
-        }, 3500);
+            setMinTimeElapsed(true);
+        }, 2500);
         return () => clearTimeout(timer);
-    }, [onComplete]);
+    }, []);
+
+    useEffect(() => {
+        if (minTimeElapsed && isAppReady) {
+            setIsVisible(false);
+            setTimeout(onComplete, 800); // Allow exit animation
+        }
+    }, [minTimeElapsed, isAppReady, onComplete]);
 
     return (
         <AnimatePresence>
@@ -18,41 +37,36 @@ const SplashScreen = ({ onComplete }) => {
                 <motion.div
                     className="fixed-top w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-white"
                     initial={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5 }}
+                    exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
+                    transition={{ duration: 0.8 }}
                     style={{ zIndex: 9999 }}
                 >
                     <motion.div
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
+                        initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
-                        className="text-center"
+                        className="d-flex flex-column align-items-center justify-content-center"
                     >
-                        <div className="mb-4 d-flex justify-content-center align-items-center position-relative" style={{ width: 120, height: 120 }}>
-                            <motion.div
-                                animate={{
-                                    scale: [1, 1.2, 1],
-                                    rotate: [0, 10, -10, 0],
-                                    borderRadius: ["20%", "50%", "20%"]
-                                }}
-                                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                                className="w-100 h-100 bg-primary opacity-10 position-absolute rounded-circle"
-                            />
-                            <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                            >
-                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-                                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-                                </svg>
-                            </motion.div>
+                        {/* Lottie Animation Container */}
+                        <div style={{ width: 280, height: 280 }} className="mb-2">
+                            {animationData ? (
+                                <Lottie animationData={animationData} loop={true} />
+                            ) : (
+                                // Fallback if Lottie fails to load or is loading
+                                <div className="d-flex justify-content-center align-items-center h-100 w-100">
+                                    <div className="spinner-border text-primary" role="status" style={{ width: '4rem', height: '4rem' }}>
+                                        <span className="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        <h1 className="fw-bold display-4 mb-2" style={{ color: 'var(--text-main)' }}>
-                            IES<span style={{ color: 'var(--primary-accent)' }}>Notes</span>
-                        </h1>
-                        <p className="text-muted">Your Academic Superpower</p>
+                        <div className="text-center" style={{ marginTop: '-40px', position: 'relative', zIndex: 2 }}>
+                            <h1 className="fw-bold display-4 mb-2 tracking-tight" style={{ color: '#1e293b', letterSpacing: '-1px' }}>
+                                IES<span style={{ color: '#3b82f6' }}>Notes</span>
+                            </h1>
+                            <p className="text-muted small text-uppercase tracking-widest fw-bold">Your Academic Superpower</p>
+                        </div>
                     </motion.div>
                 </motion.div>
             )}

@@ -1,20 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, Pause, Sidebar, CheckCircle, Loader2, Maximize2, Minimize2, Download, Smartphone, Monitor, AlertCircle, RefreshCw, Sparkles, Layout } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Sidebar, CheckCircle, Loader2, Maximize2, Minimize2, Download, Smartphone, Monitor, AlertCircle, RefreshCw, Sparkles, Layout, History, Clock } from 'lucide-react';
+import { savePPT, getAllPPTs, deletePPT } from '../utils/pptDB';
+import { getAICompletion } from '../utils/aiService';
 
 const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customInstructions = '', theme = 'modern', descriptionLength = 'short', includeDiagrams = true }) => {
     const [status, setStatus] = useState('planning'); // planning, generating, completed, error
+    const [plan, setPlan] = useState([]);
     const [slides, setSlides] = useState([]);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+    const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState([]);
+    const [showLogs, setShowLogs] = useState(true); // Default to showing on desktop
+    const [executionTime, setExecutionTime] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
+    const [isPreviewMode, setIsPreviewMode] = useState(false); // Toggle between code/preview? No, simplified.
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, mobile
-    const [showLogs, setShowLogs] = useState(true);
     const [chatInput, setChatInput] = useState('');
     const [isRefining, setIsRefining] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
+    const [historyList, setHistoryList] = useState([]);
 
     const logsEndRef = useRef(null);
+    const isPausedRef = useRef(false); // Ref for immediate access in async loops
+    const abortControllerRef = useRef(null);
+    const iframeRef = useRef(null);
+
+    // Effect to update iframe content when slide changes
+    useEffect(() => {
+        if (iframeRef.current && slides[currentSlideIndex]?.html) {
+            // Ensure iframe content window is available
+            if (iframeRef.current.contentWindow) {
+                // Post message to iframe to update content without reload
+                iframeRef.current.contentWindow.postMessage({
+                    html: slides[currentSlideIndex].html
+                }, '*');
+            }
+        }
+    }, [currentSlideIndex, slides]);
 
     // Auto-scroll logs
     useEffect(() => {
@@ -33,8 +57,6 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
-
-    // ... (rest of the component)
 
     const addLog = (msg) => {
         setLogs(prev => [{ time: new Date().toLocaleTimeString(), msg }, ...prev]);
@@ -76,64 +98,70 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                 return JSON.parse(cleaned.substring(startIdx, endIdx + 1));
             }
         } catch (e) {
-            console.error("JSON Parse Error:", e, "\nOriginal Text:", text);
+            console.error("JSON Parse Error:", e, "\\nOriginal Text:", text);
             throw new Error("Failed to parse AI response.");
         }
     };
+
+    const fetchWithRetry = async (url, options, retries = 5, backoff = 2000) => {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok && (response.status === 429 || response.status >= 500)) {
+                throw new Error(`Server status: ${response.status}`);
+            }
+            return response;
+        } catch (err) {
+            if (retries > 0) {
+                const waitTime = backoff + Math.random() * 500; // Add jitter
+                addLog(`⚠️ Network hiccup. Retrying in ${(waitTime / 1000).toFixed(1)}s...`);
+                await new Promise(r => setTimeout(r, waitTime));
+                return fetchWithRetry(url, options, retries - 1, backoff * 2);
+            }
+            throw err;
+        }
+    };
+
 
     const generatePlan = async () => {
         addLog(`🎨 Creative Brief: Designing a premium ${slideCount}-slide experience for "${topic}"`);
         setStatus('planning');
 
         try {
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": window.location.origin,
-                    "X-Title": "IES Notes AI"
-                },
-                body: JSON.stringify({
-                    "model": "stepfun/step-3.5-flash:free",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": `You are a world-class presentation director and visual storyteller. 
-                            Create a detailed visual and content plan for a ${slideCount}-slide presentation on "${topic}".
-                            
-                            CONTEXT: ${customInstructions ? `User Instructions: "${customInstructions}"` : 'No specific user instructions.'}
-                            LENGTH: ${descriptionLength === 'short' ? 'Keep content concise and punchy.' : 'Provide detailed, comprehensive content.'}
-                            DIAGRAMS: ${includeDiagrams ? 'Aggressively suggest diagrams/visuals for complex concepts.' : 'Do NOT suggest complex diagrams, focus on text/images.'}
+            const systemPrompt = `You are a world-class presentation director and visual storyteller. 
+                Create a detailed visual and content plan for a ${slideCount}-slide presentation on "${topic}".
+                
+                CONTEXT: ${customInstructions ? `User Instructions: "${customInstructions}"` : 'No specific user instructions.'}
+                LENGTH: ${descriptionLength === 'short' ? 'Keep content concise and punchy.' : 'Provide detailed, comprehensive content.'}
+                DIAGRAMS: ${includeDiagrams ? 'Aggressively suggest diagrams/visuals for complex concepts.' : 'Do NOT suggest complex diagrams, focus on text/images.'}
 
-                            Your goal is to make a "Wow" presentation that is readable, aesthetic, and professionally structured.
-                            For each slide, define:
-                            1. 'title': Engaging and bold.
-                            2. 'type': 'hero' | 'grid' | 'split' | 'quote' | 'data' | 'conclusion'.
-                            3. 'detailedPrompt': Visual instructions for a developer. Describe the layout, icons, and specific points.
-                            
-                            RETURN A JSON OBJECT (not an array) with a "slides" key containing the array:
-                            {
-                              "slides": [
-                                { "title": "...", "type": "...", "detailedPrompt": "..." },
-                                ...
-                              ]
-                            }`
-                        },
-                        { "role": "user", "content": `Topic: ${topic}. Context: ${details}` }
-                    ],
-                    "response_format": { "type": "json_object" }
-                })
-            });
+                Your goal is to make a "Wow" presentation that is readable, aesthetic, and professionally structured.
+                For each slide, define:
+                1. 'title': Engaging and bold.
+                2. 'type': 'hero' | 'grid' | 'split' | 'quote' | 'data' | 'conclusion'.
+                3. 'briefIdea': A single sentence concise concept description.
 
-            const data = await response.json();
+                RETURN A JSON OBJECT (not an array) with a "slides" key containing the array:
+                {
+                  "slides": [
+                    { "title": "...", "type": "...", "briefIdea": "..." },
+                    ...
+                  ]
+                }`;
 
-            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-                console.error("Invalid AI Response:", data);
-                throw new Error("Invalid response from AI provider");
-            }
+            const userPrompt = `Topic: ${topic}. Context: ${details}`;
 
-            let planLines = data.choices[0].message.content;
+            const planContent = await getAICompletion(
+                [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
+                ],
+                {
+                    jsonMode: true,
+                    onFallback: (err) => addLog(`⚠️ Primary AI busy (${err}). Switching to Gemini Backup...`)
+                }
+            );
+
+            let planLines = planContent;
             let plan = cleanAndParseJSON(planLines);
 
             // Robust handling for AI returning an object instead of array
@@ -157,7 +185,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
             const initialSlides = plan.map(item => ({
                 title: item.title,
                 type: item.type,
-                prompt: item.detailedPrompt,
+                prompt: item.briefIdea || item.detailedPrompt || item.prompt || `Slide about ${item.title}`,
                 html: null,
                 status: 'pending'
             }));
@@ -184,6 +212,10 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
     useEffect(() => {
         if (status !== 'generating' || isPaused || isRefining) return;
 
+        // CRITICAL: Enforce sequential generation. 
+        // If ANY slide is currently generating, do not start another one.
+        if (slides.some(s => s.status === 'generating')) return;
+
         const generateNextSlide = async () => {
             const nextSlideIdx = slides.findIndex(s => s.status === 'pending');
             if (nextSlideIdx === -1) {
@@ -194,6 +226,13 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                 }
                 setStatus('completed');
                 addLog("🏆 Presentation synthesized successfully. Ready for preview.");
+                // Save to History
+                savePPT({
+                    topic,
+                    slides,
+                    theme,
+                    timestamp: new Date().toISOString()
+                }).then(() => addLog("💾 Presentation saved to history."));
                 return;
             }
 
@@ -231,66 +270,54 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
         const themeRules = getThemeRules(theme);
 
         let systemPrompt = `You are a senior Web UI Designer creating ultra-premium presentation slides.
-        Create a stunning, high-contrast, and extremely readable HTML slide for: "${title}".
-        
-        DESIGN SYSTEM:
-        - ${themeRules}
-        - Typography: Use 'Outfit' or 'Inter'. Title: 5vh bold (max 8vh). Body: 2.5vh-3vh light/regular.
-        - Visuals: Use flexbox/grid. Enforce 'flex-shrink: 1' on all internal elements.
-        - Spacing: Use 'vh' for margins and gaps (e.g., gap: 2vh).
-        - Motion: Add entrance animations (@keyframes fadeInDown { from { opacity: 0; transform: translateY(-2vh); } to { opacity: 1; transform: translateY(0); } }).
-        
-        VISUAL CONTENT RULES (CRITICAL):
-        1. **Mermaid Diagrams**: ${includeDiagrams ? 'For ANY data, process, workflow, or structure, YOU MUST use a Mermaid.js diagram. Embed inside: <div class="mermaid"> ...graph definition... </div>' : 'DO NOT use Mermaid diagrams. Use CSS shapes, icons, or text layouts instead.'}
-        2. **Vector Graphics**: Use ONLY inline SVGs for icons and illustrations.
-           - DO NOT use <img> tags with external URLs.
-        
-        LAYOUT RULES for Slide Type "${type}":
-        - hero: Massive centered title (7vh), subtext, 1 focal icon or Visual.
-        - grid: 3-4 cards.
-        - split: 45% Visual + 55% Content.
-        - quote: 4vh italicized text with horizontal accent lines.
-        
-        TECHNICAL:
-        - NO <html>, <head>, or <body> tags.
-        - Return ONLY the containing <div>.
-        - Wrapper style: width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4vh; box-sizing: border-box;
-        - VERTICAL SPACE: This slide is 16:9. You MUST NOT overflow the bottom. If there is a lot of text, truncate it or use smaller fonts.`;
+Create a stunning, high-contrast, and extremely readable HTML slide for: "${title}".
+
+DESIGN SYSTEM:
+- ${themeRules}
+- Typography: Use 'Outfit' or 'Inter'. Title: 5vh bold (max 8vh). Body: 2.5vh-3vh light/regular.
+- Visuals: Use flexbox/grid. Enforce 'flex-shrink: 1' on all internal elements.
+- Spacing: Use 'vh' for margins and gaps (e.g., gap: 2vh).
+- Motion: Add entrance animations (@keyframes fadeInDown { from { opacity: 0; transform: translateY(-2vh); } to { opacity: 1; transform: translateY(0); } }).
+
+VISUAL CONTENT RULES (CRITICAL):
+1. **Mermaid Diagrams**: ${includeDiagrams ? 'If a process/workflow is needed, use a Mermaid.js diagram. Embed inside: <div class="mermaid"> ...graph definition... </div>. \\n   - PREFERRED TYPES: graph TD, sequenceDiagram, mindmap.\\n   - CRITICAL: Use alphanumeric Node IDs (e.g. A[Label], Node1). Avoid special chars in IDs. Escape labels with quotes.' : 'DO NOT use Mermaid diagrams. Use CSS shapes, icons, or text layouts instead.'}
+2. **Vector Graphics**: Use ONLY simple inline SVGs. Ensure all <path> d attributes are complete and valid. Avoid overly complex paths.
+   - DO NOT use <img> tags with external URLs.
+
+LAYOUT RULES for Slide Type "${type}":
+- hero: Massive centered title (7vh), subtext, 1 focal icon or Visual.
+- grid: 3-4 cards.
+- split: 45% Visual + 55% Content.
+- quote: 4vh italicized text with horizontal accent lines.
+
+TECHNICAL:
+- NO <html>, <head>, or <body> tags.
+- Return ONLY the containing <div>.
+- Wrapper style: width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4vh; box-sizing: border-box;
+- VERTICAL SPACE: This slide is 16:9. You MUST NOT overflow the bottom. If there is a lot of text, truncate it or use smaller fonts.`;
 
         let userPrompt = `Synthesis Directive: ${prompt}. Topic: ${topic}. 
-        Constraint: ${descriptionLength === 'short' ? 'Keep text concise (bullet points, short sentences).' : 'Explain in detail with fuller sentences.'}
-        IMPORTANT: Content MUST be perfectly contained within the 16:9 frame. Use 'vh' units for all font-sizes and spacing.`;
+Context: ${details || 'No specific context provided.'}
+Constraint: ${descriptionLength === 'short' ? 'Keep text concise (bullet points, short sentences).' : 'Explain in detail with fuller sentences.'}
+IMPORTANT: Content MUST be perfectly contained within the 16:9 frame. Use 'vh' units for all font-sizes and spacing.`;
 
         if (userInstruction && currentHTML) {
-            systemPrompt += `\n\nTASK: The user wants to Modify the existing slide. Retain the core structure but apply the change.`;
+            systemPrompt += `\\n\\nTASK: The user wants to Modify the existing slide. Retain the core structure but apply the change.`;
             userPrompt += `\n\nCURRENT HTML: ${currentHTML}\n\nUSER MODIFICATION REQUEST: ${userInstruction}`;
         }
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": window.location.origin,
-                "X-Title": "IES Notes AI"
-            },
-            body: JSON.stringify({
-                "model": "stepfun/step-3.5-flash:free",
-                "messages": [
-                    { "role": "system", "content": systemPrompt },
-                    { "role": "user", "content": userPrompt }
-                ]
-            })
-        });
+        const htmlContent = await getAICompletion(
+            [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            {
+                jsonMode: false,
+                onFallback: (err) => addLog(`⚠️ Primary AI busy (${err}). Switching to Gemini Backup...`)
+            }
+        );
 
-        const data = await response.json();
-
-        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-            console.error("Slide Synthesis Error:", data);
-            throw new Error("Invalid response from AI provider");
-        }
-
-        let html = data.choices[0].message.content;
+        let html = htmlContent;
         html = html.replace(/```html/g, '').replace(/```/g, '').trim();
 
         if (!html.includes('<div')) throw new Error("Synthesis failed to produce valid markup.");
@@ -342,109 +369,137 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
         }
     };
 
+    const loadHistory = async () => {
+        try {
+            const list = await getAllPPTs();
+            setHistoryList(list);
+            setShowHistory(true);
+        } catch (err) {
+            console.error("Failed to load history", err);
+        }
+    };
+
+    const restorePPT = (ppt) => {
+        setSlides(ppt.slides);
+        setStatus('completed');
+        setCurrentSlideIndex(0);
+        setShowHistory(false);
+        addLog(`📂 Loaded presentation: "${ppt.topic}"`);
+    };
+
+    const handleDeletePPT = async (id, e) => {
+        e.stopPropagation();
+        try {
+            await deletePPT(id);
+            setHistoryList(prev => prev.filter(item => item.id !== id));
+        } catch (err) {
+            console.error("Failed to delete", err);
+        }
+    };
+
     const downloadHTML = () => {
         const fullContent = `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <title>${topic} - IES AI Presentation</title>
-                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-                <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-                <script>mermaid.initialize({startOnLoad:true, theme: 'dark'});</script>
-                <style>
-                    * { box-sizing: border-box; }
-                    body { 
-                        margin: 0; 
-                        padding: 0; 
-                        background: #020617; 
-                        font-family: 'Outfit', sans-serif; 
-                        overflow: hidden; 
-                        color: #f8fafc;
-                        width: 100vw;
-                        height: 100vh;
-                    }
-                    .presentation { width: 100%; height: 100%; position: relative; }
-                    .slide-container { width: 100%; height: 100%; display: none; position: absolute; top:0; left:0; transition: opacity 0.8s ease-in-out; }
-                    .slide-container.active { display: block; }
-                    .controls { 
-                        position: fixed; 
-                        bottom: 40px; 
-                        left: 50%; 
-                        transform: translateX(-50%); 
-                        z-index: 1000; 
-                        display: flex; 
-                        gap: 15px; 
-                        background: rgba(15, 23, 42, 0.7); 
-                        padding: 12px 24px; 
-                        border-radius: 50px; 
-                        backdrop-filter: blur(20px); 
-                        border: 1px solid rgba(255,255,255,0.1); 
-                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                    }
-                    button { 
-                        padding: 10px 22px; 
-                        background: transparent; 
-                        border: none; 
-                        border-radius: 25px; 
-                        cursor: pointer; 
-                        font-weight: 600; 
-                        color: white; 
-                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-                        font-size: 14px; 
-                        border: 1px solid rgba(255,255,255,0.05);
-                    }
-                    button:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
-                    button:disabled { opacity: 0.3; cursor: not-allowed; }
-                    .progress { position: fixed; top: 0; left: 0; height: 5px; background: linear-gradient(90deg, #3b82f6, #a855f7); transition: width 0.4s; z-index: 1001; }
-                    .slide-num { display:flex; align-items:center; opacity: 0.5; font-size: 13px; font-weight: 500; letter-spacing: 0.05em; margin: 0 10px; }
-                </style>
-            </head>
-            <body>
-                <div class="progress" id="progressBar" style="width: 0%"></div>
-                <div class="presentation">
-                    ${slides.map((s, i) => `<div class="slide-container ${i === 0 ? 'active' : ''}" id="slide-${i}">${s.html}</div>`).join('')}
-                </div>
-                
-                <div class="controls">
-                    <button id="prevBtn" onclick="prevSlide()">Pre</button>
-                    <span id="slideCounter" class="slide-num">1 / ${slides.length}</span>
-                    <button id="nextBtn" onclick="nextSlide()">Next</button>
-                    <button id="fsBtn" onclick="toggleFS()">⛶</button>
-                </div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>${topic} - IES AI Presentation</title>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({startOnLoad:true, theme: 'dark'});</script>
+        <style>
+            * { box-sizing: border-box; }
+            body { 
+                margin: 0; 
+                padding: 0; 
+                background: #020617; 
+                font-family: 'Outfit', sans-serif; 
+                overflow: hidden; 
+                color: #f8fafc;
+                width: 100vw;
+                height: 100vh;
+            }
+            .presentation { width: 100%; height: 100%; position: relative; }
+            .slide-container { width: 100%; height: 100%; display: none; position: absolute; top:0; left:0; transition: opacity 0.8s ease-in-out; }
+            .slide-container.active { display: block; }
+            .controls { 
+                position: fixed; 
+                bottom: 40px; 
+                left: 50%; 
+                transform: translateX(-50%); 
+                z-index: 1000; 
+                display: flex; 
+                gap: 15px; 
+                background: rgba(15, 23, 42, 0.7); 
+                padding: 12px 24px; 
+                border-radius: 50px; 
+                backdrop-filter: blur(20px); 
+                border: 1px solid rgba(255,255,255,0.1); 
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            }
+            button { 
+                padding: 10px 22px; 
+                background: transparent; 
+                border: none; 
+                border-radius: 25px; 
+                cursor: pointer; 
+                font-weight: 600; 
+                color: white; 
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+                font-size: 14px; 
+                border: 1px solid rgba(255,255,255,0.05);
+            }
+            button:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+            button:disabled { opacity: 0.3; cursor: not-allowed; }
+            .progress { position: fixed; top: 0; left: 0; height: 5px; background: linear-gradient(90deg, #3b82f6, #a855f7); transition: width 0.4s; z-index: 1001; }
+            .slide-num { display:flex; align-items:center; opacity: 0.5; font-size: 13px; font-weight: 500; letter-spacing: 0.05em; margin: 0 10px; }
+        </style>
+    </head>
+    <body>
+        <div class="progress" id="progressBar" style="width: 0%"></div>
+        <div class="presentation">
+            ${slides.map((s, i) => `<div class="slide-container ${i === 0 ? 'active' : ''}" id="slide-${i}">${s.html}</div>`).join('')}
+        </div>
+        
+        <div class="controls">
+            <button id="prevBtn" onclick="prevSlide()">Pre</button>
+            <span id="slideCounter" class="slide-num">1 / ${slides.length}</span>
+            <button id="nextBtn" onclick="nextSlide()">Next</button>
+            <button id="fsBtn" onclick="toggleFS()">⛶</button>
+        </div>
 
-                <script>
-                    let current = 0;
-                    const total = ${slides.length};
-                    function updateUI() {
-                        document.querySelectorAll('.slide-container').forEach(el => el.classList.remove('active'));
-                        document.getElementById('slide-' + current).classList.add('active');
-                        document.getElementById('slideCounter').innerText = (current + 1) + ' / ' + total;
-                        document.getElementById('progressBar').style.width = ((current + 1) / total * 100) + '%';
-                        document.getElementById('prevBtn').disabled = current === 0;
-                        document.getElementById('nextBtn').disabled = current === total -1;
-                    }
-                    function nextSlide() { if(current < total - 1) { current++; updateUI(); } }
-                    function prevSlide() { if(current > 0) { current--; updateUI(); } }
-                    function toggleFS() {
-                        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-                        else if (document.exitFullscreen) document.exitFullscreen();
-                    }
-                    document.addEventListener('keydown', (e) => {
-                        if(e.key === 'ArrowRight' || e.key === ' ') nextSlide();
-                        if(e.key === 'ArrowLeft') prevSlide();
-                    });
-                    updateUI();
-                </script>
-            </body>
-            </html>
-        `;
+        <script>
+            let current = 0;
+            const total = ${slides.length};
+            function updateUI() {
+                document.querySelectorAll('.slide-container').forEach(el => el.classList.remove('active'));
+                document.getElementById('slide-' + current).classList.add('active');
+                document.getElementById('slideCounter').innerText = (current + 1) + ' / ' + total;
+                document.getElementById('progressBar').style.width = ((current + 1) / total * 100) + '%';
+                document.getElementById('prevBtn').disabled = current === 0;
+                document.getElementById('nextBtn').disabled = current === total -1;
+            }
+            function nextSlide() { if(current < total - 1) { current++; updateUI(); } }
+            function prevSlide() { if(current > 0) { current--; updateUI(); } }
+            function toggleFS() {
+                if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+                else if (document.exitFullscreen) document.exitFullscreen();
+            }
+            document.addEventListener('keydown', (e) => {
+                if(e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+                if(e.key === 'ArrowLeft') prevSlide();
+            });
+            updateUI();
+        </script>
+    </body>
+    </html>
+`;
 
         const blob = new Blob([fullContent], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${topic.replace(/\s+/g, '_')}_Presentation.html`;
+        a.download = `${topic.replace(/\\s+/g, '_')}_Presentation.html`;
         a.click();
     };
 
@@ -470,6 +525,9 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                                 <RefreshCw size={14} className="me-1" /> Retry
                             </button>
                         )}
+                        <button onClick={loadHistory} className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-flex align-items-center">
+                            <History size={14} className="me-1" /> History
+                        </button>
                         <button onClick={() => setShowLogs(!showLogs)} className={`btn btn-sm ${showLogs ? 'btn-primary' : 'btn-outline-primary'} rounded-pill px-3 fw-bold d-none d-md-flex align-items-center`}>
                             <Sidebar size={14} className="me-1" /> {showLogs ? 'Hide Logs' : 'Logs'}
                         </button>
@@ -566,34 +624,71 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                         >
                             {slides[currentSlideIndex]?.html ? (
                                 <iframe
+                                    ref={iframeRef}
                                     srcDoc={`
-                                        <!DOCTYPE html>
-                                        <html>
-                                            <head>
-                                                <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-                                                <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-                                                <script>mermaid.initialize({startOnLoad:true, theme: 'dark'});</script>
-                                                <style>
-                                                    * { box-sizing: border-box; }
-                                                    body { 
-                                                        margin: 0; 
-                                                        padding: 0; 
-                                                        width: 100vw; 
-                                                        height: 100vh; 
-                                                        overflow: hidden; 
-                                                        font-family: 'Outfit', sans-serif; 
-                                                        background: #020617;
-                                                        color: #f8fafc;
-                                                    }
-                                                    ::-webkit-scrollbar { display: none; }
-                                                </style>
-                                            </head>
-                                            <body>${slides[currentSlideIndex].html}</body>
-                                        </html>
-                                    `}
+                                <!DOCTYPE html>
+                                <html>
+                                    <head>
+                                        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+                                        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+                                        <script>mermaid.initialize({startOnLoad:false, theme: 'dark'});</script>
+                                        <style>
+                                            * { box-sizing: border-box; }
+                                            body { 
+                                                margin: 0; 
+                                                padding: 0; 
+                                                width: 100vw; 
+                                                height: 100vh; 
+                                                overflow: hidden; 
+                                                font-family: 'Outfit', sans-serif; 
+                                                background: #020617;
+                                                color: #f8fafc;
+                                                transition: opacity 0.3s ease;
+                                                display: flex;
+                                                align-items: center;
+                                                justify-content: center;
+                                            }
+                                            ::-webkit-scrollbar { display: none; }
+                                            #app { width: 100%; height: 100%; opacity: 0; transition: opacity 0.4s ease-out; }
+                                            .slide-content { width: 100%; height: 100%; animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+                                            @keyframes slideIn { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+                                        </style>
+                                    </head>
+                                    <body>
+                                        <div id="app"></div>
+                                        <script>
+                                            window.addEventListener('message', (event) => {
+                                                const { html } = event.data;
+                                                const app = document.getElementById('app');
+                                                
+                                                // Fade out slightly
+                                                app.style.opacity = '0';
+                                                
+                                                setTimeout(() => {
+                                                    app.innerHTML = '<div class="slide-content">' + html + '</div>';
+                                                    
+                                                    // Re-init mermaid
+                                                    try {
+                                                        mermaid.run({ 
+                                                            nodes: document.querySelectorAll('.mermaid'),
+                                                            suppressErrors: true 
+                                                        });
+                                                    } catch(e) { console.error('Mermaid Error:', e); }
+                                                    
+                                                    // Fade in
+                                                    // Use requestAnimationFrame to ensure DOM update is registered before opacity transition
+                                                    requestAnimationFrame(() => {
+                                                        app.style.opacity = '1';
+                                                    });
+                                                }, 250); // Small delay to allow fade out
+                                            });
+                                        </script>
+                                    </body>
+                                </html>
+                            `}
                                     className="w-100 h-100 border-0"
                                     title="Synthesis Preview"
-                                    sandbox="allow-scripts allow-same-origin"
+                                    sandbox="allow-scripts"
                                 />
                             ) : (
                                 <div className="h-100 w-100 d-flex flex-column align-items-center justify-content-center text-white p-5 bg-gradient-to-br from-slate-900 to-black">
@@ -653,6 +748,60 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                     </div>
                 </div>
             </div>
+
+            {/* History Modal */}
+            <AnimatePresence>
+                {showHistory && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed-top w-100 h-100 d-flex align-items-center justify-content-center bg-black bg-opacity-75 z-50"
+                        style={{ zIndex: 1100 }}
+                        onClick={() => setShowHistory(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="bg-white rounded-4 overflow-hidden shadow-2xl d-flex flex-column"
+                            style={{ width: '90%', maxWidth: '500px', maxHeight: '80vh' }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+                                <h6 className="mb-0 fw-bold d-flex align-items-center gap-2"><History size={18} /> Presentation History</h6>
+                                <button onClick={() => setShowHistory(false)} className="btn-close"></button>
+                            </div>
+                            <div className="p-3 overflow-auto custom-scrollbar flex-grow-1">
+                                {historyList.length === 0 ? (
+                                    <div className="text-center text-muted py-5">
+                                        <Clock size={32} className="mb-2 opacity-25" />
+                                        <p>No saved presentations yet.</p>
+                                    </div>
+                                ) : (
+                                    <div className="d-flex flex-column gap-2">
+                                        {historyList.map(ppt => (
+                                            <div key={ppt.id} onClick={() => restorePPT(ppt)} className="p-3 border rounded-3 hover-bg-light cursor-pointer transition-all d-flex justify-content-between align-items-center group">
+                                                <div>
+                                                    <div className="fw-bold text-dark">{ppt.topic}</div>
+                                                    <div className="small text-secondary">{new Date(ppt.timestamp).toLocaleString()} • {ppt.slideCount} Slides</div>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => handleDeletePPT(ppt.id, e)}
+                                                    className="btn btn-sm btn-outline-danger opacity-0 group-hover-opacity-100 transition-opacity rounded-circle p-1"
+                                                    title="Delete"
+                                                >
+                                                    <Minimize2 size={14} className="rotate-45" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
 
         </div>

@@ -31,7 +31,7 @@ const iconMap = {
 };
 
 import SplashScreen from './SplashScreen';
-// SkeletonLoader removed as requested
+import SkeletonLoader from './components/SkeletonLoader';
 
 function App() {
   // Splash Screen State
@@ -371,7 +371,7 @@ function App() {
     else if (currentView.type === 'subject') await fetchNotes(currentView.id);
   };
 
-  if (showSplash) return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  if (showSplash) return <SplashScreen onComplete={() => setShowSplash(false)} isAppReady={!initializing} />;
 
   if (initializing) return null; // Wait for splash or data
 

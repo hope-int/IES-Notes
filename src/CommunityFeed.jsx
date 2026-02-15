@@ -431,6 +431,7 @@ export default function CommunityFeed({ profile }) {
 
             {/* Feed */}
             <div className="d-flex flex-column gap-3">
+                {loading && <SkeletonLoader type="card" count={3} />}
                 <AnimatePresence>
                     {posts.map(post => (
                         <motion.div
