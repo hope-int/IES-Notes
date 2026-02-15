@@ -163,15 +163,56 @@ const fetchBackendFallback = async (messages, model, jsonMode) => {
     }
 };
 
+
+// Dedicated Groq Fetch for J-Compiler (Faster & More Reliable for Code)
+const fetchGroqDirectly = async (messages, jsonMode) => {
+    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!groqKey) throw new Error("Groq API Key Missing");
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${groqKey}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: "llama-3.1-8b-instant", // Use latest supported model
+            messages,
+            response_format: jsonMode ? { type: "json_object" } : undefined,
+            temperature: 0.2 // Lower temperature for more deterministic code output
+        })
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Groq Direct Error (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+};
+
+// Generic AI Completion Strategy
 export const getAICompletion = async (messages, options = {}) => {
     const {
         jsonMode = false,
         model = "liquid/lfm-2.5-1.2b-instruct:free",
-        onFallback = () => { }
+        onFallback = () => { },
+        provider = "auto" // 'auto' | 'groq' | 'puter'
     } = options;
 
+    // Strategy 1: Explicit Provider Request (e.g., J-Compiler requests Groq)
+    if (provider === 'groq') {
+        try {
+            return await fetchGroqDirectly(messages, jsonMode);
+        } catch (groqErr) {
+            console.warn("Groq Direct failed, falling back to standard pipeline:", groqErr);
+            // Fall through to standard pipeline
+        }
+    }
+
+    // Strategy 2: Standard Pipeline (Puter -> Backend/OpenRouter)
     // 1. Primary: Puter.js
-    // Check Circuit Breaker
     let usePuter = isPuterHealthy();
 
     if (usePuter) {
@@ -179,19 +220,110 @@ export const getAICompletion = async (messages, options = {}) => {
             return await fetchPuter(messages, jsonMode);
         } catch (puterErr) {
             recordPuterFailure();
-            console.warn("Puter.js failed (Circuit Breaker Failure Recorded), switching to OpenRouter:", puterErr);
-            if (onFallback) onFallback(`Puter Error: ${puterErr.message}. Switching to OpenRouter...`);
-            // Proceed to fallbacks...
+            console.warn("Puter.js failed. Switching to Backend/OpenRouter:", puterErr);
+            if (onFallback) onFallback(`Puter Error: ${puterErr.message}. Switching to Fallback...`);
         }
-    } else {
-        console.warn("Puter.js is temporarily disabled due to recurring errors. Using OpenRouter.");
     }
 
-    // 2. Backup: Secure Backend (OpenRouter -> Groq)
+    // 2. Backup: Secure Backend (OpenRouter -> Groq Fallback)
     try {
         return await fetchBackendFallback(messages, model, jsonMode);
     } catch (backendErr) {
-        console.error("All AI Services Failed (Puter & Backend):", backendErr);
-        throw new Error(`AI Failure: Puter (${usePuter ? 'Failed' : 'Circuit Breaker'}) & Backend (${backendErr.message})`);
+        // 3. Final Resort: Client-Side Groq (if backend fails)
+        console.warn("Backend failed. Attempting Client-Side Groq Last Resort.");
+        try {
+            return await fetchGroqDirectly(messages, jsonMode);
+        } catch (finalErr) {
+            console.error("All AI Services Failed:", finalErr);
+            throw new Error(`AI Failure: All providers exhausted.`);
+        }
+    }
+};
+
+// J-Compiler: Simulation & Debugging
+export const simulateCodeExecution = async (code, language = "auto", inputs = []) => {
+    const systemPrompt = `You are J-Compiler, an advanced AI Code Execution Engine acting as an INTERACTIVE TERMINAL.
+
+    TASK:
+    1. ANALYZE the provided code.
+    2. DETECT the language (if 'auto').
+    3. SIMULATE the execution step-by-step.
+    4. HANDLE INPUTS:
+       - Use the provided 'Inputs History' for any input/scan functions (scanf, input, cin, etc.) in order.
+       - If the code encounters a read operation and there is NO corresponding input in history:
+         -> STOP execution immediately.
+         -> PREDICT the output up to that point.
+         -> SET status to "input_required".
+         -> SET inputPrompt to the text just before the cursor (e.g. "Enter number: ").
+    
+    5. PREDICT the precise console output.
+    6. DETECT any Traceback/Compilation Errors.
+
+    RESPONSE FORMAT (Strict JSON):
+    {
+      "language": "detected_language",
+      "output": "The predicted console output so far...",
+      "status": "success" | "error" | "input_required",
+      "inputPrompt": "Prompt text for the user (only if input_required)",
+      "errorExplanation": "Clear explanation of the bug (if error)",
+      "fixedCode": "The corrected version of the code (if error)"
+    }
+    
+    IMPORTANT: 
+    - Be extremely accurate with output simulation.
+    - "output" should include EVERYTHING printed to stdout.
+    - IMPORTANT: Simulate a real terminal session. This means validation/echo of the 'Inputs History' should be reflected in the "output" string (e.g., if program asks "Name:" and history has "John", output should be "Name: John\n...").
+    - If "input_required", the "output" must end exactly where the terminal waits.`;
+
+    const messages = [
+        { role: "system", content: systemPrompt },
+        {
+            role: "user",
+            content: `Language: ${language}\n\nCode:\n${code}\n\nInputs History: ${JSON.stringify(inputs)}`
+        }
+    ];
+
+    try {
+        // Enforce Groq for J-Compiler
+        const responseCallback = await getAICompletion(messages, { jsonMode: true, provider: 'groq' });
+
+        let cleanResponse = responseCallback;
+        if (responseCallback.includes('```json')) {
+            cleanResponse = responseCallback.replace(/```json/g, '').replace(/```/g, '').trim();
+        }
+        return JSON.parse(cleanResponse);
+    } catch (e) {
+        console.error("J-Compiler Simulation Failed:", e);
+        throw new Error("Failed to simulate code execution.");
+    }
+};
+
+// J-Compiler: Reverse Engineering (Output -> Code)
+export const reverseEngineerCode = async (expectedOutput, language = "javascript") => {
+    const systemPrompt = `You are J-Compiler, an Expert Reverse-Engineering AI.
+    
+    TASK:
+    1. ANALYZE the 'Expected Output'.
+    2. GENERATE the most efficient and clean code in the target 'Language' that produces EXACTLY this output.
+    3. EXPLAIN your implementation logic briefly.
+    
+    RESPONSE FORMAT (Strict JSON):
+    {
+      "code": "The generated source code...",
+      "explanation": "Brief explanation of how it works"
+    }`;
+
+    const messages = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Target Language: ${language}\n\nExpected Output:\n${expectedOutput}` }
+    ];
+
+    try {
+        // Enforce Groq for Reverse Engineering
+        const responseCallback = await getAICompletion(messages, { jsonMode: true, provider: 'groq' });
+        return JSON.parse(responseCallback);
+    } catch (e) {
+        console.error("J-Compiler Reverse Engineering Failed:", e);
+        throw new Error("Failed to reverse engineer code.");
     }
 };

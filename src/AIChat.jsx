@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText, ChevronLeft, ChevronRight, Users, Code, Cpu } from 'lucide-react';
+import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText, ChevronLeft, ChevronRight, Users, Code, Cpu, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
+import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
@@ -94,6 +95,7 @@ export default function AIChat({ profile, setActiveTab }) {
     const [showFeatures, setShowFeatures] = useState(!activeSessionId);
     const [selectedFeature, setSelectedFeature] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const navigate = useNavigate();
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [syllabusText, setSyllabusText] = useState('');
@@ -345,13 +347,22 @@ export default function AIChat({ profile, setActiveTab }) {
                             { id: 'report', icon: FileText, title: "Report", desc: "Create academic reports.", color: 'text-success', bg: 'bg-success' },
                             { id: 'assignment', icon: Sparkles, title: "Assignment", desc: "Generate quizzes & questions.", color: 'text-warning', bg: 'bg-warning' },
                             { id: 'mini-project', icon: Code, title: "Mini Project", desc: "Full code, abstract & report.", color: 'text-info', bg: 'bg-info' },
-                            { id: 'final-project', icon: Cpu, title: "Final Year Project", desc: "Complete major project suite.", color: 'text-danger', bg: 'bg-danger' }
+                            { id: 'final-project', icon: Cpu, title: "Final Year Project", desc: "Complete major project suite.", color: 'text-danger', bg: 'bg-danger' },
+                            { id: 'j-compiler', icon: Terminal, title: "J-Compiler", desc: "AI Code Simulator & Debugger.", color: 'text-dark', bg: 'bg-secondary' }
                         ].map(tool => (
                             <div key={tool.id} className="col-md-4">
                                 <motion.div
                                     whileHover={{ y: -5 }}
                                     className="clay-card h-100 p-4 text-center cursor-pointer"
-                                    onClick={() => setSelectedFeature({ type: 'content-tools', tool: tool.id })}
+                                    onClick={(e) => {
+                                        if (tool.id === 'j-compiler') {
+                                            e.stopPropagation();
+                                            console.log("Navigating to J-Compiler...");
+                                            navigate('/compiler');
+                                        } else {
+                                            setSelectedFeature({ type: 'content-tools', tool: tool.id });
+                                        }
+                                    }}
                                 >
                                     <div className={`${tool.bg} bg-opacity-10 p-3 rounded-circle d-inline-block mb-3 ${tool.color}`}>
                                         <tool.icon size={32} />
