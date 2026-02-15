@@ -14,11 +14,6 @@ export default function JCompiler() {
     const [language, setLanguage] = useState('auto');
     const [copySuccess, setCopySuccess] = useState(false);
 
-    // Interactive Terminal State
-    const [inputHistory, setInputHistory] = useState([]);
-    const [isWaitingInput, setIsWaitingInput] = useState(false);
-    const [currentInput, setCurrentInput] = useState('');
-    const inputRef = useRef(null);
     const terminalEndRef = useRef(null);
 
     // Auto-scroll to bottom of terminal
@@ -26,30 +21,20 @@ export default function JCompiler() {
         if (terminalEndRef.current) {
             terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [output, isWaitingInput]);
-
-    // Focus input when waiting
-    useEffect(() => {
-        if (isWaitingInput && inputRef.current) {
-            inputRef.current.focus();
-        }
-    }, [isWaitingInput]);
+    }, [output]);
 
     const handleRun = async () => {
         if (!input.trim() || loading) return;
         setLoading(true);
         setOutput(null);
-        setInputHistory([]);
-        setIsWaitingInput(false);
-        setCurrentInput('');
 
-        await runSimulation([]);
+        await runSimulation();
     };
 
-    const runSimulation = async (history) => {
+    const runSimulation = async () => {
         try {
             if (mode === 'compiler') {
-                const result = await simulateCodeExecution(input, language, history);
+                const result = await simulateCodeExecution(input, language);
                 setOutput({
                     text: result.output,
                     status: result.status,
@@ -57,13 +42,6 @@ export default function JCompiler() {
                     fixedCode: result.fixedCode,
                     detectedLanguage: result.language
                 });
-
-                if (result.status === 'input_required') {
-                    setIsWaitingInput(true);
-                    setLoading(false); // Stop loading when waiting for input
-                } else {
-                    setIsWaitingInput(false);
-                }
             } else {
                 // Reverse Engineer Mode (Static)
                 const result = await reverseEngineerCode(input, language);
@@ -80,52 +58,12 @@ export default function JCompiler() {
                 status: 'error'
             });
         } finally {
-            // Only stop loading if we are NOT waiting for input
-            // If status is input_required, we already stopped loading above
-            // If status is success/error, we stop loading here
-            if (mode !== 'compiler') {
-                setLoading(false);
-            } else {
-                // For compiler, we check the result status inside the try block mostly
-                // But if an error occurred, we must ensure loading is off
-                // We can't easily access 'result' here if error happened, so we rely on state
-                // However, state updates are async. better to handle explicit loading off cases.
-                // Simplified: If waiting for input, loading is FALSE (interactive state).
-                // If finished (success/error), loading is FALSE.
-                // So we can safely set loading false here IF we are not waiting for input?
-                // Actually, due to React state closure, 'isWaitingInput' might be stale here if set above.
-                // But the try block sets it.
-                // Let's rely on the explicit setLoading(false) in the try block for input_required
-                // And force it off here for other cases.
-                // To be safe: just set loading false. IF waiting for input, the UI shows the input field.
-                // The 'Running...' button state is mostly for the initial "thinking" phase.
-                setLoading(false);
-            }
-        }
-    };
-
-    const handleInputSubmit = async (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            // Prevent double submission if already loading
-            if (loading) return;
-
-            const newHistory = [...inputHistory, currentInput];
-            setInputHistory(newHistory);
-            setIsWaitingInput(false);
-
-            // Immediately show local echo before AI responds
-            const previousText = output?.text || "";
-            setOutput(prev => ({ ...prev, text: previousText + currentInput + "\n" }));
-
-            setCurrentInput('');
-            setLoading(true); // Show loading while processing next step
-
-            await runSimulation(newHistory);
+            setLoading(false);
         }
     };
 
     const copyToClipboard = (text) => {
+        if (!text) return;
         navigator.clipboard.writeText(text);
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
@@ -198,15 +136,17 @@ export default function JCompiler() {
                                     <option value="java">☕ Java</option>
                                     <option value="cpp">⚙️ C++</option>
                                     <option value="html">🌐 HTML/CSS</option>
+                                    <option value="c">⚙️ C</option>
+                                    <option value="assembly">⚙️ Assembly</option>
                                 </select>
 
                                 <button
                                     className="btn btn-primary btn-sm d-flex align-items-center gap-2 shadow-sm rounded-pill px-3 fw-bold"
                                     onClick={handleRun}
-                                    disabled={loading && !isWaitingInput}
+                                    disabled={loading}
                                     style={{ background: 'var(--primary-accent)', border: 'none' }}
                                 >
-                                    {loading && !isWaitingInput ? (
+                                    {loading ? (
                                         <>
                                             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                                             Running...
@@ -280,30 +220,15 @@ export default function JCompiler() {
                                         className="h-100 d-flex flex-column"
                                     >
                                         {/* Status Badge */}
-                                        {mode === 'compiler' && output.status !== 'input_required' && (
+                                        {mode === 'compiler' && (
                                             <div className={`badge mb-3 px-3 py-2 rounded-pill align-self-start ${output.status === 'error' ? 'bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25' : 'bg-success bg-opacity-25 text-success border border-success border-opacity-25'}`}>
                                                 {output.status === 'error' ? 'Compilation Failed' : 'Build Success'}
                                             </div>
                                         )}
 
                                         {/* Main Terminal Output */}
-                                        <div className="flex-grow-1" style={{ whiteSpace: 'pre-wrap', color: output.status === 'error' ? '#ff6b6b' : '#55efc4', minHeight: '100px' }} onClick={() => inputRef.current?.focus()}>
+                                        <div className="flex-grow-1" style={{ whiteSpace: 'pre-wrap', color: output.status === 'error' ? '#ff6b6b' : '#55efc4', minHeight: '100px' }}>
                                             {output.text}
-                                            {isWaitingInput && (
-                                                <span className="d-inline-flex align-items-center">
-                                                    <input
-                                                        ref={inputRef}
-                                                        type="text"
-                                                        value={currentInput}
-                                                        onChange={(e) => setCurrentInput(e.target.value)}
-                                                        onKeyDown={handleInputSubmit}
-                                                        className="bg-transparent border-0 text-white p-0 m-0 outline-none"
-                                                        style={{ outline: 'none', caretColor: 'white', minWidth: '10px' }}
-                                                        autoFocus
-                                                    />
-                                                    <span className="ms-1 bg-white" style={{ width: 8, height: 16, animation: 'blink 1s step-end infinite' }}></span>
-                                                </span>
-                                            )}
                                             <div ref={terminalEndRef} />
                                         </div>
 

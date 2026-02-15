@@ -179,7 +179,7 @@ const fetchGroqDirectly = async (messages, jsonMode) => {
             model: "llama-3.1-8b-instant", // Use latest supported model
             messages,
             response_format: jsonMode ? { type: "json_object" } : undefined,
-            temperature: 0.2 // Lower temperature for more deterministic code output
+            temperature: 0.1 // Low temperature for deterministic code execution
         })
     });
 
@@ -242,56 +242,43 @@ export const getAICompletion = async (messages, options = {}) => {
 
 // J-Compiler: Simulation & Debugging
 export const simulateCodeExecution = async (code, language = "auto", inputs = []) => {
-    const systemPrompt = `You are J-Compiler, an advanced AI Code Execution Engine acting as an INTERACTIVE TERMINAL.
+    const systemPrompt = `You are J-Compiler, an Expert AI Code Execution Engine.
 
-    TASK:
-    1. ANALYZE the provided code.
-    2. DETECT the language (if 'auto').
-    3. SIMULATE the execution step-by-step.
-    4. HANDLE INPUTS:
-       - Use the provided 'Inputs History' for any input/scan functions (scanf, input, cin, etc.) in order.
-       - If the code encounters a read operation and there is NO corresponding input in history:
-         -> STOP execution immediately.
-         -> PREDICT the output up to that point.
-         -> SET status to "input_required".
-         -> SET inputPrompt to the text just before the cursor (e.g. "Enter number: ").
-    
-    5. PREDICT the precise console output.
-    6. DETECT any Traceback/Compilation Errors.
+    YOUR GOAL: Simulate the COMPLETE execution of the provided code and return the final console output.
+
+    STRICT EXECUTION RULES:
+    1.  **NO INTERACTION**: Do not stop for user input. If the code requires input (e.g., scanf, cin, input(), prompt()), simulate the execution by providing standard, logical sample inputs.
+    2.  **CONSOLE REALISM**: The "output" property must contain the FULL terminal session. This includes:
+        - All printed prompts (e.g., "Enter a number: ").
+        - The simulated user inputs typed next to those prompts (e.g., "5").
+        - The final calculated results and any subsequent output.
+    3.  **ACCURACY**:
+        - Scan for syntax errors first. If found, set status="error".
+        - Perform all arithmetic and logic precisely. Do not hallucinate results.
+        - Follow all loops, conditionals, and logic paths until the program terminates.
 
     RESPONSE FORMAT (Strict JSON):
     {
+      "reasoning": "Internal step-by-step logic tracing",
       "language": "detected_language",
-      "output": "The predicted console output so far...",
-      "status": "success" | "error" | "input_required",
-      "inputPrompt": "Prompt text for the user (only if input_required)",
-      "errorExplanation": "Clear explanation of the bug (if error)",
-      "fixedCode": "The corrected version of the code (if error)"
-    }
-    
-    IMPORTANT: 
-    - Be extremely accurate with output simulation.
-    - "output" should include EVERYTHING printed to stdout.
-    - IMPORTANT: Simulate a real terminal session. This means validation/echo of the 'Inputs History' should be reflected in the "output" string (e.g., if program asks "Name:" and history has "John", output should be "Name: John\n...").
-    - If "input_required", the "output" must end exactly where the terminal waits.`;
+      "output": "The full terminal session string",
+      "status": "success" | "error",
+      "errorExplanation": "Explanation of errors (only if status=error)",
+      "fixedCode": "Corrected version of the code (only if status=error)"
+    }`;
 
     const messages = [
         { role: "system", content: systemPrompt },
         {
             role: "user",
-            content: `Language: ${language}\n\nCode:\n${code}\n\nInputs History: ${JSON.stringify(inputs)}`
+            content: `Language: ${language}\n\nCode:\n${code}`
         }
     ];
 
     try {
-        // Enforce Groq for J-Compiler
-        const responseCallback = await getAICompletion(messages, { jsonMode: true, provider: 'groq' });
-
-        let cleanResponse = responseCallback;
-        if (responseCallback.includes('```json')) {
-            cleanResponse = responseCallback.replace(/```json/g, '').replace(/```/g, '').trim();
-        }
-        return JSON.parse(cleanResponse);
+        // Enforce Groq for J-Compiler for reliability
+        const responseText = await getAICompletion(messages, { jsonMode: true, provider: 'groq' });
+        return cleanAndParseJSON(responseText);
     } catch (e) {
         console.error("J-Compiler Simulation Failed:", e);
         throw new Error("Failed to simulate code execution.");
