@@ -561,7 +561,7 @@ export default function AIChat({ profile, setActiveTab }) {
                                             <div className="mb-2 rounded overflow-hidden">
                                                 {msg.fileType?.startsWith('image/') ?
                                                     <img src={msg.filePreview} alt="Upload" className="img-fluid rounded" style={{ maxHeight: '200px' }} /> :
-                                                    <div className="bg-light p-2 rounded d-flex align-items-center gap-2 small"><FileText size={16} /> {msg.fileName}</div>
+                                                    <div className="bg-light text-dark p-2 rounded d-flex align-items-center gap-2 small"><FileText size={16} /> {msg.fileName}</div>
                                                 }
                                             </div>
                                         )}

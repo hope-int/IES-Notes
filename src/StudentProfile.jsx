@@ -4,7 +4,7 @@ import {
     User, Upload, Link as LinkIcon, Youtube, Book,
     FileText, Globe, CheckCircle, AlertCircle, Loader,
     ChevronDown, MapPin, Calendar, Hash, Edit2, Save, X,
-    LogOut, Shield, Copy, GraduationCap
+    LogOut, Shield, Copy, GraduationCap, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -97,115 +97,155 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
 
     return (
         <div className="container py-4">
-            <button onClick={onBack} className="btn btn-link text-muted text-decoration-none mb-3 ps-0">
-                ← Back to Home
+            <button onClick={onBack} className="btn btn-link text-muted text-decoration-none mb-3 ps-0 d-flex align-items-center gap-2">
+                <ArrowLeft size={18} /> Back to Home
             </button>
 
             <div className="row justify-content-center">
-                {/* Profile Card */}
-                <div className="col-lg-6">
-                    <div className="clay-card p-5 text-center h-100 position-relative">
-                        <div className="position-absolute top-0 end-0 p-3">
-                            {!isEditing ? (
-                                <button onClick={() => setIsEditing(true)} className="btn btn-sm btn-light rounded-circle shadow-sm" title="Edit Profile">
-                                    <Edit2 size={16} className="text-secondary" />
-                                </button>
-                            ) : (
-                                <div className="d-flex gap-2">
-                                    <button onClick={() => setIsEditing(false)} className="btn btn-sm btn-light rounded-circle shadow-sm text-danger">
-                                        <X size={16} />
+                {/* Modern ID Card Design */}
+                <div className="col-12 col-md-8 col-lg-6">
+                    <div className="clay-card overflow-hidden position-relative">
+                        {/* Header Background */}
+                        <div className="bg-primary bg-gradient p-4 text-center position-relative" style={{ height: '140px' }}>
+                            <div className="position-absolute top-0 end-0 p-3">
+                                {!isEditing ? (
+                                    <button onClick={() => setIsEditing(true)} className="btn btn-sm btn-white-glass rounded-circle" title="Edit Profile">
+                                        <Edit2 size={16} className="text-white" />
                                     </button>
-                                    <button onClick={handleSaveProfile} className="btn btn-sm btn-primary rounded-circle shadow-sm text-white">
-                                        <Save size={16} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="position-relative d-inline-block mb-3">
-                            <div className="p-4 rounded-circle shadow-inner bg-light d-inline-flex align-items-center justify-content-center" style={{ width: 120, height: 120 }}>
-                                <span className="display-4 fw-bold text-primary">
-                                    {editForm.full_name?.charAt(0).toUpperCase() || <User size={48} />}
-                                </span>
-                            </div>
-                            <div className="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle p-2"></div>
-                        </div>
-
-                        {isEditing ? (
-                            <div className="mb-4 d-flex flex-column gap-2 mx-auto" style={{ maxWidth: '300px' }}>
-                                <input className="form-control form-control-sm text-center fw-bold" placeholder="Full Name" value={editForm.full_name || ''} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })} />
-                            </div>
-                        ) : (
-                            <>
-                                <h3 className="fw-bold mb-1">{profile?.full_name || 'Student'}</h3>
-                                <p className="text-muted mb-4">{profile?.phone_number || 'No Phone'}</p>
-                            </>
-                        )}
-
-                        <div className="text-start d-flex flex-column gap-3 bg-white bg-opacity-50 p-4 rounded-4 mx-auto" style={{ maxWidth: '400px' }}>
-                            <ProfileField isEditing={isEditing} icon={Hash} label="Semester" value={editForm.semester} onChange={v => setEditForm({ ...editForm, semester: v })} placeholder="e.g. S3" />
-                            <ProfileField isEditing={isEditing} icon={Calendar} label="Year" value={editForm.year} onChange={v => setEditForm({ ...editForm, year: v })} placeholder="e.g. 2nd Year" />
-                            <ProfileField isEditing={isEditing} icon={MapPin} label="Department" value={editForm.department} onChange={v => setEditForm({ ...editForm, department: v })} placeholder="e.g. CSE" />
-                            <ProfileField isEditing={isEditing} icon={Building2} label="College" value={editForm.college} onChange={v => setEditForm({ ...editForm, college: v })} placeholder="College Name" />
-
-                            {/* UID Display */}
-                            {!isEditing && (
-                                <div className="d-flex align-items-center gap-3 border-top pt-3 mt-2">
-                                    <div className="p-2 rounded-circle bg-light text-muted shadow-sm"><User size={16} /></div>
-                                    <div className="flex-grow-1 overflow-hidden">
-                                        <div className="small text-muted fw-bold text-uppercase" style={{ fontSize: '0.7rem' }}>STUDENT UID (Secret Login Key)</div>
-                                        <div className="fw-bold text-truncate" style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>{profile?.id}</div>
+                                ) : (
+                                    <div className="d-flex gap-2">
+                                        <button onClick={() => setIsEditing(false)} className="btn btn-sm btn-white-glass rounded-circle text-white">
+                                            <X size={16} />
+                                        </button>
+                                        <button onClick={handleSaveProfile} className="btn btn-sm btn-white rounded-circle text-primary shadow-sm">
+                                            <Save size={16} />
+                                        </button>
                                     </div>
-                                    <button onClick={handleCopyUID} className="btn btn-sm btn-light rounded-circle" title="Copy UID">
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Profile Image & Info */}
+                        <div className="px-4 pb-5 text-center" style={{ marginTop: '-60px' }}>
+                            <div className="d-inline-block position-relative mb-3">
+                                <div className="p-1 bg-white rounded-circle shadow-lg">
+                                    <div className="rounded-circle bg-light d-flex align-items-center justify-content-center text-primary" style={{ width: 110, height: 110, fontSize: '2.5rem', fontWeight: 'bold' }}>
+                                        {editForm.full_name?.charAt(0).toUpperCase() || <User size={48} />}
+                                    </div>
+                                </div>
+                                <div className="position-absolute bottom-0 end-0 bg-success border border-4 border-white rounded-circle p-2" title="Active"></div>
+                            </div>
+
+                            {isEditing ? (
+                                <div className="mb-3 d-flex flex-column gap-2 mx-auto" style={{ maxWidth: '300px' }}>
+                                    <input
+                                        className="form-control text-center fw-bold fs-4 border-0 shadow-none bg-light"
+                                        placeholder="Full Name"
+                                        value={editForm.full_name || ''}
+                                        onChange={e => setEditForm({ ...editForm, full_name: e.target.value })}
+                                    />
+                                    <input
+                                        className="form-control text-center text-muted border-0 shadow-none bg-light"
+                                        placeholder="Phone Number"
+                                        value={editForm.phone_number || ''}
+                                        onChange={e => setEditForm({ ...editForm, phone_number: e.target.value })}
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    <h3 className="fw-bold mb-1 text-dark">{profile?.full_name || 'Student'}</h3>
+                                    <p className="text-muted mb-4">{profile?.phone_number || 'No Phone Linked'}</p>
+                                </>
+                            )}
+
+                            {/* Stats / Details Grid */}
+                            <div className="row g-3 text-start mt-2">
+                                <div className="col-6">
+                                    <ProfileCardItem isEditing={isEditing} icon={Hash} label="Semester" value={editForm.semester} onChange={v => setEditForm({ ...editForm, semester: v })} placeholder="S3" color="blue" />
+                                </div>
+                                <div className="col-6">
+                                    <ProfileCardItem isEditing={isEditing} icon={Calendar} label="Year" value={editForm.year} onChange={v => setEditForm({ ...editForm, year: v })} placeholder="2nd" color="purple" />
+                                </div>
+                                <div className="col-12">
+                                    <ProfileCardItem isEditing={isEditing} icon={MapPin} label="Department" value={editForm.department} onChange={v => setEditForm({ ...editForm, department: v })} placeholder="Computer Science" color="indigo" />
+                                </div>
+                                <div className="col-12">
+                                    <ProfileCardItem isEditing={isEditing} icon={GraduationCap} label="College" value={editForm.college} onChange={v => setEditForm({ ...editForm, college: v })} placeholder="College Name" color="cyan" />
+                                </div>
+                            </div>
+
+                            {/* UID Section */}
+                            {!isEditing && (
+                                <div className="mt-4 p-3 rounded-3 bg-light border border-secondary border-opacity-10 text-start d-flex align-items-center gap-3">
+                                    <div className="p-2 rounded-circle bg-white shadow-sm text-muted"><User size={16} /></div>
+                                    <div className="flex-grow-1 overflow-hidden">
+                                        <div className="small text-muted fw-bold" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>STUDENT UID (SECRET LOGIN KEY)</div>
+                                        <div className="font-monospace fw-bold text-dark text-truncate">{profile?.id}</div>
+                                    </div>
+                                    <button onClick={handleCopyUID} className="btn btn-white shadow-sm p-2 rounded-circle" title="Copy">
                                         <Copy size={16} />
                                     </button>
                                 </div>
                             )}
+
+                            {saveStatus === 'success' && <div className="mt-3 text-success fw-bold animate-pulse">Profile updated successfully!</div>}
+                            {saveStatus === 'error' && <div className="mt-3 text-danger fw-bold">Failed to update profile.</div>}
                         </div>
 
-                        {saveStatus === 'success' && <div className="mt-3 text-success small fw-bold">Profile updated!</div>}
-                        {saveStatus === 'error' && <div className="mt-3 text-danger small fw-bold">Failed to update.</div>}
-
-                        <hr className="my-4 opacity-25" />
-
-                        {profile?.is_admin && (
-                            <button onClick={onOpenAdmin} className="btn btn-outline-primary rounded-pill px-4 w-100 d-flex align-items-center justify-content-center gap-2 mb-2">
-                                <Shield size={18} /> Admin Panel
+                        {/* Actions Footer */}
+                        <div className="bg-light p-3 border-top d-flex gap-2 justify-content-center">
+                            {profile?.is_admin && (
+                                <button onClick={onOpenAdmin} className="btn btn-white shadow-sm flex-grow-1 text-primary fw-bold d-flex align-items-center justify-content-center gap-2">
+                                    <Shield size={16} /> Admin
+                                </button>
+                            )}
+                            <button onClick={onLogout} className="btn btn-white shadow-sm flex-grow-1 text-danger fw-bold d-flex align-items-center justify-content-center gap-2">
+                                <LogOut size={16} /> Sign Out
                             </button>
-                        )}
-
-                        <button onClick={onLogout} className="btn btn-outline-danger rounded-pill px-4 w-100 d-flex align-items-center justify-content-center gap-2">
-                            <LogOut size={18} /> Sign Out
-                        </button>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <style>
+                {`
+                .btn-white-glass {
+                    background: rgba(255, 255, 255, 0.2);
+                    backdrop-filter: blur(4px);
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                }
+                .btn-white-glass:hover {
+                    background: rgba(255, 255, 255, 0.3);
+                }
+                .btn-white {
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                }
+                `}
+            </style>
         </div>
     );
 }
 
-const ProfileField = ({ isEditing, icon, label, value, onChange, placeholder }) => (
-    isEditing ? (
-        <div className="d-flex align-items-center gap-2">
-            <div className="p-2 rounded-circle bg-white text-primary shadow-sm flex-shrink-0"><span className="small text-uppercase fw-bold" style={{ fontSize: 10 }}>{label.substring(0, 3)}</span></div>
-            <input className="form-control form-control-sm border-0 bg-white" placeholder={placeholder} value={value || ''} onChange={e => onChange(e.target.value)} />
+const ProfileCardItem = ({ isEditing, icon: Icon, label, value, onChange, placeholder, color }) => (
+    <div className="d-flex align-items-center gap-3 p-2 rounded-3 h-100" style={{ background: isEditing ? '#fff' : 'transparent' }}>
+        <div className={`p-2 rounded-circle text-${color}-600 bg-${color}-50 shadow-sm flex-shrink-0`} style={{ background: `var(--bst-${color}-opacity, #eff6ff)`, color: `var(--bst-${color}, #2563eb)` }}>
+            <Icon size={18} />
         </div>
-    ) : (
-        <ProfileMeta icon={icon} label={label} value={value || 'N/A'} />
-    )
-);
-
-// Helper for the icon in InputGroup
-const Building2 = ({ className, size }) => (
-    <GraduationCap className={className} size={size} /> // Shim if Building2 is missing from imports
-);
-
-const ProfileMeta = ({ icon: Icon, label, value }) => (
-    <div className="d-flex align-items-center gap-3">
-        <div className="p-2 rounded-circle bg-white text-primary shadow-sm"><Icon size={16} /></div>
-        <div>
-            <div className="small text-muted fw-bold text-uppercase" style={{ fontSize: '0.7rem' }}>{label}</div>
-            <div className="fw-bold">{value}</div>
+        <div className="flex-grow-1 overflow-hidden">
+            <div className="small text-muted fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>{label}</div>
+            {isEditing ? (
+                <input
+                    className="form-control form-control-sm p-0 border-0 bg-transparent fw-bold shadow-none"
+                    placeholder={placeholder}
+                    value={value || ''}
+                    onChange={e => onChange(e.target.value)}
+                />
+            ) : (
+                <div className="fw-bold text-dark text-truncate">{value || 'N/A'}</div>
+            )}
         </div>
     </div>
 );
+
+

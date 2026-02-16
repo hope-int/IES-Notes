@@ -55,10 +55,27 @@ export default function Registration({ onComplete }) {
     const handleSemChange = (e) => {
         const semId = e.target.value;
         const sem = semesters.find(s => s.id === semId);
+
+        let year = "1";
+        if (sem) {
+            // Extract semester number from name if possible, or assume based on logic
+            // Assuming sem.name contains the number or we map it. 
+            // Better approach: if we have the order, or just simple math if names are "Semester 1", etc.
+            // Let's rely on the user input for now or try to parse `sem.name`
+
+            // Simple parsing: "Semester 3" -> 3. "S3" -> 3.
+            const match = sem.name.match(/\d+/);
+            if (match) {
+                const semNum = parseInt(match[0]);
+                year = Math.ceil(semNum / 2).toString();
+            }
+        }
+
         setFormData({
             ...formData,
             semester_id: semId,
-            semester_name: sem?.name || ''
+            semester_name: sem?.name || '',
+            year: year
         });
     };
 
@@ -241,18 +258,6 @@ export default function Registration({ onComplete }) {
                             </div>
 
                             <div className="col-6">
-                                <label className="fw-bold small text-muted mb-2">Current Year</label>
-                                <select
-                                    required
-                                    className="clay-input w-100 p-3 bg-white border-0"
-                                    value={formData.year}
-                                    onChange={e => setFormData({ ...formData, year: e.target.value })}
-                                >
-                                    {[1, 2, 3, 4].map(y => <option key={y} value={y}>{y}{y === 1 ? 'st' : y === 2 ? 'nd' : y === 3 ? 'rd' : 'th'} Year</option>)}
-                                </select>
-                            </div>
-
-                            <div className="col-6">
                                 <label className="fw-bold small text-muted mb-2">Semester</label>
                                 <select
                                     required
@@ -265,6 +270,18 @@ export default function Registration({ onComplete }) {
                                     {semesters.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
+                                </select>
+                            </div>
+
+                            <div className="col-6">
+                                <label className="fw-bold small text-muted mb-2">Current Year</label>
+                                <select
+                                    required
+                                    className="clay-input w-100 p-3 bg-white border-0"
+                                    value={formData.year}
+                                    onChange={e => setFormData({ ...formData, year: e.target.value })}
+                                >
+                                    {[1, 2, 3, 4].map(y => <option key={y} value={y}>{y}{y === 1 ? 'st' : y === 2 ? 'nd' : y === 3 ? 'rd' : 'th'} Year</option>)}
                                 </select>
                             </div>
                         </div>

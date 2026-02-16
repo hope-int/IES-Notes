@@ -61,6 +61,11 @@ a {
   box-shadow: var(--shadow-md);
 }
 
+.clay-card.no-hover:hover {
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
 /* Button Style */
 .clay-button,
 .btn-primary {

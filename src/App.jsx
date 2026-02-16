@@ -60,6 +60,9 @@ function App() {
   // Warning State
   const [warningMessage, setWarningMessage] = useState(null);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
 
   // Navigation State
   const [navStack, setNavStack] = useState([{ type: 'home', title: 'Home', id: null }]);
@@ -141,16 +144,8 @@ function App() {
 
     // 4. Check Puter Auth
     if (window.puter) {
-      if (!window.puter.auth.isSignedIn()) {
-        setIsPuterAuthNeeded(true);
-      }
-    } else {
-      // Library might still be loading, check again after delay
-      setTimeout(() => {
-        if (window.puter && !window.puter.auth.isSignedIn()) {
-          setIsPuterAuthNeeded(true);
-        }
-      }, 2000);
+      const signedIn = window.puter.auth.isSignedIn();
+      setIsPuterSignedIn(signedIn);
     }
 
     setInitializing(false);
@@ -303,8 +298,27 @@ function App() {
   const currentView = navStack[navStack.length - 1];
 
   const handleNavigate = async (item, nextType) => {
-    setNavStack([...navStack, { type: nextType, title: item.name || item.title, id: item.id, data: item }]);
+    // Save current state to the LAST item in the stack (which is the current view)
+    // We need to modify the current stack's last item to include the filter state
+    // But navStack is state.
+
+    // Better approach: The stack represents the PATH. 
+    // When we push a NEW item, we are leaving the current one.
+    // We should save the `activeFilter` into the item we are leaving.
+
+    const currentStackItem = navStack[navStack.length - 1];
+    const updatedCurrentItem = { ...currentStackItem, savedFilter: activeFilter };
+    const newStackStart = navStack.slice(0, -1);
+
+    setNavStack([...newStackStart, updatedCurrentItem, { type: nextType, title: item.name || item.title, id: item.id, data: item }]);
+
     setSearchTerm('');
+    // Default to 'My' instead of 'All' if that's preferred, or keep 'All'. 
+    // User said "when tapped on a subject folder, it goes to the 'All' sort... update Home UI...".
+    // Actually user said: "when tapped on a subject folder, it goes to the 'All' sort and when tapped back it shows the 'All' sort it should show the my sort."
+    // So when entering a new view, we might want to default to 'My' or 'All' (App defaults to 'All' in line 308).
+    // Let's keep 'All' for new views (as usually you want to see everything in a folder), 
+    // but CRITICALLY when going BACK, we restore.
     setActiveFilter('All');
 
     if (nextType === 'dept') {
@@ -322,6 +336,11 @@ function App() {
       setNavStack(prevStack);
 
       const prevView = prevStack[prevStack.length - 1];
+      // Restore filter if it was saved
+      if (prevView.savedFilter) {
+        setActiveFilter(prevView.savedFilter);
+      }
+
       if (prevView.type === 'home') fetchDepartments();
       else if (prevView.type === 'dept') fetchSemesters(prevView.id);
       else if (prevView.type === 'sem') fetchSubjects(prevView.id);
@@ -404,7 +423,12 @@ function App() {
     <>
       <AnimatePresence>
         {isPuterAuthNeeded && (
-          <PuterAuthPopup onAuthComplete={() => setIsPuterAuthNeeded(false)} />
+          <PuterAuthPopup onAuthComplete={(success) => {
+            setIsPuterAuthNeeded(false);
+            if (success) {
+              setIsPuterSignedIn(true);
+            }
+          }} />
         )}
       </AnimatePresence>
 
@@ -431,9 +455,16 @@ function App() {
                     className="d-flex align-items-center gap-2 cursor-pointer"
                   >
                     <div className="clay-card d-flex align-items-center justify-content-center p-2 rounded-3 border-0">
-                      <GraduationCap size={28} style={{ color: 'var(--primary-accent)' }} />
+                      <img src="/hope-logo.png" alt="Logo" style={{ width: 28, height: 28, objectFit: 'contain' }} />
                     </div>
-                    <span className="fw-bold fs-3 d-none d-md-block lh-1" style={{ color: 'var(--text-main)' }}>HOPE<span style={{ color: 'var(--primary-accent)' }}>-Edu-Hub</span></span>
+                    <div className="d-none d-md-flex flex-column">
+                      <span className="fw-bold fs-4 lh-1" style={{ color: 'var(--text-main)' }}>HOPE<span style={{ color: 'var(--primary-accent)' }}>-Edu-Hub</span></span>
+                      {userProfile && (
+                        <small className="text-muted d-block" style={{ fontSize: '0.85rem', marginTop: '2px' }}>
+                          Welcome, <span className="text-dark fw-bold">{userProfile.full_name?.split(' ')[0]}</span> • {userProfile.semester ? userProfile.semester.replace('Semester', 'Sem') : 'Student'}
+                        </small>
+                      )}
+                    </div>
                   </div >
 
                   <div className="d-none d-md-flex align-items-center gap-2 overflow-auto ms-3 hide-scrollbar" style={{ maxWidth: '40vw' }}>
@@ -454,10 +485,36 @@ function App() {
                         </span>
                       </div>
                     ))}
-                  </div>
-                </div >
+                  </div >
+                </div>
 
                 <div className="d-flex align-items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setShowSearch(!showSearch);
+                      // Auto focus if showing?
+                    }}
+                    className="btn btn-link p-2 rounded-circle d-flex align-items-center justify-content-center"
+                    style={{ width: '48px', height: '48px', padding: 0, border: 'none' }}
+                    title="Search"
+                  >
+                    <Search size={22} className={showSearch ? "text-primary" : "text-secondary"} />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowNotifications(!showNotifications);
+                    }}
+                    className="btn btn-link p-2 rounded-circle d-flex align-items-center justify-content-center position-relative"
+                    style={{ width: '48px', height: '48px', padding: 0, border: 'none' }}
+                    title="Notifications"
+                  >
+                    <Bell size={22} className="text-secondary" />
+                    {announcements.length > 0 && <span className="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                      <span className="visually-hidden">New alerts</span>
+                    </span>}
+                  </button>
+
                   {/* Favorites Button */}
                   <button
                     onClick={() => {
@@ -473,6 +530,32 @@ function App() {
                   >
                     <Heart size={22} className={favorites.length > 0 ? "text-danger" : ""} fill={favorites.length > 0 || currentView.type === 'favorites' ? "currentColor" : "none"} />
                   </button>
+
+                  {/* Notifications Popover */}
+                  <AnimatePresence>
+                    {showNotifications && (
+                      <>
+                        <div className="position-fixed top-0 start-0 w-100 h-100 z-2" onClick={() => setShowNotifications(false)}></div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="position-absolute clay-card p-3 p-md-4 shadow-xl z-3"
+                          style={{ top: '80px', right: '20px', width: '320px', maxWidth: '90vw' }}
+                        >
+                          <h6 className="fw-bold mb-3 d-flex align-items-center gap-2"><Bell size={16} className="text-primary" /> Notifications</h6>
+                          <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '300px' }}>
+                            {announcements.length > 0 ? announcements.map((ann, i) => (
+                              <div key={i} className="glass-panel p-3 mb-2 rounded d-flex align-items-start gap-2 border-0" style={{ background: 'rgba(56, 189, 248, 0.05)' }}>
+                                <div className="bg-primary rounded-circle flex-shrink-0 mt-2" style={{ width: 6, height: 6 }}></div>
+                                <div className="small text-secondary">{ann.content}</div>
+                              </div>
+                            )) : <p className="text-muted small text-center py-3">No new updates.</p>}
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
 
                   {/* Profile Pill - Student Dashboard */}
                   <div
@@ -506,82 +589,80 @@ function App() {
               </nav >
 
               <AnimatePresence>
-                {/* Header - Only Visible on Home */}
-                {activeTab === 'home' && (
-                  <motion.header
-                    className="container px-md-5 position-relative overflow-hidden mt-2 mb-5"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                  >
-                    <div className="row align-items-center gy-5 gx-lg-5">
-                      <div className="col-lg-6 text-center text-lg-start z-1">
-                        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-                          <h1 className="fw-bolder display-5 display-md-3 mb-3 lh-sm" style={{ color: 'var(--text-main)' }}>
-                            {userProfile ? (
-                              currentView.type === 'favorites' ? (
-                                <>
-                                  <span className="text-gradient">My Favorites</span>
-                                  <span className="fs-5 fs-md-2 text-muted fw-normal d-block mt-2">
-                                    Your saved shortcuts
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  Welcome, <span className="text-gradient">{userProfile.full_name?.split(' ')[0]}</span>
-                                  <br />
-                                  <span className="fs-5 fs-md-2 text-muted fw-normal d-block mt-2">
-                                    {userProfile.department} {userProfile.semester && `• ${userProfile.semester} `}
-                                  </span>
-                                </>
-                              )
-                            ) : (
-                              <>
-                                Your Academic <br /> <span className="text-gradient">Superpower</span>
-                              </>
-                            )}
-                          </h1>
-                          <p className="text-muted fs-6 fs-md-5 mb-5">Access all your HOPE Community notes. Developed by Justin.</p>
-                        </motion.div>
-                      </div>
-                      <div className="col-lg-6 z-1 ps-lg-5">
-                        <div className="clay-card p-4 h-100">
-                          <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '160px' }}>
-                            {announcements.length > 0 ? announcements.map((ann, i) => (
-                              <div key={i} className="glass-panel p-3 mb-2 rounded d-flex align-items-center gap-2 border-0" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                                <div className="bg-primary rounded-circle flex-shrink-0" style={{ width: 8, height: 8 }}></div>
-                                <div className="small text-secondary">{ann.content}</div>
-                              </div>
-                            )) : <p className="text-muted small">No new updates.</p>}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.header>
-                )}
+                {/* Header Text Moved to Nav, so this large header is removed */}
               </AnimatePresence>
 
-              <section className="container mt-4 pb-5">
+              <section className="container pb-5">
                 {activeTab === 'home' && (
                   <>
-                    {/* Controls */}
+                    {/* Search Bar - Toggleable */}
+                    <AnimatePresence>
+                      {showSearch && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+                          animate={{ height: 'auto', opacity: 1, marginBottom: '2rem' }}
+                          exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="clay-card no-hover p-2 rounded-pill d-flex align-items-center ps-4 shadow-sm border border-secondary border-opacity-25 search-focus mx-auto" style={{ maxWidth: '600px' }}>
+                            <Search size={22} className="text-muted" />
+                            <input
+                              type="text"
+                              placeholder="Search subjects, notes..."
+                              className="bg-transparent border-0 p-3 ms-2 w-100 fs-5 outline-none"
+                              style={{ outline: 'none', boxShadow: 'none' }}
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                              autoFocus
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Controls (Back | Admin Actions | Filters) */}
                     <div className="row mb-5 align-items-center justify-content-center g-3">
-                      <div className="col-12 col-lg-8 d-flex align-items-center gap-3">
+                      <div className="col-12 d-flex align-items-center justify-content-center gap-3 flex-wrap">
+                        {/* Back Button */}
                         {navStack.length > 1 && (
-                          <button onClick={handleBack} className="clay-button rounded-circle p-0" style={{ width: '56px', height: '56px' }}>
-                            <ArrowLeft size={24} />
+                          <button onClick={handleBack} className="clay-button rounded-circle p-0" style={{ width: '48px', height: '48px' }}>
+                            <ArrowLeft size={20} />
                           </button>
                         )}
-                        <div className="clay-card p-2 rounded-pill d-flex align-items-center flex-grow-1 ps-4 shadow-sm border border-secondary border-opacity-25 search-focus">
-                          <Search size={22} className="text-muted" />
-                          <input
-                            type="text"
-                            placeholder="Search..."
-                            className="bg-transparent border-0 p-3 ms-2 w-100 fs-5 outline-none"
-                            style={{ outline: 'none', boxShadow: 'none' }}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
+
+                        {/* My vs All Scope */}
+                        <div className="d-flex gap-2 bg-white rounded-pill p-1 shadow-sm border border-light">
+                          <button
+                            onClick={() => {
+                              setActiveFilter('My');
+                              if (userProfile?.semester_id) {
+                                if (currentView.type !== 'sem' || currentView.id !== userProfile.semester_id) {
+                                  setNavStack([
+                                    { type: 'sem', id: userProfile.semester_id, title: userProfile.semester_name || 'My Semester' }
+                                  ]);
+                                  fetchSubjects(userProfile.semester_id);
+                                }
+                              }
+                            }}
+                            className={`btn rounded-pill px-4 py-2 fw-bold border-0 transition-all ${activeFilter === 'My' ? 'text-white shadow-sm' : 'text-muted'} `}
+                            style={{ background: activeFilter === 'My' ? 'var(--primary-accent)' : 'transparent' }}
+                          >
+                            My
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setActiveFilter('All');
+                              if (navStack.length > 0 && navStack[0].type !== 'home') {
+                                setNavStack([{ type: 'home', title: 'Home', id: null }]);
+                                fetchDepartments();
+                              }
+                            }}
+                            className={`btn rounded-pill px-4 py-2 fw-bold border-0 transition-all ${activeFilter === 'All' ? 'text-white shadow-sm' : 'text-muted'} `}
+                            style={{ background: activeFilter === 'All' ? 'var(--primary-accent)' : 'transparent' }}
+                          >
+                            All
+                          </button>
                         </div>
 
                         {/* Admin Only: Create Folder Button */}
@@ -589,10 +670,10 @@ function App() {
                           <button
                             onClick={() => setShowCreateModal(true)}
                             className="btn btn-light rounded-circle p-0 shadow-sm d-flex align-items-center justify-content-center flex-shrink-0"
-                            style={{ width: '56px', height: '56px', border: '1px solid #e2e8f0' }}
+                            style={{ width: '48px', height: '48px', border: '1px solid #e2e8f0' }}
                             title="Add Folder"
                           >
-                            <FolderPlus size={24} className="text-secondary" />
+                            <FolderPlus size={20} className="text-secondary" />
                           </button>
                         )}
 
@@ -601,68 +682,15 @@ function App() {
                           <button
                             onClick={() => setShowUploadModal(true)}
                             className="btn btn-primary rounded-circle p-0 shadow-sm d-flex align-items-center justify-content-center flex-shrink-0"
-                            style={{ width: '56px', height: '56px', background: 'var(--primary-accent)', border: 'none' }}
+                            style={{ width: '48px', height: '48px', background: 'var(--primary-accent)', border: 'none' }}
                             title="Upload Note"
                           >
-                            <Upload size={24} />
+                            <Upload size={20} />
                           </button>
                         )}
                       </div>
-                      {/* Global Scope & Filters */}
-                      <div className="col-12 d-flex gap-2 justify-content-center flex-wrap">
-                        {/* My vs All Scope */}
-                        <button
-                          onClick={() => {
-                            setActiveFilter('My');
-                            if (userProfile?.semester_id) {
-                              // Force Semester View for "My"
-                              if (currentView.type !== 'sem' || currentView.id !== userProfile.semester_id) {
-                                setNavStack([
-                                  { type: 'sem', id: userProfile.semester_id, title: userProfile.semester_name || 'My Semester' }
-                                ]);
-                                fetchSubjects(userProfile.semester_id);
-                              }
-                            } else {
-                              // If no semester assigned, maybe go to home but keep filter active?
-                            }
-                          }}
-                          className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'My' ? 'text-white shadow-lg' : 'text-muted'} `}
-                          style={{ background: activeFilter === 'My' ? 'var(--primary-accent)' : 'var(--glass-surface)' }}
-                        >
-                          My
-                        </button>
 
-                        <button
-                          onClick={() => {
-                            setActiveFilter('All');
-                            if (navStack.length > 0 && navStack[0].type !== 'home') {
-                              setNavStack([{ type: 'home', title: 'Home', id: null }]);
-                              fetchDepartments();
-                            }
-                          }}
-                          className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === 'All' ? 'text-white shadow-lg' : 'text-muted'} `}
-                          style={{ background: activeFilter === 'All' ? 'var(--primary-accent)' : 'var(--glass-surface)' }}
-                        >
-                          All
-                        </button>
 
-                        {/* Subject Filters (Only visible in Semester View) */}
-                        {currentView.type === 'sem' && (
-                          <>
-                            <div className="vr mx-2 bg-secondary opacity-50"></div>
-                            {['Core', 'Labs'].map(filter => (
-                              <button
-                                key={filter}
-                                onClick={() => setActiveFilter(filter)}
-                                className={`btn rounded-pill px-4 py-2 fw-bold border-0 ${activeFilter === filter ? 'text-white shadow-lg' : 'text-muted'} `}
-                                style={{ background: activeFilter === filter ? 'var(--primary-accent)' : 'var(--glass-surface)' }}
-                              >
-                                {filter}
-                              </button>
-                            ))}
-                          </>
-                        )}
-                      </div>
                     </div>
 
                     {/* Loading State */}
@@ -789,10 +817,19 @@ function App() {
                     <MessageCircle size={20} /> <span className={activeTab === 'community' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
                   </button>
                   <button
-                    onClick={() => setActiveTab('ai')}
+                    onClick={() => {
+                      if (!isPuterSignedIn) {
+                        setIsPuterAuthNeeded(true);
+                      } else {
+                        setActiveTab('ai');
+                      }
+                    }}
                     className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'ai' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
-                    <Sparkles size={20} /> <span className={activeTab === 'ai' ? 'd-inline' : 'd-none d-sm-inline'}>AI Tutor</span>
+                    <Sparkles size={20} />
+                    <span className={activeTab === 'ai' ? 'd-inline' : 'd-none d-sm-inline'}>
+                      {isPuterSignedIn ? "AI Tutor" : "AI Setup"}
+                    </span>
                   </button>
                 </motion.div>
               </div>
@@ -830,7 +867,8 @@ function App() {
                 )}
               </AnimatePresence>
             </>
-          )}
+          )
+          }
 
           {/* Routes (Always Rendered) */}
           <Routes>
@@ -865,7 +903,7 @@ function App() {
               </div>
             )}
           </AnimatePresence>
-        </div>
+        </div >
       )}
     </>
   );

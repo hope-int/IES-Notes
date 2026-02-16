@@ -7,6 +7,10 @@ export default function PuterAuthPopup({ onAuthComplete }) {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
 
+    const onCancel = () => {
+        if (onAuthComplete) onAuthComplete(false);
+    };
+
     const handleSetup = async () => {
         setLoading(true);
         setError(null);
@@ -22,7 +26,7 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                 setSuccess(true);
                 // Wait a bit to show success state before closing
                 setTimeout(() => {
-                    onAuthComplete();
+                    onAuthComplete(true);
                 }, 1500);
             }
         } catch (err) {
@@ -92,6 +96,14 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                             Tap to Setup <ArrowRight size={20} />
                         </>
                     )}
+                </button>
+
+                <button
+                    onClick={onCancel}
+                    disabled={loading || success}
+                    className="btn btn-link text-muted text-decoration-none mt-3 small"
+                >
+                    Not now, I'll set it up later
                 </button>
 
                 <p className="mt-4 text-muted small px-4">

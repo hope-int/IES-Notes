@@ -9,12 +9,6 @@ const SplashScreen = ({ onComplete, isAppReady = true }) => {
     const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
     useEffect(() => {
-        // Fetch a cool "Science/Tech" themed Lottie animation
-        // URL Removed due to 403 error. Falling back to CSS loader.
-        // fetch("https://lottie.host/98695034-3151-4091-9577-62dc22883393/D2pL0B5O0I.json") 
-        //     .then(res => res.json())
-        //     .then(data => setAnimationData(data))
-        //     .catch(() => console.log("Using fallback loader"));
         console.log("Using fallback loader");
 
         // Minimum display time of 2.5s
@@ -50,7 +44,7 @@ const SplashScreen = ({ onComplete, isAppReady = true }) => {
                         {/* Logo Container */}
                         <div className="mb-4 d-flex justify-content-center align-items-center" style={{ width: 180, height: 180 }}>
                             <img
-                                src="/pwa-512x512.png"
+                                src="/hope-logo.png"
                                 alt="HOPE-Edu-Hub Logo"
                                 className="img-fluid rounded-4 shadow-sm"
                                 style={{ objectFit: 'contain' }}

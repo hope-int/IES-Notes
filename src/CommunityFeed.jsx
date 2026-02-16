@@ -115,11 +115,13 @@ export default function CommunityFeed({ profile }) {
             const { data: postsData, error: postsError } = await query;
             if (postsError) throw postsError;
 
-            if (postsData) {
-                // Fetch comment counts for these posts
+            if (postsData && postsData.length > 0) {
+                // Fetch comment counts ONLY for these posts to optimize
+                const postIds = postsData.map(p => p.id);
                 const { data: commentCounts, error: countError } = await supabase
                     .from('community_comments')
-                    .select('post_id');
+                    .select('post_id')
+                    .in('post_id', postIds);
 
                 const counts = {};
                 if (commentCounts) {
