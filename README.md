@@ -4,60 +4,63 @@
 ![HOPE-Edu-Hub](http://via.placeholder.com/1200x500?text=HOPE-Edu-Hub:+Your+Academic+Superpower)
 
 ## 🌟 Overview
-**HOPE-Edu-Hub** is a next-generation academic platform designed for an open and collaborative learning experience. It evolves beyond simple file sharing into a **comprehensive AI-powered academic assistant**. It combines instant note access, a self-moderating community, and a suite of **Agentic AI Tools** that can synthesize presentations, reports, simulate code execution, and generate entire engineering projects from scratch.
+**HOPE-Edu-Hub** is a next-generation academic platform designed for an **AI-Native** collaborative learning experience. It evolves beyond simple file sharing into a **comprehensive AI-powered academic assistant**. It combines instant note access, a self-moderating community, and a suite of **Agentic AI Tools** that can synthesize presentations, simulate code execution, act as a Socratic tutor, and even **turn your PDF notes into audio podcasts**.
 
 ---
 
-## 🤖 The AI Content Engine (Architecture 4.0)
+## 🤖 The AI Content Engine (Architecture 5.0)
 
 HOPE-Edu-Hub features a robust, **Zero-Tolerance AI Architecture** designed for clinical precision and developer-grade reliability.
 
 ### 🛡️ Puter AI Activation & Security
-The system now includes a **Mandatory Puter AI Environment Verification**. 
-*   **First-Time Setup**: New users are met with a premium, non-removable activation popup to authorize their Puter Cloud environment. 
-*   **Verified Compute**: This ensures all AI-driven simulations and background tasks run in a secure, authorized sandbox, providing enhanced reliability for the J-Compiler and AI Tutor.
+The system leverages **Puter.js** for secure, cloud-based AI inference.
+*   **Verified Compute**: Ensures all AI-driven simulations and background tasks run in a secure, authorized sandbox.
+*   **Privacy-First**: PDF processing and Text-to-Speech generation happen locally or in ephemeral cloud instances, respecting user data.
 
 ### 🧠 Reasoning-First AI Routing
-The system uses a sophisticated 3-layer cascade, now featuring high-reasoning models:
-
-1.  **Elite Logic Routing (J-Compiler)**: 
-    *   **Model**: **DeepSeek-R1 Distill Llama 70B** via Groq.
-    *   **Capabilities**: Uses Chain-of-Thought reasoning to perform deep audits. It doesn't just guess; it "thinks" through the logic execution path like a human senior developer.
-2.  **General Tasks**: Routed to **Puter.js** (Hosted LFM-2.5) for instant, free responses.
-3.  **Resilience Layers**:
-    *   **Custom Circuit Breakers**: Automatic failure detection with exponential backoff.
-    *   **Secure Backend Proxy**: API calls are routed through Vercel Serverless Functions to protect keys.
+The system uses a sophisticated cascade of models tailored to specific tasks:
+1.  **Deep Logic & Coding**: **DeepSeek-R1 / Llama 70B** for complex code analysis and Socratic reasoning.
+2.  **Creative & Conversational**: **LFM-2.5** for natural language tasks like podcast scripting and chat.
+3.  **Visual Intelligence**: **Nemotron-12B-VL** for analyzing images and diagrams.
 
 ---
 
 ## 🛠️ Feature Suite
 
-### 1. 🖥️ J-Compiler: AI-Powered Code Studio
+### 1. 🎙️ Podcast Classes (NEW!)
+*Turn boring PDF notes into engaging, radio-style audio classes.*
+
+**Key Capabilities:**
+*   **AI Radio Host Persona**: The AI analyzes your PDF notes and generates a script in the style of a charismatic engineering podcast host, making complex topics fun and digestible.
+*   **Instant Audio Generation**: Uses the **Web Speech API** to synthesize natural-sounding speech directly in the browser.
+*   **Mobile-First Player**: Features a dedicated player with speed controls (1x, 1.25x, 1.5x, 2x), progress tracking, and background playback support.
+*   **History & Persistence**: Automatically saves your generated classes so you can re-listen anytime.
+
+### 2. 🚀 Zero to Hero (NEW!)
+*Your personal AI Socratic Tutor.*
+
+**Key Capabilities:**
+*   **Socratic Method**: Instead of giving direct answers, this AI guide asks leading questions to help you derive the solution yourself.
+*   **Concept Mastery**: Perfect for preparing for vivas, interviews, or deep-diving into fundamental concepts.
+*   **Step-by-Step Guidance**: Breaks down complex problems into manageable cognitive steps.
+
+### 3. 🖥️ J-Compiler: AI-Powered Code Studio
 *A next-gen innovative IDE that simulates a full compiler environment using deep reasoning.*
 
 **Key Capabilities:**
-*   **Zero-Tolerance Debugging**: The compiler acts as a **Pedantic Auditor**. It scans every character for typos, missing semicolons, case-sensitivity issues, and logic flaws (like infinite loops).
-*   **Interactive Terminal Simulation**: Simulates a real shell session, handling standard input (`stdin`) logically to provide a full execution flow without manual interaction.
-*   **Deep Analysis (Markdown)**: If a build fails, the AI provides a structured **Markdown Audit**. It uses headers and bullet points to list specific architectural flaws and syntax errors.
-*   **Auto-Correction**: Provides a "100% Valid" suggested fix that can be copied with one click, ensuring the fixed code is free of formatting artifacts.
-*   **Reverse Engineer Mode**: Uses DeepSeek-R1 to architect perfect, industry-standard code based on a desired output description.
+*   **Zero-Tolerance Debugging**: Acts as a **Pedantic Auditor**, scanning for typos, logic flaws, and architectural errors.
+*   **Interactive Terminal Simulation**: Simulates a real shell session, handling `stdin`/`stdout` logically for a full execution flow.
+*   **Markdown Audits**: Provides structured, high-level analysis of code health and potential edge cases.
+*   **Auto-Correction**: Generates "100% Valid" fix suggestions that follow industry best practices.
 
-### 2. 📽️ Agentic Web-Slides Generator
-*A multi-step AI agent acting as both Creative Director and UI Designer.*
+### 4. 📽️ Agentic Content Generator
+*A suite of tools to automate your academic workload.*
 
-**Workflow:**
-1.  **Director Phase (Planning)**: Drafts a "Creative Brief" & JSON Storyboard.
-2.  **Designer Phase (Iterative Synthesis)**: Generates high-fidelity HTML/CSS with `postMessage` isolation for instant rendering.
-3.  **Refine Loop**: Chat with individual slides to modify the DOM in real-time.
-4.  **Output**: Exports a self-contained `Presentation.html` with Mermaid.js support.
-
-### 3. 🏗️ Intelligent Project Architect
-*An interview-based system for generating Mini & Major Projects.*
-
-**Workflow:**
-1.  **Technical Interview**: Generates 5 context-aware questions to define project scope.
-2.  **Parallel Synthesis**: Forks into Abstract, Report (Markdown), and Code (full module architecture) streams.
-3.  **Output**: Bundles the entire documentation and source code into a `.zip` file.
+**Tools Available:**
+*   **Presentation**: Generates full PPT slide decks with content structure.
+*   **Report**: Creates detailed academic reports in Markdown/LaTeX format.
+*   **Assignment**: Generates quizzes and practice questions from syllabus topics.
+*   **Mini/Major Projects**: Architects entire project suites including abstracts, code structure, and documentation.
 
 ---
 
@@ -79,13 +82,15 @@ The system uses a sophisticated 3-layer cascade, now featuring high-reasoning mo
 
 ### Frontend Layer
 *   **Framework**: React 19 + Vite
-*   **State Management**: custom-built stack navigation for fluid transitions.
-*   **Animations**: `framer-motion` for complex UI state changes.
+*   **Styling**: Bootstrap 5 + Custom CSS (Claymorphism & Glassmorphism)
+*   **Animations**: `framer-motion` for fluid state transitions and page exits.
+*   **Icons**: `lucide-react` for a consistent, modern icon set.
 
 ### AI & Data Layer
-*   **Primary Engine**: Groq (DeepSeek-R1 & Llama 3.3).
-*   **Identity & Persistence**: Supabase (PostgreSQL) + Puter Auth.
-*   **Realtime**: Supabase RLS policies and channel subscriptions.
+*   **Primary Engine**: Puter.js (Accessing LFM-2.5, DeepSeek, etc.)
+*   **Audio Engine**: Web Speech API (`window.speechSynthesis`)
+*   **PDF Processing**: `pdfjs-dist` for client-side text extraction.
+*   **Identity & Persistence**: Supabase (PostgreSQL) + LocalStorage (for session history).
 
 ---
 
@@ -101,7 +106,7 @@ The system uses a sophisticated 3-layer cascade, now featuring high-reasoning mo
     ```
 
 2.  **Environment Setup**:
-    Create a `.env` file with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_GROQ_API_KEY`.
+    Create a `.env` file with your `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
 3.  **Run Dev Server**:
     ```bash
@@ -112,6 +117,6 @@ The system uses a sophisticated 3-layer cascade, now featuring high-reasoning mo
 
 ## 🤝 Philosophy
 
-**HOPE-Edu-Hub** prioritizes **Speed, Beauty, and Accuracy**. Every feature—from the J-Compiler's audits to the Student Profile—is designed to empower engineering students with the tools of the future.
+**HOPE-Edu-Hub** prioritizes **Speed, Beauty, and Accuracy**. Every feature—from the Podcast Player to the J-Compiler—is designed to empower engineering students with the **superpowers** of AI, making learning faster, deeper, and more enjoyable.
 
 **Developed with ❤️ for the HOPE Community.**
