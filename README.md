@@ -1,16 +1,14 @@
+# HOPE-Edu-Hub — User Guide & Features
 
-# HOPE-Edu-Hub: The AI-Native Academic Ecosystem 🚀✨
+HOPE-Edu-Hub is an AI-first educational notes and content platform built with React + Vite and Supabase for authentication and persistence. It bundles interactive AI tools (content generation, slide/project generation, and code simulation) with a community resource hub for students and educators.
 
-![HOPE-Edu-Hub](http://via.placeholder.com/1200x500?text=HOPE-Edu-Hub:+Your+Academic+Superpower)
+This README contains a complete user guide, feature descriptions, quick setup, and developer notes.
 
 ## 🌟 Overview
+
 **HOPE-Edu-Hub** is a next-generation academic platform designed for an **AI-Native** collaborative learning experience. It evolves beyond simple file sharing into a **comprehensive AI-powered academic assistant**. It combines instant note access, a self-moderating community, and a suite of **Agentic AI Tools** that can synthesize presentations, simulate code execution, act as a Socratic tutor, and even **turn your PDF notes into audio podcasts**.
 
----
-
-## 🤖 The AI Content Engine (Architecture 5.0)
-
-HOPE-Edu-Hub features a robust, **Zero-Tolerance AI Architecture** designed for clinical precision and developer-grade reliability.
+HOPE-Edu-Hub helps students and instructors create, share, and iterate on course materials using integrated AI assistants. Key capabilities include:
 
 ### 🛡️ Puter AI Activation & Security
 The system leverages **Puter.js** for secure, cloud-based AI inference.
@@ -25,7 +23,7 @@ The system uses a sophisticated cascade of models tailored to specific tasks:
 
 ---
 
-## 🛠️ Feature Suite
+## Features (User-facing)
 
 ### 1. 🎙️ Podcast Classes (NEW!)
 *Turn boring PDF notes into engaging, radio-style audio classes.*
@@ -62,39 +60,48 @@ The system uses a sophisticated cascade of models tailored to specific tasks:
 *   **Assignment**: Generates quizzes and practice questions from syllabus topics.
 *   **Mini/Major Projects**: Architects entire project suites including abstracts, code structure, and documentation.
 
----
-
-## 📱 Core Features
-
-### 📚 Visual Resource Hub
-*   **Deep Linking**: Navigate via `Department > Semester > Subject`.
-*   **Smart Filters**: Toggle between `Core` and `Labs` instantly.
-*   **Claymorphism UI**: A tactile, 3D design system that feels responsive and "alive."
-
-### ⚖️ Self-Governing Community
-*   **Weighted Ranking**: Notes are ranked by student interaction.
-*   **AI Moderation**: Real-time filtering of abusive content.
-*   **Student Dashboard**: Track favorites and manage academic preferences.
+### 5. Resource Hub & Community
+*   **Browse**: Navigate notes via Department → Semester → Subject.
+*   **Upload**: Share resources (`PublicUploadModal`).
+*   **Rank**: Upvote resources and view highly-rated materials (`CommunityFeed`).
 
 ---
 
-## 🛠️ Technical Architecture
+## How to Use — Quick Walkthrough
 
-### Frontend Layer
+Prerequisites: a Supabase project (for auth/storage) and an AI API key if you want remote model usage.
+
+1.  **Sign up / Sign in**
+    *   Use the registration flow (`Registration.jsx`) to create an account. Many features require authentication.
+
+2.  **Navigate the Resource Hub**
+    *   Use the main UI to filter by Department / Semester / Subject and explore or upload materials.
+
+3.  **Generate Slides**
+    *   Open the `AgenticPPTGenerator` from the UI, supply a topic and goals, then follow the prompts.
+    *   Use the refine chat to edit slide text, layout, or visuals before exporting.
+
+4.  **Use the J-Compiler**
+    *   Open the compiler component (look for `JCompiler.jsx`) and paste code or describe desired behaviour.
+    *   Run simulation: the component will present audit results and suggested fixes.
+
+5.  **Create a Project**
+    *   Use `ProjectGenerator.jsx` to run the interview flow. When complete, download the generated `.zip` containing docs and scaffolding.
+
+6.  **Create a Podcast**
+    *   Go to **AI Tutor > Podcast Classes**. Upload a PDF to generate and play an audio class.
+
+---
+
+## Setup & Development
+
+### Frontend & Tech Stack
 *   **Framework**: React 19 + Vite
 *   **Styling**: Bootstrap 5 + Custom CSS (Claymorphism & Glassmorphism)
-*   **Animations**: `framer-motion` for fluid state transitions and page exits.
-*   **Icons**: `lucide-react` for a consistent, modern icon set.
-
-### AI & Data Layer
-*   **Primary Engine**: Puter.js (Accessing LFM-2.5, DeepSeek, etc.)
-*   **Audio Engine**: Web Speech API (`window.speechSynthesis`)
-*   **PDF Processing**: `pdfjs-dist` for client-side text extraction.
-*   **Identity & Persistence**: Supabase (PostgreSQL) + LocalStorage (for session history).
-
----
-
-## 🚀 Getting Started
+*   **Animations**: `framer-motion` for fluid state transitions.
+*   **Icons**: `lucide-react`.
+*   **AI Engine**: Puter.js (Accessing LFM-2.5, DeepSeek, etc.)
+*   **Persistence**: Supabase (PostgreSQL) + LocalStorage.
 
 ### Installation
 
@@ -106,16 +113,45 @@ The system uses a sophisticated cascade of models tailored to specific tasks:
     ```
 
 2.  **Environment Setup**:
-    Create a `.env` file with your `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+    Create a `.env` file in the project root with your Supabase credentials:
+    ```env
+    VITE_SUPABASE_URL=your_supabase_url
+    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ```
 
 3.  **Run Dev Server**:
     ```bash
     npm run dev
     ```
 
+4.  **Build for Production**:
+    ```bash
+    npm run build
+    ```
+
 ---
 
-## 🤝 Philosophy
+## Project Structure (High Level)
+
+*   `src/` — React app source
+    *   `App.jsx`, `main.jsx` — app entry points
+    *   `supabaseClient.js` — Supabase initialization
+    *   `components/` — AI components and UI (e.g., `PodcastClasses.jsx`, `JCompiler.jsx`, `AIChat.jsx`)
+    *   `utils/` — AI service utilities, specialized logic (`puterUtils.js`, `pdfUtils.js`, `aiService.js`)
+*   `public/` — static assets
+*   `api/` — serverless-style API handlers (if used)
+
+---
+
+## Security & Troubleshooting
+
+*   **Security**: Keep `VITE_SUPABASE_ANON_KEY` and any AI API keys out of public repos.
+*   **AI Issues**: If AI features fail, check the browser console. Puter.js requires an active session (handled via popup).
+*   **Supabase**: Ensure RLS policies are correctly configured for your table structure.
+
+---
+
+## Philosophy
 
 **HOPE-Edu-Hub** prioritizes **Speed, Beauty, and Accuracy**. Every feature—from the Podcast Player to the J-Compiler—is designed to empower engineering students with the **superpowers** of AI, making learning faster, deeper, and more enjoyable.
 
