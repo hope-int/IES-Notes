@@ -161,11 +161,3 @@ Notes:
 
 State your license here (e.g., MIT) or add a `LICENSE` file.
 
----
-
-If you want, I can also:
-- add a short `DEVELOPER.md` for component-level notes
-- run the app locally in the container and verify the dev server
-- extract and document the API surface for `api/ai-completion.js` and `supabaseClient.js`
-
-Tell me which of those you'd like me to do next.
