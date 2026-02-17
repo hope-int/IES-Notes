@@ -15,6 +15,8 @@ import AdminLoginModal from './AdminLoginModal';
 import StudentProfile from './StudentProfile';
 import JCompiler from './components/JCompiler';
 import PuterAuthPopup from './components/PuterAuthPopup';
+import ZeroToHero from './components/ZeroToHero/ZeroToHero';
+import PodcastClasses from './components/Podcast/PodcastClasses';
 
 import CommunityFeed from './CommunityFeed';
 import AIChat from './AIChat';
@@ -55,7 +57,7 @@ function App() {
   const location = useLocation();
 
   // Route Handling: Check if we are on a special route (e.g. /compiler, /admin)
-  const isSpecialRoute = ['/compiler', '/admin'].includes(location.pathname);
+  const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes'].includes(location.pathname);
 
   // Warning State
   const [warningMessage, setWarningMessage] = useState(null);
@@ -101,6 +103,33 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Robustly check (and wait for) Puter.js to initialize
+  useEffect(() => {
+    let attempts = 0;
+    const maxAttempts = 20; // Try for ~10 seconds (20 * 500ms)
+
+    const checkPuterAuth = () => {
+      if (window.puter && window.puter.auth) {
+        const signedIn = window.puter.auth.isSignedIn();
+        setIsPuterSignedIn(signedIn);
+        return true;
+      }
+      return false;
+    };
+
+    // Check immediately
+    if (!checkPuterAuth()) {
+      const interval = setInterval(() => {
+        attempts++;
+        if (checkPuterAuth() || attempts >= maxAttempts) {
+          clearInterval(interval);
+        }
+      }, 500);
+
+      return () => clearInterval(interval);
+    }
+  }, []);
+
   const checkUserStatus = async () => {
     // 1. Check Local Storage for Student Profile (Main Flow)
     const storedProfile = localStorage.getItem('hope_student_profile');
@@ -142,11 +171,7 @@ function App() {
     }
 
 
-    // 4. Check Puter Auth
-    if (window.puter) {
-      const signedIn = window.puter.auth.isSignedIn();
-      setIsPuterSignedIn(signedIn);
-    }
+
 
     setInitializing(false);
   };
@@ -443,7 +468,7 @@ function App() {
           onOpenAdmin={() => setShowAdmin(true)}
         />
       ) : (
-        <div className="min-vh-100 pb-5 transition-colors">
+        <div className={`min-vh-100 transition-colors ${isSpecialRoute ? '' : 'pb-5'}`}>
 
           {!isSpecialRoute && (
             <>
@@ -486,7 +511,7 @@ function App() {
                       </div>
                     ))}
                   </div >
-                </div>
+                </div >
 
                 <div className="d-flex align-items-center gap-3">
                   <button
@@ -872,6 +897,8 @@ function App() {
 
           {/* Routes (Always Rendered) */}
           <Routes>
+            <Route path="/zero-to-hero" element={<ZeroToHero onBack={() => window.history.back()} />} />
+            <Route path="/podcast-classes" element={<PodcastClasses />} />
             <Route path="/admin" element={session || userProfile ? <AdminPanel /> : <Navigate to="/" />} />
             <Route path="/compiler" element={session || userProfile ? <JCompiler /> : <Navigate to="/" />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -904,7 +931,8 @@ function App() {
             )}
           </AnimatePresence>
         </div >
-      )}
+      )
+      }
     </>
   );
 }

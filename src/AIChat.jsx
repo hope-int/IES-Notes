@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText, ChevronLeft, ChevronRight, Users, Code, Cpu, Terminal } from 'lucide-react';
+import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, MessageCircle, Presentation, History, Plus, Trash2, Menu, X, Share2, LayoutGrid, FileText, ChevronLeft, ChevronRight, Users, Code, Cpu, Terminal, Mic } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Explicitly setting worker for Vite compatibility
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import ContentGenerator from './components/ContentGenerator';
+
 import { getAICompletion } from './utils/aiService';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -294,6 +295,7 @@ export default function AIChat({ profile, setActiveTab }) {
                 </div>
             );
         }
+
         return (
             <div className="container py-5 d-flex flex-column align-items-center justify-content-center min-vh-100 pb-5 mb-5 relative z-10">
                 <div className="text-center mb-5">
@@ -348,7 +350,9 @@ export default function AIChat({ profile, setActiveTab }) {
                             { id: 'assignment', icon: Sparkles, title: "Assignment", desc: "Generate quizzes & questions.", color: 'text-warning', bg: 'bg-warning' },
                             { id: 'mini-project', icon: Code, title: "Mini Project", desc: "Full code, abstract & report.", color: 'text-info', bg: 'bg-info' },
                             { id: 'final-project', icon: Cpu, title: "Final Year Project", desc: "Complete major project suite.", color: 'text-danger', bg: 'bg-danger' },
-                            { id: 'j-compiler', icon: Terminal, title: "J-Compiler", desc: "AI Code Simulator & Debugger.", color: 'text-dark', bg: 'bg-secondary' }
+                            { id: 'zero-to-hero', icon: Sparkles, title: "Zero to Hero", desc: "AI Socratic Tutor.", color: 'text-purple', bg: 'bg-warning' },
+                            { id: 'j-compiler', icon: Terminal, title: "J-Compiler", desc: "AI Code Simulator & Debugger.", color: 'text-dark', bg: 'bg-secondary' },
+                            { id: 'podcast-class', icon: Mic, title: "Podcast Class", desc: "Convert notes to audio.", color: 'text-danger', bg: 'bg-danger' }
                         ].map(tool => (
                             <div key={tool.id} className="col-md-4">
                                 <motion.div
@@ -359,6 +363,12 @@ export default function AIChat({ profile, setActiveTab }) {
                                             e.stopPropagation();
                                             console.log("Navigating to J-Compiler...");
                                             navigate('/compiler');
+                                        } else if (tool.id === 'zero-to-hero') {
+                                            e.stopPropagation();
+                                            navigate('/zero-to-hero');
+                                        } else if (tool.id === 'podcast-class') {
+                                            e.stopPropagation();
+                                            navigate('/podcast-classes');
                                         } else {
                                             setSelectedFeature({ type: 'content-tools', tool: tool.id });
                                         }
@@ -374,7 +384,7 @@ export default function AIChat({ profile, setActiveTab }) {
                         ))}
                     </div>
                 </div>
-            </div>
+            </div >
         );
     }
 
