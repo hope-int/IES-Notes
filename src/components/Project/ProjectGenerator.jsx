@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Code, FileText, CheckCircle, Loader2, Download, MessageSquare, Send, Sparkles, Box } from 'lucide-react';
 import JSZip from 'jszip';
-import { getAICompletion } from '../utils/aiService';
+import { getAICompletion } from '../../utils/aiService';
 
 const ProjectBuilder = ({ type, onBack }) => {
     const [step, setStep] = useState('topic'); // topic -> interview -> generating -> completed

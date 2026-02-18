@@ -22,7 +22,7 @@ const ZeroToHero = ({ onBack }) => {
     if (loading) return null;
 
     if (!profile) {
-        return <Onboarding onComplete={handleOnboardingComplete} />;
+        return <Onboarding onComplete={handleOnboardingComplete} onBack={onBack} />;
     }
 
     return (

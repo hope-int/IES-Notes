@@ -96,14 +96,14 @@ export default function JCompiler() {
                 <div className="clay-card p-1 d-flex gap-1 rounded-pill bg-white" style={{ border: '1px solid #e2e8f0' }}>
                     <button
                         className={`btn btn-sm rounded-pill px-3 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${mode === 'compiler' ? 'bg-primary text-white shadow-sm' : 'text-muted hover-bg-light'}`}
-                        onClick={() => { setMode('compiler'); setInput(''); setOutput(null); setIsWaitingInput(false); }}
+                        onClick={() => { setMode('compiler'); setInput(''); setOutput(null); }}
                         style={{ border: 'none' }}
                     >
                         <Play size={16} /> Compiler
                     </button>
                     <button
                         className={`btn btn-sm rounded-pill px-3 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${mode === 'generator' ? 'bg-primary text-white shadow-sm' : 'text-muted hover-bg-light'}`}
-                        onClick={() => { setMode('generator'); setInput(''); setOutput(null); setIsWaitingInput(false); }}
+                        onClick={() => { setMode('generator'); setInput(''); setOutput(null); }}
                         style={{ border: 'none' }}
                     >
                         <RotateCcw size={16} /> Reverse Engineer

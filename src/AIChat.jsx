@@ -13,7 +13,8 @@ import { saveFileToDB, getFileFromDB, clearFilesFromDB } from './utils/indexedDB
 import * as pdfjsLib from 'pdfjs-dist';
 // Explicitly setting worker for Vite compatibility
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import ContentGenerator from './components/ContentGenerator';
+// ContentGenerator removed
+
 
 import { getAICompletion } from './utils/aiService';
 
@@ -285,17 +286,6 @@ export default function AIChat({ profile, setActiveTab }) {
     };
 
     if (showFeatures) {
-        if (selectedFeature?.type === 'content-tools') {
-            return (
-                <div className="container py-5 min-vh-100 pb-5 mb-5 relative z-10">
-                    <ContentGenerator
-                        onBack={() => setSelectedFeature(null)}
-                        initialType={selectedFeature.tool}
-                    />
-                </div>
-            );
-        }
-
         return (
             <div className="container py-5 d-flex flex-column align-items-center justify-content-center min-vh-100 pb-5 mb-5 relative z-10">
                 <div className="text-center mb-5">
@@ -352,26 +342,26 @@ export default function AIChat({ profile, setActiveTab }) {
                             { id: 'final-project', icon: Cpu, title: "Final Year Project", desc: "Complete major project suite.", color: 'text-danger', bg: 'bg-danger' },
                             { id: 'zero-to-hero', icon: Sparkles, title: "Zero to Hero", desc: "AI Socratic Tutor.", color: 'text-purple', bg: 'bg-warning' },
                             { id: 'j-compiler', icon: Terminal, title: "J-Compiler", desc: "AI Code Simulator & Debugger.", color: 'text-dark', bg: 'bg-secondary' },
-                            { id: 'podcast-class', icon: Mic, title: "Podcast Class", desc: "Convert notes to audio.", color: 'text-danger', bg: 'bg-danger' }
+                            { id: 'podcast-class', icon: Mic, title: "Podcast Class", desc: "Convert notes to audio.", color: 'text-danger', bg: 'bg-danger' },
+                            { id: 'handbook', icon: BookOpen, title: "Exam Survival Kit", desc: "Generate 2-page revision sheets.", color: 'text-indigo', bg: 'bg-primary' }
                         ].map(tool => (
                             <div key={tool.id} className="col-md-4">
                                 <motion.div
                                     whileHover={{ y: -5 }}
                                     className="clay-card h-100 p-4 text-center cursor-pointer"
                                     onClick={(e) => {
-                                        if (tool.id === 'j-compiler') {
-                                            e.stopPropagation();
-                                            console.log("Navigating to J-Compiler...");
-                                            navigate('/compiler');
-                                        } else if (tool.id === 'zero-to-hero') {
-                                            e.stopPropagation();
-                                            navigate('/zero-to-hero');
-                                        } else if (tool.id === 'podcast-class') {
-                                            e.stopPropagation();
-                                            navigate('/podcast-classes');
-                                        } else {
-                                            setSelectedFeature({ type: 'content-tools', tool: tool.id });
-                                        }
+                                        e.stopPropagation();
+                                        // Specific Routes Mapping
+                                        if (tool.id === 'j-compiler') navigate('/compiler');
+                                        else if (tool.id === 'zero-to-hero') navigate('/zero-to-hero');
+                                        else if (tool.id === 'podcast-class') navigate('/podcast-classes');
+                                        else if (tool.id === 'handbook') navigate('/handbook');
+                                        // Content Generator Routes
+                                        else if (tool.id === 'presentation') navigate('/presentation');
+                                        else if (tool.id === 'report') navigate('/report');
+                                        else if (tool.id === 'assignment') navigate('/assignment');
+                                        else if (tool.id === 'mini-project') navigate('/mini-project');
+                                        else if (tool.id === 'final-project') navigate('/final-project');
                                     }}
                                 >
                                     <div className={`${tool.bg} bg-opacity-10 p-3 rounded-circle d-inline-block mb-3 ${tool.color}`}>

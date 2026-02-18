@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Pause, Sidebar, CheckCircle, Loader2, Maximize2, Minimize2, Download, Smartphone, Monitor, AlertCircle, RefreshCw, Sparkles, Layout, History, Clock } from 'lucide-react';
-import { savePPT, getAllPPTs, deletePPT } from '../utils/pptDB';
-import { getAICompletion } from '../utils/aiService';
+import { savePPT, getAllPPTs, deletePPT } from '../../utils/pptDB';
+import { getAICompletion } from '../../utils/aiService';
 
 const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customInstructions = '', theme = 'modern', descriptionLength = 'short', includeDiagrams = true }) => {
     const [status, setStatus] = useState('planning'); // planning, generating, completed, error

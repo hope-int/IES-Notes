@@ -59,7 +59,7 @@ const questions = [
     }
 ];
 
-const Onboarding = ({ onComplete }) => {
+const Onboarding = ({ onComplete, onBack }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState({});
 
@@ -85,6 +85,13 @@ const Onboarding = ({ onComplete }) => {
 
     return (
         <div className="d-flex flex-column align-items-center justify-content-center min-vh-100 p-4 relative overflow-hidden" style={{ background: 'var(--bg-color)' }}>
+
+            {/* Back Button */}
+            <div className="position-absolute top-0 start-0 p-4">
+                <button onClick={onBack} className="btn btn-link text-decoration-none text-muted d-flex align-items-center gap-2" style={{ fontWeight: 600 }}>
+                    <ChevronRight size={20} className="rotate-180" style={{ transform: 'rotate(180deg)' }} /> Back
+                </button>
+            </div>
 
             {/* Background blobs similar to AIChat if needed, but keeping it clean for focus */}
 
