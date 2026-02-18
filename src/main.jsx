@@ -7,16 +7,16 @@ import App from './App.jsx'
 import { BrowserRouter } from 'react-router-dom';
 
 // Auto update PWA
-registerSW({
+const updateSW = registerSW({
   onNeedRefresh() {
-    if (confirm('New update available! Reload now?')) {
-      window.location.reload()
+    if (confirm('New content available. Reload?')) {
+      updateSW(true);
     }
   },
   onOfflineReady() {
-
-  }
-})
+    console.log('App ready to work offline');
+  },
+});
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
