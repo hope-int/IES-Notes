@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, Pause, Sidebar, CheckCircle, Loader2, Maximize2, Minimize2, Download, Smartphone, Monitor, AlertCircle, RefreshCw, Sparkles, Layout, History, Clock } from 'lucide-react';
 import { savePPT, getAllPPTs, deletePPT } from '../../utils/pptDB';
 import { getAICompletion } from '../../utils/aiService';
+import AILoader from '../AILoader';
 
 const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customInstructions = '', theme = 'modern', descriptionLength = 'short', includeDiagrams = true }) => {
     const [status, setStatus] = useState('planning'); // planning, generating, completed, error
@@ -691,10 +692,11 @@ IMPORTANT: Content MUST be perfectly contained within the 16:9 frame. Use 'vh' u
                                     sandbox="allow-scripts"
                                 />
                             ) : (
-                                <div className="h-100 w-100 d-flex flex-column align-items-center justify-content-center text-white p-5 bg-gradient-to-br from-slate-900 to-black">
-                                    <Loader2 size={48} className="spin text-primary mb-4" style={{ opacity: 0.8 }} />
-                                    <h5 className="fw-bold tracking-tight mb-2">Synthesizing Slide {currentSlideIndex + 1}</h5>
-                                    <p className="text-secondary small opacity-75">{slides[currentSlideIndex]?.title || 'Awaiting Plan...'}</p>
+                                <div className="h-100 w-100 bg-dark d-flex align-items-center justify-content-center">
+                                    <AILoader
+                                        title={`Synthesizing Slide ${currentSlideIndex + 1}`}
+                                        subtitle={slides[currentSlideIndex]?.title || 'Awaiting Plan...'}
+                                    />
                                 </div>
                             )}
                         </motion.div>

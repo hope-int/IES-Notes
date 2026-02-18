@@ -11,6 +11,7 @@ import 'katex/dist/katex.min.css';
 import { Upload, FileText, Printer, Loader2, ArrowLeft, Plus, History, X, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import AILoader from '../AILoader';
 import './Handbook.css';
 
 const HandbookGenerator = ({ onBack }) => {
@@ -26,6 +27,29 @@ const HandbookGenerator = ({ onBack }) => {
 
     const fileInputRef = useRef(null);
     const navigate = useNavigate();
+
+    // Custom Code Component for Print Optimization
+    const codeComponent = {
+        code({ node, inline, className, children, ...props }) {
+            return !inline ? (
+                <span className="code-block-container" style={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    overflow: 'visible',
+                    width: '100%',
+                    display: 'block' // Maintain block layout
+                }}>
+                    <code className={className} {...props}>
+                        {children}
+                    </code>
+                </span>
+            ) : (
+                <code className={className} {...props}>
+                    {children}
+                </code>
+            );
+        }
+    };
 
     // Load history on mount
     useEffect(() => {
@@ -284,19 +308,12 @@ const HandbookGenerator = ({ onBack }) => {
                             exit={{ opacity: 0 }}
                             className="handbook-card justify-content-center p-5"
                         >
-                            <div className="loading-container">
-                                <div className="spinner-wrapper text-primary">
-                                    <Loader2 size={64} />
-                                </div>
-                                <h2 className="loading-text-primary">
-                                    {status === 'extracting' ? 'Reading Document...' : 'Compressing Knowledge...'}
-                                </h2>
-                                <p className="loading-text-secondary">
-                                    {status === 'extracting'
-                                        ? 'Extracting the key concepts from your PDF.'
-                                        : 'The AI is structuring your revision sheet. This may take a minute.'}
-                                </p>
-                            </div>
+                            <AILoader
+                                title={status === 'extracting' ? 'Reading Document...' : 'Compressing Knowledge...'}
+                                subtitle={status === 'extracting'
+                                    ? 'Extracting the key concepts from your PDF.'
+                                    : 'The AI is structuring your revision sheet. This may take a minute.'}
+                            />
                         </motion.div>
                     )}
 
@@ -353,6 +370,7 @@ const HandbookGenerator = ({ onBack }) => {
                                                             <ReactMarkdown
                                                                 remarkPlugins={[remarkGfm, remarkMath]}
                                                                 rehypePlugins={[rehypeKatex]}
+                                                                components={codeComponent}
                                                             >
                                                                 {parts[0]}
                                                             </ReactMarkdown>
@@ -365,6 +383,7 @@ const HandbookGenerator = ({ onBack }) => {
                                                                     <ReactMarkdown
                                                                         remarkPlugins={[remarkGfm, remarkMath]}
                                                                         rehypePlugins={[rehypeKatex]}
+                                                                        components={codeComponent}
                                                                     >
                                                                         {part}
                                                                     </ReactMarkdown>
@@ -379,6 +398,7 @@ const HandbookGenerator = ({ onBack }) => {
                                                     <ReactMarkdown
                                                         remarkPlugins={[remarkGfm, remarkMath]}
                                                         rehypePlugins={[rehypeKatex]}
+                                                        components={codeComponent}
                                                     >
                                                         {handbookContent}
                                                     </ReactMarkdown>

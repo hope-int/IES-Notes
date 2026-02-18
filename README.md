@@ -25,14 +25,15 @@ The system uses a sophisticated cascade of models tailored to specific tasks:
 
 ## Features (User-facing)
 
-### 1. 🎙️ Podcast Classes (NEW!)
-*Turn boring PDF notes into engaging, radio-style audio classes.*
+### 1. 🎙️ Podcast Classes (Refined & Enhanced)
+*Your personal AI Audio Tutor, now with a premium studio experience.*
 
 **Key Capabilities:**
-*   **AI Radio Host Persona**: The AI analyzes your PDF notes and generates a script in the style of a charismatic engineering podcast host, making complex topics fun and digestible.
-*   **Instant Audio Generation**: Uses the **Web Speech API** to synthesize natural-sounding speech directly in the browser.
-*   **Mobile-First Player**: Features a dedicated player with speed controls (1x, 1.25x, 1.5x, 2x), progress tracking, and background playback support.
-*   **History & Persistence**: Automatically saves your generated classes so you can re-listen anytime.
+*   **Premium App-Like Experience**: A completely redesigned, **neumorphic UI** featuring a fluid **audio visualizer**, glassmorphic details, and a modern "Squircle" aesthetic that feels right at home on your device.
+*   **AI Radio Host Persona**: Converts dry PDF notes into engaging, radio-style scripts. The AI host summarizes key concepts, uses analogies, and makes studying feel like listening to a favorite show.
+*   **Smart Audio Engine**: Automatically **chunks large documents** to bypass generation limits, sewing them together into a seamless audio experience.
+*   **Offline Ready**: Features a dedicated **Download/Save** button so you can keep your classes forever and listen without an internet connection.
+*   **Full Playback Control**: Includes a custom gradient progress slider, variable speed playback (1x - 2x), history persistence, and auto-play logic.
 
 ### 2. 🚀 Zero to Hero (NEW!)
 *Your personal AI Socratic Tutor.*

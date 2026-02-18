@@ -258,10 +258,7 @@
    PRINT OPTIMIZATION (4-Pages-Per-Sheet GRID)
    ========================================= */
 /* =========================================
-   PRINT OPTIMIZATION (4-Pages-Per-Sheet GRID)
-   ========================================= */
-/* =========================================
-   PRINT OPTIMIZATION (Giant Text, One Page Flow)
+   PRINT OPTIMIZATION (Giant Text + Nuclear Code Fix)
    ========================================= */
 @media print {
 
@@ -276,6 +273,7 @@
     nav,
     button,
     .loading-state,
+    .header-actions,
     .header-actions,
     .back-button,
     .no-print,
@@ -327,21 +325,25 @@
         border: none;
     }
 
-    /* The Content Modules */
-    .handbook-module {
-        /* No boxes, no fixed height. Just clear content. */
+    /* 1. FORCE UNLOCK ALL HEIGHTS */
+    /* This ensures the "box" expands to fit the code, no matter what */
+    .handbook-module,
+    .handbook-content div,
+    .code-block-container {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
+        /* Fixes flexbox clipping issues */
+
+        /* Keep existing module style */
         border-bottom: 2px solid #000;
-        /* Separator line between topics */
         padding-bottom: 20px;
         margin-bottom: 20px;
         page-break-inside: avoid;
-        /* Try not to split a topic in half */
-        display: block;
     }
 
-    /* --- GIANT FONTS (The Secret Sauce) --- */
-
-    /* Body Text: Huge 16pt (Standard is usually 12pt) */
+    /* --- GIANT FONTS --- */
     p,
     li,
     span,
@@ -381,12 +383,10 @@
     ul,
     ol {
         padding-left: 40px;
-        /* Extra indent for clarity */
     }
 
     li {
         margin-bottom: 8px;
-        /* Space between items */
     }
 
     /* Tables */
@@ -402,35 +402,55 @@
         border: 1px solid #000;
         padding: 8px;
         font-size: 14pt !important;
-        /* Slightly smaller for tables but still big */
     }
 
-    /* FIX: Force Code to Wrap, No Scrollbars */
+    /* 2. TARGET EVERYTHING THAT MIGHT BE A CODE BLOCK */
     pre,
-    code {
-        white-space: pre-wrap !important;
-        /* Wraps long lines to the next line */
-        word-wrap: break-word !important;
-        /* Breaks long words if necessary */
-        overflow: visible !important;
-        /* Removes the scrollbar */
-        max-height: none !important;
-        /* Allows the box to grow as tall as needed */
+    code,
+    .handbook-module div,
+    .code-block-container,
+    /* Target our new span container */
+    div[class*="syntax"],
+    span[class*="syntax"],
+    div[style*="overflow"],
+    /* Target inline styles */
+    pre[style*="overflow"] {
 
-        /* Optional: Visual cleanup for print */
-        background: #f5f5f5 !important;
-        /* Light gray background for contrast */
+        /* 1. Force Text Wrapping (Break long lines) */
+        white-space: pre-wrap !important;
+        word-wrap: break-word !important;
+        word-break: break-all !important;
+        /* Aggressive break to prevent scrolling */
+
+        /* 2. KILL THE SCROLLBAR */
+        overflow: visible !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+
+        /* 3. Remove Fixed Widths/Heights */
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        min-width: 0 !important;
+        /* Allow shrinking if needed */
+
+        /* 4. Visual Cleanup */
         border: 1px solid #ccc !important;
-        border-radius: 4px;
-        padding: 10px !important;
+        box-shadow: none !important;
+        display: block !important;
+        background-color: #f4f4f4 !important;
         color: #000 !important;
-        /* Ensure code is black, not colored syntax */
+        padding: 8px !important;
+        margin-bottom: 10px !important;
+        font-size: 12pt !important;
+
+        page-break-inside: avoid;
     }
 
-    /* Ensure the code font is legible when shrunk */
-    pre {
-        font-size: 12pt !important;
-        /* Slightly smaller than body text to save space */
-        margin-bottom: 15px;
+    /* Hides the scrollbar track itself if it somehow persists */
+    ::-webkit-scrollbar {
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
     }
 }

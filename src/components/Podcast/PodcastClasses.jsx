@@ -5,7 +5,7 @@ import PodcastPlayer from './PodcastPlayer';
 import PodcastHistory from './PodcastHistory';
 import { useNavigate } from 'react-router-dom';
 import { extractTextFromPDF } from '../../utils/pdfUtils';
-import { generatePodcastScript } from '../../utils/puterUtils';
+import { generatePodcastScript, checkPodcastRateLimit, recordPodcastUsage, generateAndSavePodcastAudio } from '../../utils/puterUtils';
 
 const PodcastClasses = () => {
     const navigate = useNavigate();
@@ -40,6 +40,14 @@ const PodcastClasses = () => {
         try {
             setIsGenerating(true);
 
+            // 0. Check Rate Limit
+            const isAllowed = await checkPodcastRateLimit();
+            if (!isAllowed) {
+                alert("Rate Limit Exceeded\n\nYou can only generate 13 podcasts every 12 hours. Please try again later.");
+                setIsGenerating(false);
+                return;
+            }
+
             // 1. Extract Text
             setLoadingStep('extracting');
             const text = await extractTextFromPDF(file);
@@ -50,17 +58,30 @@ const PodcastClasses = () => {
             const script = await generatePodcastScript(text);
             console.log("Generated script length:", script.length);
 
-            // 3. Create Podcast Object
+            // 3. Generate Audio
+            const podcastId = Date.now();
+            let audioPath = null;
+            try {
+                audioPath = await generateAndSavePodcastAudio(script, podcastId);
+            } catch (audioErr) {
+                console.warn("Audio generation failed, falling back to script only", audioErr);
+            }
+
+            // 4. Record Usage
+            if (audioPath) await recordPodcastUsage();
+
+            // 5. Create Podcast Object
             const newPodcast = {
-                id: Date.now(),
+                id: podcastId,
                 title: file.name.replace('.pdf', ''),
                 subtitle: 'AI Generated Class',
                 date: new Date().toISOString(),
                 script: script,
-                duration: null, // Will be set after synthesis estimation or playback
+                audioPath: audioPath,
+                duration: null,
             };
 
-            // 4. Update State & History
+            // 6. Update State & History
             setCurrentPodcast(newPodcast);
             setHistory(prev => [newPodcast, ...prev]);
             setActiveTab('player');
@@ -68,6 +89,42 @@ const PodcastClasses = () => {
         } catch (error) {
             console.error("Failed to process podcast:", error);
             alert("Failed to generate podcast. Please try again.");
+        } finally {
+            setIsGenerating(false);
+            setLoadingStep('');
+        }
+    };
+
+    const handleRegenerate = async (podcast) => {
+        if (!podcast || !podcast.script) return;
+
+        try {
+            setIsGenerating(true);
+            setLoadingStep('ready'); // Use ready or scripting to show loader
+
+            // Check Rate Limit
+            const isAllowed = await checkPodcastRateLimit();
+            if (!isAllowed) {
+                alert("Rate Limit Exceeded\n\nYou can only generate 13 podcasts every 12 hours. Please try again later.");
+                setIsGenerating(false);
+                return;
+            }
+
+            // Generate Audio
+            try {
+                const audioPath = await generateAndSavePodcastAudio(podcast.script, podcast.id);
+                if (audioPath) {
+                    await recordPodcastUsage();
+
+                    // Update Podcast object
+                    const updatedPodcast = { ...podcast, audioPath };
+                    setCurrentPodcast(updatedPodcast);
+                    setHistory(prev => prev.map(p => p.id === podcast.id ? updatedPodcast : p));
+                }
+            } catch (err) {
+                console.error("Regeneration failed", err);
+                alert("Failed to regenerate audio.");
+            }
         } finally {
             setIsGenerating(false);
             setLoadingStep('');
@@ -95,21 +152,30 @@ const PodcastClasses = () => {
                 </div>
 
                 {/* Tabs */}
-                <div className="container d-flex gap-4">
-                    <button
-                        onClick={() => setActiveTab('player')}
-                        className={`btn btn-link text-decoration-none py-2 px-1 border-bottom-2 ${activeTab === 'player' ? 'border-primary text-primary fw-bold' : 'border-transparent text-secondary'}`}
-                        style={{ borderBottom: activeTab === 'player' ? '3px solid var(--primary-accent)' : '3px solid transparent', borderRadius: 0 }}
-                    >
-                        Now Playing
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        className={`btn btn-link text-decoration-none py-2 px-1 border-bottom-2 ${activeTab === 'history' ? 'border-primary text-primary fw-bold' : 'border-transparent text-secondary'}`}
-                        style={{ borderBottom: activeTab === 'history' ? '3px solid var(--primary-accent)' : '3px solid transparent', borderRadius: 0 }}
-                    >
-                        History
-                    </button>
+                {/* Tabs */}
+                <div className="d-flex justify-content-center pt-2 pb-4">
+                    <div className="d-inline-flex bg-light rounded-pill p-1 shadow-sm border">
+                        <button
+                            onClick={() => setActiveTab('player')}
+                            className={`btn btn-sm rounded-pill px-4 transition-all ${activeTab === 'player'
+                                    ? 'bg-white text-dark shadow-sm fw-bold'
+                                    : 'text-muted'
+                                }`}
+                            style={{ minWidth: '120px' }}
+                        >
+                            Now Playing
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`btn btn-sm rounded-pill px-4 transition-all ${activeTab === 'history'
+                                    ? 'bg-white text-dark shadow-sm fw-bold'
+                                    : 'text-muted'
+                                }`}
+                            style={{ minWidth: '120px' }}
+                        >
+                            History
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -131,6 +197,7 @@ const PodcastClasses = () => {
                                 isGenerating={isGenerating}
                                 loadingStep={loadingStep}
                                 onUpload={handleFileUpload}
+                                onRegenerate={handleRegenerate}
                             />
                         </motion.div>
                     ) : (
