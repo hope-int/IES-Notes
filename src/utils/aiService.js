@@ -196,7 +196,7 @@ const fetchGroqDirectly = async (messages, jsonMode) => {
 export const getAICompletion = async (messages, options = {}) => {
     const {
         jsonMode = false,
-        model = "liquid/lfm-2.5-1.2b-instruct:free",
+        model = "llama-3.1-8b-instant",
         onFallback = () => { },
         provider = "auto" // 'auto' | 'groq' | 'puter'
     } = options;

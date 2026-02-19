@@ -1,171 +1,117 @@
-# HOPE-Edu-Hub — User Guide & Features
 
-HOPE-Edu-Hub is an AI-first educational notes and content platform built with React + Vite and Supabase for authentication and persistence. It bundles interactive AI tools (content generation, slide/project generation, and code simulation) with a community resource hub for students and educators.
+# HOPE-Edu-Hub: The AI-Native Academic Ecosystem 🚀✨
 
-This README contains a complete user guide, feature descriptions, quick setup, and developer notes.
+![HOPE-Edu-Hub](http://via.placeholder.com/1200x500?text=HOPE-Edu-Hub:+Your+Academic+Superpower)
 
-**Table of contents**
-- Overview
-- Features (user-facing)
-- How to use (walkthrough)
-- Setup & Development
-- Project structure
-- Security & data notes
-- Troubleshooting
-- Contributing
+## 🌟 Overview
+**HOPE-Edu-Hub** is a next-generation academic platform designed for an open and collaborative learning experience. It evolves beyond simple file sharing into a **comprehensive AI-powered academic assistant**. It combines instant note access, a self-moderating community, and a suite of **Agentic AI Tools** that can synthesize presentations, reports, simulate code execution, and generate entire engineering projects from scratch.
 
 ---
 
-## Overview
+## 🤖 The AI Content Engine (Architecture 4.0)
 
-HOPE-Edu-Hub helps students and instructors create, share, and iterate on course materials using integrated AI assistants. Key capabilities include:
+HOPE-Edu-Hub features a robust, **Zero-Tolerance AI Architecture** designed for clinical precision and developer-grade reliability.
 
-- AI-assisted note and slide generation
-- Agentic project scaffolding and exporting
-- An AI-powered J-Compiler that audits and simulates code
-- Community feed with moderation and ranking
-- Client-side persistence for generated PPTs and assets
+### 🛡️ Puter AI Activation & Security
+The system now includes a **Mandatory Puter AI Environment Verification**. 
+*   **First-Time Setup**: New users are met with a premium, non-removable activation popup to authorize their Puter Cloud environment. 
+*   **Verified Compute**: This ensures all AI-driven simulations and background tasks run in a secure, authorized sandbox, providing enhanced reliability for the J-Compiler and AI Tutor.
 
----
+### 🧠 Reasoning-First AI Routing
+The system uses a sophisticated 3-layer cascade, now featuring high-reasoning models:
 
-## Features (User-facing)
-
-1. J-Compiler (Code Studio)
-   - Simulate code execution and interactive terminal flows.
-   - Receive detailed Markdown-formatted diagnostics and suggested fixes.
-   - Use reverse-engineer mode to generate code from desired outputs.
-
-2. Agentic PPT / Web-Slides Generator
-   - Multi-stage generation: planning, design, refine, and export.
-   - Edit individual slides via chat-style interactions and export a self-contained HTML presentation.
-
-3. Intelligent Project Architect
-   - Guided interview prompts to collect requirements.
-   - Produces documentation (Markdown), modular code skeletons, and a zipped bundle for download.
-
-4. AI Chat & Content Generators
-   - `AIChat` and `ContentGenerator` components provide text/content generation, paraphrasing, and summaries.
-
-5. Resource Hub & Community
-   - Browse notes via Department → Semester → Subject.
-   - Upload and share resources (`PublicUploadModal`).
-   - Upvote/rank resources and view community activity (`CommunityFeed`).
-
-6. Persistence and Offline Support
-   - Generated slides and PPT artifacts are saved with `pptDB.js` and optionally in IndexedDB for offline retrieval.
-
-7. Admin & User Management
-   - Admin panel and login modal for managing content and moderation.
+1.  **Elite Logic Routing (J-Compiler)**: 
+    *   **Model**: **DeepSeek-R1 Distill Llama 70B** via Groq.
+    *   **Capabilities**: Uses Chain-of-Thought reasoning to perform deep audits. It doesn't just guess; it "thinks" through the logic execution path like a human senior developer.
+2.  **General Tasks**: Routed to **Puter.js** (Hosted LFM-2.5) for instant, free responses.
+3.  **Resilience Layers**:
+    *   **Custom Circuit Breakers**: Automatic failure detection with exponential backoff.
+    *   **Secure Backend Proxy**: API calls are routed through Vercel Serverless Functions to protect keys.
 
 ---
 
-## How to Use — Quick Walkthrough
+## 🛠️ Feature Suite
 
-Prerequisites: a Supabase project (for auth/storage) and an AI API key if you want remote model usage.
+### 1. 🖥️ J-Compiler: AI-Powered Code Studio
+*A next-gen innovative IDE that simulates a full compiler environment using deep reasoning.*
 
-1. Sign up / Sign in
-   - Use the registration flow (`Registration.jsx`) to create an account. Many features require authentication via Supabase (`supabaseClient.js`).
+**Key Capabilities:**
+*   **Zero-Tolerance Debugging**: The compiler acts as a **Pedantic Auditor**. It scans every character for typos, missing semicolons, case-sensitivity issues, and logic flaws (like infinite loops).
+*   **Interactive Terminal Simulation**: Simulates a real shell session, handling standard input (`stdin`) logically to provide a full execution flow without manual interaction.
+*   **Deep Analysis (Markdown)**: If a build fails, the AI provides a structured **Markdown Audit**. It uses headers and bullet points to list specific architectural flaws and syntax errors.
+*   **Auto-Correction**: Provides a "100% Valid" suggested fix that can be copied with one click, ensuring the fixed code is free of formatting artifacts.
+*   **Reverse Engineer Mode**: Uses DeepSeek-R1 to architect perfect, industry-standard code based on a desired output description.
 
-2. Navigate the Resource Hub
-   - Use the main UI to filter by Department / Semester / Subject and explore or upload materials.
+### 2. 📽️ Agentic Web-Slides Generator
+*A multi-step AI agent acting as both Creative Director and UI Designer.*
 
-3. Generate Slides
-   - Open the `AgenticPPTGenerator` from the UI, supply a topic and goals, then follow the prompts.
-   - Use the refine chat to edit slide text, layout, or visuals before exporting.
+**Workflow:**
+1.  **Director Phase (Planning)**: Drafts a "Creative Brief" & JSON Storyboard.
+2.  **Designer Phase (Iterative Synthesis)**: Generates high-fidelity HTML/CSS with `postMessage` isolation for instant rendering.
+3.  **Refine Loop**: Chat with individual slides to modify the DOM in real-time.
+4.  **Output**: Exports a self-contained `Presentation.html` with Mermaid.js support.
 
-4. Use the J-Compiler
-   - Open the compiler component (look for `JCompiler.jsx`) and paste code or describe desired behaviour.
-   - Run simulation: the component will present audit results and suggested fixes.
+### 3. 🏗️ Intelligent Project Architect
+*An interview-based system for generating Mini & Major Projects.*
 
-5. Create a Project
-   - Use `ProjectGenerator.jsx` to run the interview flow. When complete, download the generated `.zip` containing docs and scaffolding.
-
-6. Share and Moderate
-   - Upload files via `PublicUploadModal.jsx`. Community ranking and AI moderation are applied automatically.
-
----
-
-## Setup & Development
-
-Clone and install dependencies:
-
-```bash
-git clone https://github.com/hope-int/IES-Notes.git
-cd IES-Notes
-npm install
-```
-
-Create a `.env` file in the project root with the following variables:
-
-- `VITE_SUPABASE_URL` — your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` — your Supabase anon/public key
-- `VITE_AI_API_KEY` — (optional) key for any external AI service used by `api/ai-completion.js`
-
-Run the dev server:
-
-```bash
-npm run dev
-```
-
-Build for production:
-
-```bash
-npm run build
-```
-
-Notes:
-- The repository uses Vite and React with JSX components located under `src/`.
-- `api/ai-completion.js` provides a serverless-style endpoint for AI completions — inspect before enabling externally.
+**Workflow:**
+1.  **Technical Interview**: Generates 5 context-aware questions to define project scope.
+2.  **Parallel Synthesis**: Forks into Abstract, Report (Markdown), and Code (full module architecture) streams.
+3.  **Output**: Bundles the entire documentation and source code into a `.zip` file.
 
 ---
 
-## Project Structure (high level)
+## 📱 Core Features
 
-- `src/` — React app source
-  - `App.jsx`, `main.jsx` — app entry points
-  - `supabaseClient.js` — Supabase initialization and helper functions
-  - `components/` — AI components and content generators (e.g., `AgenticPPTGenerator.jsx`, `ProjectGenerator.jsx`, `JCompiler.jsx`)
-  - `utils/` — AI service utilities, IndexedDB helpers, PPT rendering plans (`aiService.js`, `pptDB.js`, `indexedDB.js`)
-- `api/` — simple serverless-style API handlers (e.g., `ai-completion.js`)
-- `public/` — static assets and dataset
-- `create_syllabus_folders.py` — helper script for generating folder scaffolding
+### 📚 Visual Resource Hub
+*   **Deep Linking**: Navigate via `Department > Semester > Subject`.
+*   **Smart Filters**: Toggle between `Core` and `Labs` instantly.
+*   **Claymorphism UI**: A tactile, 3D design system that feels responsive and "alive."
 
----
-
-## Security & Data Notes
-
-- Keep `VITE_SUPABASE_ANON_KEY` and any AI API keys out of public repos. Use environment variables in deployment.
-- `api/ai-completion.js` should be reviewed before exposing a public endpoint; it may proxy requests to external AI services and could leak keys if misconfigured.
-- Uploaded content is stored via Supabase — review RLS policies in your Supabase project for access control.
+### ⚖️ Self-Governing Community
+*   **Weighted Ranking**: Notes are ranked by student interaction.
+*   **AI Moderation**: Real-time filtering of abusive content.
+*   **Student Dashboard**: Track favorites and manage academic preferences.
 
 ---
 
-## Troubleshooting
+## 🛠️ Technical Architecture
 
-- If the app fails to start, run `npm install` again and confirm `.env` values are set.
-- If AI features are not responding, check the API key and logs for `api/ai-completion.js` requests.
-- For Supabase auth issues, verify that your project's URL and anon key are correct and that the project's CORS and redirect settings allow your dev server origin.
+### Frontend Layer
+*   **Framework**: React 19 + Vite
+*   **State Management**: custom-built stack navigation for fluid transitions.
+*   **Animations**: `framer-motion` for complex UI state changes.
 
----
-
-## Contributing
-
-- Contributions are welcome. Typical workflow:
-  1. Fork the repo
-  2. Create a feature branch
-  3. Open a PR describing changes and the motivation
+### AI & Data Layer
+*   **Primary Engine**: Groq (DeepSeek-R1 & Llama 3.3).
+*   **Identity & Persistence**: Supabase (PostgreSQL) + Puter Auth.
+*   **Realtime**: Supabase RLS policies and channel subscriptions.
 
 ---
 
-## License & Attribution
+## 🚀 Getting Started
 
-State your license here (e.g., MIT) or add a `LICENSE` file.
+### Installation
+
+1.  **Clone & Install**:
+    ```bash
+    git clone https://github.com/justin-john-mathew/ies-notes-clay.git
+    cd ies-notes-clay
+    npm install
+    ```
+
+2.  **Environment Setup**:
+    Create a `.env` file with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_GROQ_API_KEY`.
+
+3.  **Run Dev Server**:
+    ```bash
+    npm run dev
+    ```
 
 ---
 
-If you want, I can also:
-- add a short `DEVELOPER.md` for component-level notes
-- run the app locally in the container and verify the dev server
-- extract and document the API surface for `api/ai-completion.js` and `supabaseClient.js`
+## 🤝 Philosophy
 
-Tell me which of those you'd like me to do next.
+**HOPE-Edu-Hub** prioritizes **Speed, Beauty, and Accuracy**. Every feature—from the J-Compiler's audits to the Student Profile—is designed to empower engineering students with the tools of the future.
+
+**Developed with ❤️ for the HOPE Community.**

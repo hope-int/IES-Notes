@@ -266,7 +266,7 @@ export default function AIChat({ profile, setActiveTab }) {
             }
 
             const aiContent = await getAICompletion(requestMessages, {
-                model: selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "liquid/lfm-2.5-1.2b-instruct:free",
+                model: selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "llama-3.1-8b-instant",
                 onFallback: (msg) => {
                     // Optional: You could show a toast here, but for now we rely on the final success/fail
                     console.log("Fallback triggered:", msg);

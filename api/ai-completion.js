@@ -27,7 +27,7 @@ async function fetchOpenRouter(messages, model, jsonMode) {
             "X-Title": SITE_NAME
         },
         body: JSON.stringify({
-            model, // e.g. "liquid/lfm-2.5-1.2b-instruct:free"
+            model, // e.g. "llama-3.1-8b-instant"
             messages,
             response_format: jsonMode ? { type: "json_object" } : undefined
         })
