@@ -1,0 +1,456 @@
+/* Handbook Generator Specific Styles */
+
+/* General Layout */
+.handbook-page {
+    background-color: var(--bg-page, #f8fafc);
+    min-height: 100vh;
+    padding-bottom: 4rem;
+}
+
+/* History Sidebar/Modal */
+.history-drawer {
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+    background: white;
+    width: 320px;
+    z-index: 101;
+}
+
+.history-item {
+    cursor: pointer;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.history-item:hover {
+    background-color: var(--bg-page, #f8fafc);
+    border-color: #e2e8f0;
+}
+
+.history-item h6 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.history-item small {
+    font-size: 0.8rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.handbook-header-nav {
+    padding: 1.5rem;
+}
+
+.btn-back {
+    color: var(--primary-accent, #0d6efd);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 50rem;
+    transition: all 0.2s ease;
+}
+
+.btn-back:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: var(--primary-accent, #0d6efd);
+}
+
+/* Handbook Content Card - Web View */
+.handbook-card {
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+    /* Soft claymorphism shadow */
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto;
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.handbook-card-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+.handbook-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.doc-icon-wrapper {
+    width: 40px;
+    height: 40px;
+    background: #eff6ff;
+    color: var(--primary-accent, #0d6efd);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.handbook-meta h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.handbook-meta p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.handbook-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* Handbook Body */
+.handbook-body {
+    padding: 3rem;
+    flex-grow: 1;
+    color: #334155;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+}
+
+/* Typography Hierarchy */
+.handbook-body h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.handbook-subtitle {
+    font-size: 1rem;
+    color: #64748b;
+    margin-bottom: 3rem;
+    font-weight: 500;
+    display: block;
+}
+
+.handbook-content h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 2.5rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.handbook-content h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #334155;
+    margin-top: 1.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.handbook-content p {
+    margin-bottom: 1.25rem;
+}
+
+.handbook-content ul,
+.handbook-content ol {
+    padding-left: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.handbook-content li {
+    margin-bottom: 0.5rem;
+}
+
+/* Table Styling */
+.markdown-content table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.markdown-content th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    color: #1e293b;
+}
+
+.markdown-content td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+}
+
+.markdown-content tr:last-child td {
+    border-bottom: none;
+}
+
+/* Math / Katex Styling Overrides if needed */
+.katex {
+    font-size: 1.1em;
+}
+
+/* Loading State */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    text-align: center;
+}
+
+.spinner-wrapper {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1.5rem;
+    color: var(--primary-accent, #0d6efd);
+    animation: spin 3s linear infinite;
+}
+
+.loading-text-primary {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+}
+
+.loading-text-secondary {
+    font-size: 1rem;
+    color: #64748b;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =========================================
+   PRINT OPTIMIZATION (CRITICAL REQUIREMENT)
+   ========================================= */
+/* =========================================
+   PRINT OPTIMIZATION (4-Pages-Per-Sheet GRID)
+   ========================================= */
+/* =========================================
+   PRINT OPTIMIZATION (Giant Text + Nuclear Code Fix)
+   ========================================= */
+@media print {
+
+    /* Reset Page to Standard A4 Portrait */
+    @page {
+        size: A4 portrait;
+        margin: 1cm;
+        /* Moderate margins so text doesn't hit the edge */
+    }
+
+    /* Hide UI garbage */
+    nav,
+    button,
+    .loading-state,
+    .header-actions,
+    .header-actions,
+    .back-button,
+    .no-print,
+    .handbook-header-nav,
+    .handbook-actions,
+    .history-drawer,
+    .alert {
+        display: none !important;
+    }
+
+    body {
+        background: white;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Reset Layout Containers */
+    body,
+    #root,
+    .App,
+    .handbook-page,
+    .handbook-card,
+    .container,
+    .handbook-body {
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        box-shadow: none !important;
+        max-width: none !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    .handbook-card-header,
+    .handbook-subtitle {
+        display: none !important;
+    }
+
+    /* Main Container: No Grid, Just Flow */
+    .handbook-container {
+        display: block;
+        /* Standard flow */
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border: none;
+    }
+
+    /* 1. FORCE UNLOCK ALL HEIGHTS */
+    /* This ensures the "box" expands to fit the code, no matter what */
+    .handbook-module,
+    .handbook-content div,
+    .code-block-container {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
+        /* Fixes flexbox clipping issues */
+
+        /* Keep existing module style */
+        border-bottom: 2px solid #000;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+        page-break-inside: avoid;
+    }
+
+    /* --- GIANT FONTS --- */
+    p,
+    li,
+    span,
+    div {
+        font-size: 16pt !important;
+        line-height: 1.5;
+        color: #000 !important;
+    }
+
+    /* Main Title (H1) */
+    .handbook-header-section h1 {
+        font-size: 32pt !important;
+        font-weight: 900;
+        text-align: center;
+        page-break-after: avoid;
+        margin-bottom: 20px;
+        border-bottom: 4px double #000;
+    }
+
+    /* Section Headers (H2) */
+    .handbook-module h2 {
+        font-size: 24pt !important;
+        font-weight: 800;
+        margin-top: 30px;
+        border-bottom: 3px solid #000;
+    }
+
+    /* Sub-headers (H3) */
+    .handbook-module h3 {
+        font-size: 20pt !important;
+        font-weight: bold;
+        margin-top: 15px;
+        text-decoration: underline;
+    }
+
+    /* Lists */
+    ul,
+    ol {
+        padding-left: 40px;
+    }
+
+    li {
+        margin-bottom: 8px;
+    }
+
+    /* Tables */
+    .handbook-module table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #000;
+        margin-bottom: 20px;
+    }
+
+    .handbook-module th,
+    .handbook-module td {
+        border: 1px solid #000;
+        padding: 8px;
+        font-size: 14pt !important;
+    }
+
+    /* 2. TARGET EVERYTHING THAT MIGHT BE A CODE BLOCK */
+    pre,
+    code,
+    .handbook-module div,
+    .code-block-container,
+    /* Target our new span container */
+    div[class*="syntax"],
+    span[class*="syntax"],
+    div[style*="overflow"],
+    /* Target inline styles */
+    pre[style*="overflow"] {
+
+        /* 1. Force Text Wrapping (Break long lines) */
+        white-space: pre-wrap !important;
+        word-wrap: break-word !important;
+        word-break: break-all !important;
+        /* Aggressive break to prevent scrolling */
+
+        /* 2. KILL THE SCROLLBAR */
+        overflow: visible !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+
+        /* 3. Remove Fixed Widths/Heights */
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        min-width: 0 !important;
+        /* Allow shrinking if needed */
+
+        /* 4. Visual Cleanup */
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        display: block !important;
+        background-color: #f4f4f4 !important;
+        color: #000 !important;
+        padding: 8px !important;
+        margin-bottom: 10px !important;
+        font-size: 12pt !important;
+
+        page-break-inside: avoid;
+    }
+
+    /* Hides the scrollbar track itself if it somehow persists */
+    ::-webkit-scrollbar {
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
+    }
+}

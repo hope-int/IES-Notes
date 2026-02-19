@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Code, FileText, CheckCircle, Loader2, Download, MessageSquare, Send, Sparkles, Box } from 'lucide-react';
 import JSZip from 'jszip';
-import { getAICompletion } from '../utils/aiService';
+import { getAICompletion } from '../../utils/aiService';
+import AILoader from '../../components/AILoader';
 
 const ProjectBuilder = ({ type, onBack }) => {
     const [step, setStep] = useState('topic'); // topic -> interview -> generating -> completed
@@ -209,14 +210,12 @@ const ProjectBuilder = ({ type, onBack }) => {
 
                 {step === 'generating' && (
                     <motion.div key="generating" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-100 d-flex flex-column align-items-center justify-content-center py-5">
-                        <div className="position-relative mb-5">
-                            <div className="spinner-border text-primary" style={{ width: '80px', height: '80px', borderWidth: '6px' }}></div>
-                            <div className="position-absolute top-50 start-50 translate-middle">
-                                <Code size={32} className="text-secondary" />
-                            </div>
+                        <div className="mb-4">
+                            <AILoader
+                                title="Building Your Project"
+                                subtitle="Generating code, reports, and abstracts. This usually takes 10-20 seconds."
+                            />
                         </div>
-                        <h2 className="fw-bold mb-2">Building Your Project</h2>
-                        <p className="text-muted mb-5">This usually takes 10-20 seconds. We are generating code, reports, and abstracts.</p>
 
                         <div className="w-100 max-w-px-500 bg-light p-3 rounded-4 custom-scrollbar overflow-auto" style={{ maxHeight: '200px' }}>
                             {logs.map(log => (

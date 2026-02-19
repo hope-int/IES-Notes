@@ -39,7 +39,7 @@ const recordPuterSuccess = () => {
 };
 
 // 1. Puter.js (Free, Serverless, No Key)
-const fetchPuter = async (messages, jsonMode = false, retries = 3) => {
+const fetchPuter = async (messages, jsonMode = false, model = "claude-3-5-sonnet", retries = 3) => {
     if (!window.puter) {
         // Attempt to wait for it briefly (race condition fix)
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -53,8 +53,8 @@ const fetchPuter = async (messages, jsonMode = false, retries = 3) => {
 
     for (let i = 0; i < retries; i++) {
         try {
-            // Call Puter.js
-            const response = await window.puter.ai.chat(puterMessages);
+            // Call Puter.js with explicit model
+            const response = await window.puter.ai.chat(puterMessages, { model });
 
             // If we got here, it worked
             recordPuterSuccess();
@@ -165,7 +165,7 @@ const fetchBackendFallback = async (messages, model, jsonMode) => {
 
 
 // Dedicated Groq Fetch for J-Compiler (Faster & More Reliable for Code)
-const fetchGroqDirectly = async (messages, jsonMode) => {
+const fetchGroqDirectly = async (messages, jsonMode, model = "llama-3.1-8b-instant") => {
     const groqKey = import.meta.env.VITE_GROQ_API_KEY;
     if (!groqKey) throw new Error("Groq API Key Missing");
 
@@ -176,7 +176,7 @@ const fetchGroqDirectly = async (messages, jsonMode) => {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "llama-3.1-8b-instant", // Absolute fastest model on Groq (~1200+ tps)
+            model: model, // NOW Dynamic
             messages,
             response_format: jsonMode ? { type: "json_object" } : undefined,
             temperature: 0.1
@@ -185,6 +185,18 @@ const fetchGroqDirectly = async (messages, jsonMode) => {
 
     if (!response.ok) {
         const errText = await response.text();
+
+        // RESCUE STRATEGY: Handle Groq's "json_validate_failed" by recovering the content
+        try {
+            const errJson = JSON.parse(errText);
+            if (errJson.error && errJson.error.code === 'json_validate_failed' && errJson.error.failed_generation) {
+                console.warn("Groq JSON Validation Failed, but recovering content:", errJson.error.failed_generation);
+                return errJson.error.failed_generation;
+            }
+        } catch (e) {
+            // ignore parsing error
+        }
+
         throw new Error(`Groq Direct Error (${response.status}): ${errText}`);
     }
 
@@ -204,7 +216,7 @@ export const getAICompletion = async (messages, options = {}) => {
     // Strategy 1: Explicit Provider Request (e.g., J-Compiler requests Groq)
     if (provider === 'groq') {
         try {
-            return await fetchGroqDirectly(messages, jsonMode);
+            return await fetchGroqDirectly(messages, jsonMode, model);
         } catch (groqErr) {
             console.warn("Groq Direct failed, falling back to standard pipeline:", groqErr);
             // Fall through to standard pipeline
@@ -217,7 +229,7 @@ export const getAICompletion = async (messages, options = {}) => {
 
     if (usePuter) {
         try {
-            return await fetchPuter(messages, jsonMode);
+            return await fetchPuter(messages, jsonMode, model);
         } catch (puterErr) {
             recordPuterFailure();
             console.warn("Puter.js failed. Switching to Backend/OpenRouter:", puterErr);
@@ -232,7 +244,7 @@ export const getAICompletion = async (messages, options = {}) => {
         // 3. Final Resort: Client-Side Groq (if backend fails)
         console.warn("Backend failed. Attempting Client-Side Groq Last Resort.");
         try {
-            return await fetchGroqDirectly(messages, jsonMode);
+            return await fetchGroqDirectly(messages, jsonMode, model);
         } catch (finalErr) {
             console.error("All AI Services Failed:", finalErr);
             throw new Error(`AI Failure: All providers exhausted.`);
@@ -242,7 +254,7 @@ export const getAICompletion = async (messages, options = {}) => {
 
 // J-Compiler: Simulation & Debugging
 export const simulateCodeExecution = async (code, language = "auto", inputs = []) => {
-    const systemPrompt = `You are J-Compiler (Engine: Llama-3.1-8B-Turbo).
+    const systemPrompt = `You are J-Compiler (Engine: GPT-OSS-20B).
     
     TASK: Execute/Audit code with Zero-Tolerance for errors.
 
@@ -271,11 +283,11 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
     ];
 
     try {
-        // Enforce Llama-3.1-8B-Instant for LIGHTSPEED (~1200 tps) execution
+        // Enforce GPT-OSS-20B for Powerful execution
         const responseText = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'groq',
-            model: 'llama-3.1-8b-instant'
+            model: 'openai/gpt-oss-20b'
         });
         return cleanAndParseJSON(responseText);
     } catch (e) {
@@ -286,7 +298,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
 
 // J-Compiler: Reverse Engineering (Output -> Code)
 export const reverseEngineerCode = async (expectedOutput, language = "javascript") => {
-    const systemPrompt = `You are J-Compiler Architect (8B-Turbo).
+    const systemPrompt = `You are J-Compiler Architect (GPT-OSS-20B).
     
     TASK: Convert output to optimized code.
     1. ANALYZE 'Expected Output'.
@@ -304,11 +316,11 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
     ];
 
     try {
-        // Enforce Llama-3.1-8B-Instant for instantaneous output
+        // Enforce GPT-OSS-20B for Instant output
         const responseCallback = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'groq',
-            model: 'llama-3.1-8b-instant'
+            model: 'openai/gpt-oss-20b'
         });
         return cleanAndParseJSON(responseCallback);
     } catch (e) {

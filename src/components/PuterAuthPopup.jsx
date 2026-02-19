@@ -19,19 +19,23 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                 throw new Error("Puter.js library not loaded. Please refresh the page.");
             }
 
-            // Trigger Puter sign-in
-            const user = await window.puter.auth.signIn();
+            // Trigger Automatic Guest Auth via AI Request
+            // Puter.js automatically creates a guest account on first request if not signed in
+            const response = await window.puter.ai.chat([{ role: 'user', content: 'hello' }], { model: 'gpt-4o-mini' });
 
-            if (user) {
+            if (response) {
                 setSuccess(true);
+                // Mark guest mode as active so we don't ask again
+                localStorage.setItem('hope_puter_guest_confirmed', 'true');
+
                 // Wait a bit to show success state before closing
                 setTimeout(() => {
                     onAuthComplete(true);
                 }, 1500);
             }
         } catch (err) {
-            console.error("Puter Auth Error:", err);
-            setError(err.message || "Failed to authenticate with Puter.");
+            console.error("Puter Auth/Guest Error:", err);
+            setError(err.message || "Failed to initialize Puter AI.");
         } finally {
             setLoading(false);
         }
