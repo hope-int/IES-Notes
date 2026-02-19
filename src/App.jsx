@@ -983,7 +983,7 @@ function App() {
             >
               <Sparkles size={20} />
               <span className={location.pathname.startsWith('/ai-') ? 'd-inline' : 'd-none d-sm-inline'}>
-                {isPuterSignedIn ? "AI Tutor" : "AI Setup"}
+                {isPuterSignedIn ? "HOPE Studio" : "Unlock Studio"}
               </span>
             </button>
           </motion.div>

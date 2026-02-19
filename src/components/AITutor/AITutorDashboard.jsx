@@ -22,7 +22,7 @@ const AITutorDashboard = ({ profile }) => {
                     </button>
                     <div className="d-flex align-items-center gap-2">
                         <Sparkles size={20} className="text-primary" />
-                        <span className="fw-bold text-dark fs-5">AI Tutor Suite</span>
+                        <span className="fw-bold text-dark fs-5">HOPE Studio</span>
                     </div>
                 </div>
                 <div className="d-flex align-items-center gap-3">
@@ -45,7 +45,7 @@ const AITutorDashboard = ({ profile }) => {
                 {/* Simplified Welcome Section */}
                 <div className="mb-5">
                     <h1 className="fw-bold text-dark mb-2">
-                        {profile?.full_name ? `Welcome back, ${profile.full_name.split(' ')[0]}` : "Welcome to AI Tutor"}
+                        {profile?.full_name ? `Welcome back, ${profile.full_name.split(' ')[0]}` : "Welcome to HOPE Studio"}
                     </h1>
                     <p className="text-muted fs-5">Select a tool to start your engineering research.</p>
                 </div>
@@ -61,7 +61,7 @@ const AITutorDashboard = ({ profile }) => {
                             <MessageSquare size={40} strokeWidth={2} />
                         </div>
                         <div className="flex-grow-1 text-center text-md-start">
-                            <h3 className="fw-bold text-dark mb-2">Interactive AI Chat Tutor</h3>
+                            <h3 className="fw-bold text-dark mb-2">Engineering AI Assistant</h3>
                             <p className="text-muted mb-0">Ask questions, solve equations, and debug your code with real-time AI guidance.</p>
                         </div>
                         <div className="btn btn-primary px-4 py-2 rounded-pill fw-bold d-flex align-items-center gap-2">
