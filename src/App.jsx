@@ -6,7 +6,7 @@ import {
   FileText, Heart, Shield, LogOut, User, Bell, MessageCircle, Home, Upload, Download, Sparkles, GraduationCap
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { useLocation, Routes, Route, Navigate } from 'react-router-dom';
+import { useLocation, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Registration from './Registration';
 import PublicUploadModal from './PublicUploadModal';
 import CreateFolderModal from './CreateFolderModal';
@@ -22,9 +22,13 @@ import PresentationGenerator from './components/Presentation/PresentationGenerat
 import ReportGenerator from './components/Report/ReportGenerator';
 import AssignmentGenerator from './components/Assignment/AssignmentGenerator';
 import ProjectGenerator from './components/Project/ProjectGenerator';
+import RoadmapCanvas from './components/Roadmap/RoadmapCanvas';
+import HopeDocsLayout from './components/HopeDocs/HopeDocsLayout';
+import HopeSheetsLayout from './components/HopeSheets/HopeSheetsLayout';
 
 import CommunityFeed from './CommunityFeed';
-import AIChat from './AIChat';
+import AIChat from './components/AITutor/AITutor';
+import AITutorDashboard from './components/AITutor/AITutorDashboard';
 import { getDeviceId, getClientIp } from './utils/deviceUtils';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -44,6 +48,10 @@ import SplashScreen from './SplashScreen';
 import SkeletonLoader from './components/SkeletonLoader';
 
 function App() {
+  /* Navigation & Routing */
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // Splash Screen State
   const [showSplash, setShowSplash] = useState(true);
 
@@ -58,11 +66,29 @@ function App() {
   const [isPuterAuthNeeded, setIsPuterAuthNeeded] = useState(false);
 
 
-  const [activeTab, setActiveTab] = useState('home');
-  const location = useLocation();
+
+
+  // Tab State
+  // Determine initial tab based on URL if possible, otherwise default to home
+  const [activeTab, setActiveTab] = useState(() => {
+    if (location.pathname.includes('/community')) return 'community';
+    if (location.pathname.includes('/ai-chat')) return 'ai';
+    return 'home';
+  });
+
+  // Sync activeTab with URL changes or Navigation State
+  useEffect(() => {
+    if (location.state?.tab === 'community') setActiveTab('community');
+    else if (location.pathname.includes('/community')) setActiveTab('community');
+    else if (location.pathname.includes('/ai-')) setActiveTab('ai');
+    else if (location.pathname === '/') setActiveTab('home');
+  }, [location.pathname, location.state]);
+
+
+
 
   // Route Handling: Check if we are on a special route (e.g. /compiler, /admin)
-  const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes', '/handbook', '/presentation', '/report', '/assignment', '/mini-project', '/final-project'].includes(location.pathname);
+  const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes', '/handbook', '/presentation', '/report', '/assignment', '/mini-project', '/final-project', '/roadmap', '/ai-chat', '/ai-tutor', '/docs', '/sheets'].includes(location.pathname);
 
   // Warning State
   const [warningMessage, setWarningMessage] = useState(null);
@@ -827,49 +853,9 @@ function App() {
               {activeTab === 'community' && <CommunityFeed profile={userProfile} />}
 
               {/* AI Tutor Tab */}
-              {activeTab === 'ai' && <AIChat profile={userProfile} setActiveTab={setActiveTab} />}
+              {/* AI Tutor Tab removed (now a Route) */}
 
-              {/* Floating Navigation Bar */}
-              <div className="position-fixed bottom-0 start-0 w-100 p-4 z-3 d-flex justify-content-center" style={{ pointerEvents: 'none' }}>
-                <motion.div
-                  whileHover={{
-                    y: -10,
-                    scale: 1.02,
-                    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-                  }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  className="clay-card rounded-pill p-2 d-flex gap-2 shadow-lg glass-panel"
-                  style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}
-                >
-                  <button
-                    onClick={() => setActiveTab('home')}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
-                  >
-                    <Home size={20} /> <span className={activeTab === 'home' ? 'd-inline' : 'd-none d-sm-inline'}>Home</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('community')}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'community' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
-                  >
-                    <MessageCircle size={20} /> <span className={activeTab === 'community' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!isPuterSignedIn) {
-                        setIsPuterAuthNeeded(true);
-                      } else {
-                        setActiveTab('ai');
-                      }
-                    }}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'ai' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
-                  >
-                    <Sparkles size={20} />
-                    <span className={activeTab === 'ai' ? 'd-inline' : 'd-none d-sm-inline'}>
-                      {isPuterSignedIn ? "AI Tutor" : "AI Setup"}
-                    </span>
-                  </button>
-                </motion.div>
-              </div>
+
 
               {/* Upload Modal */}
               <AnimatePresence>
@@ -919,9 +905,14 @@ function App() {
             <Route path="/assignment" element={<AssignmentGenerator onBack={() => window.history.back()} />} />
             <Route path="/mini-project" element={<ProjectGenerator type="mini-project" onBack={() => window.history.back()} />} />
             <Route path="/final-project" element={<ProjectGenerator type="final-project" onBack={() => window.history.back()} />} />
+            <Route path="/roadmap" element={<RoadmapCanvas profile={userProfile} />} />
 
             <Route path="/admin" element={session || userProfile ? <AdminPanel /> : <Navigate to="/" />} />
             <Route path="/compiler" element={session || userProfile ? <JCompiler /> : <Navigate to="/" />} />
+            <Route path="/ai-tutor" element={<AITutorDashboard profile={userProfile} />} />
+            <Route path="/ai-chat" element={<AIChat profile={userProfile} />} />
+            <Route path="/docs" element={<HopeDocsLayout onBack={() => navigate(-1)} />} />
+            <Route path="/sheets" element={<HopeSheetsLayout onBack={() => navigate(-1)} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
 
@@ -954,6 +945,51 @@ function App() {
         </div >
       )
       }
+      {/* Floating Navigation Bar - Global */}
+      {location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && (
+        <div className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" style={{ pointerEvents: 'none', zIndex: 1055 }}>
+          <motion.div
+            whileHover={{
+              y: -10,
+              scale: 1.02,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+            }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            className="clay-card rounded-pill p-2 d-flex gap-2 shadow-lg glass-panel"
+            style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}
+          >
+            <button
+              onClick={() => navigate('/')}
+              className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' && location.pathname === '/' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+            >
+              <Home size={20} /> <span className={activeTab === 'home' && location.pathname === '/' ? 'd-inline' : 'd-none d-sm-inline'}>Home</span>
+            </button>
+            <button
+              onClick={() => navigate('/', { state: { tab: 'community' } })}
+              className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'community' && location.pathname === '/' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+            >
+              <MessageCircle size={20} /> <span className={activeTab === 'community' && location.pathname === '/' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!isPuterSignedIn) {
+                  setIsPuterAuthNeeded(true);
+                } else {
+                  navigate('/ai-tutor');
+                }
+              }}
+              className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname.startsWith('/ai-') ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+            >
+              <Sparkles size={20} />
+              <span className={location.pathname.startsWith('/ai-') ? 'd-inline' : 'd-none d-sm-inline'}>
+                {isPuterSignedIn ? "AI Tutor" : "AI Setup"}
+              </span>
+            </button>
+          </motion.div>
+        </div>
+      )}
+
     </>
   );
 }

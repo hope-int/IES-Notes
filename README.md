@@ -1,171 +1,127 @@
-# HOPE-Edu-Hub — User Guide & Features
+# 🎓 HOPE-Edu-Hub: The Academic Super-Platform
 
-HOPE-Edu-Hub is an AI-first educational notes and content platform built with React + Vite and Supabase for authentication and persistence. It bundles interactive AI tools (content generation, slide/project generation, and code simulation) with a community resource hub for students and educators.
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.io/)
+[![Puter](https://img.shields.io/badge/Puter-Infrastructure-blue?style=for-the-badge)](https://puter.com/)
 
-This README contains a complete user guide, feature descriptions, quick setup, and developer notes.
-
-**Table of contents**
-- Overview
-- Features (user-facing)
-- How to use (walkthrough)
-- Setup & Development
-- Project structure
-- Security & data notes
-- Troubleshooting
-- Contributing
+**HOPE-Edu-Hub** is an AI-first educational ecosystem designed to empower students and educators. It transforms static notes into dynamic learning experiences through integrated AI agents, specialized content generators, and a pro-grade productivity suite.
 
 ---
 
-## Overview
+## 🚀 Key Modules & Product Suites
 
-HOPE-Edu-Hub helps students and instructors create, share, and iterate on course materials using integrated AI assistants. Key capabilities include:
+### 📝 HOPE Docs (Professional Writing Suite) [BETA]
+A high-fidelity document editor inspired by Google Docs, built for academic writing.
+- **A4 Digital Canvas**: Pixel-perfect A4 layout with professional margins and physical paper simulation.
+- **Native PDF Engine**: Instant export to PDF preserving all rich-text formatting.
+- **Auto-Sync Storage**: Debounced persistence to LocalStorage and cloud, ensuring zero data loss.
+- **Rich Editor**: Powered by Tiptap with support for headings, lists, quotes, and code blocks.
 
-- AI-assisted note and slide generation
-- Agentic project scaffolding and exporting
-- An AI-powered J-Compiler that audits and simulates code
-- Community feed with moderation and ranking
-- Client-side persistence for generated PPTs and assets
+### 📊 HOPE Sheets (Engineering Spreadsheets) [BETA]
+A minimalist, high-performance spreadsheet engine for data analysis and engineering calculations.
+- **High-Density Grid**: Virtualized rendering for seamless 100x26 grid navigation.
+- **O(1) Update Logic**: Direct-indexing engine to eliminate typing lag in large datasets.
+- **Formula Bar**: Dedicated `fx` input area with selection tracking and cell context.
+- **Minimalist Aesthetic**: Clean, glassmorphic design focused on data visibility.
 
----
+### 💻 J-Compiler (AI Code Studio)
+An interactive development environment for students to learn and simulate terminal logic.
+- **Virtual Execution**: AI-powered simulations of code logic and terminal outputs.
+- **Intelligent Linter**: Real-time breakdown of syntax errors and logic flaws.
+- **Markdown Docs**: Generates clean, documented explanations for complex code snippets.
 
-## Features (User-facing)
+### 🎙️ Podcast Class & Revision Kits
+Revolutionizing how students consume notes.
+- **AI Narration**: Converts PDF/Text into immersive audio classes.
+- **Study Handbooks**: Generates concise, exam-ready revision kits with 2-column print layouts.
+- **Variable Audio**: Multi-speed playback and offline MP3 downloads.
 
-1. J-Compiler (Code Studio)
-   - Simulate code execution and interactive terminal flows.
-   - Receive detailed Markdown-formatted diagnostics and suggested fixes.
-   - Use reverse-engineer mode to generate code from desired outputs.
-
-2. Agentic PPT / Web-Slides Generator
-   - Multi-stage generation: planning, design, refine, and export.
-   - Edit individual slides via chat-style interactions and export a self-contained HTML presentation.
-
-3. Intelligent Project Architect
-   - Guided interview prompts to collect requirements.
-   - Produces documentation (Markdown), modular code skeletons, and a zipped bundle for download.
-
-4. AI Chat & Content Generators
-   - `AIChat` and `ContentGenerator` components provide text/content generation, paraphrasing, and summaries.
-
-5. Resource Hub & Community
-   - Browse notes via Department → Semester → Subject.
-   - Upload and share resources (`PublicUploadModal`).
-   - Upvote/rank resources and view community activity (`CommunityFeed`).
-
-6. Persistence and Offline Support
-   - Generated slides and PPT artifacts are saved with `pptDB.js` and optionally in IndexedDB for offline retrieval.
-
-7. Admin & User Management
-   - Admin panel and login modal for managing content and moderation.
+### 🤖 24/7 Agentic Tutor Suite
+Your personalized learning companion.
+- **Hero Chat**: Context-aware AI tutor with session memory and profile adaptation.
+- **Study Roadmaps**: Dynamically generated career and skill paths based on user goals.
+- **Instant Slides**: AI Presentation generator that creates slide decks from prompt to PPTX.
 
 ---
 
-## How to Use — Quick Walkthrough
+## 🛠️ Tech Stack & Architecture
 
-Prerequisites: a Supabase project (for auth/storage) and an AI API key if you want remote model usage.
+### Frontend Architecture
+- **Framework**: React 19 (Main), Next.js App Router (Integrated Modules)
+- **Styling**: Tailwind CSS v4 (Native Vite Integration)
+- **State Management**: React Context + Hooks + LocalStorage Persistence
+- **Animations**: Framer Motion for premium micro-interactions
 
-1. Sign up / Sign in
-   - Use the registration flow (`Registration.jsx`) to create an account. Many features require authentication via Supabase (`supabaseClient.js`).
-
-2. Navigate the Resource Hub
-   - Use the main UI to filter by Department / Semester / Subject and explore or upload materials.
-
-3. Generate Slides
-   - Open the `AgenticPPTGenerator` from the UI, supply a topic and goals, then follow the prompts.
-   - Use the refine chat to edit slide text, layout, or visuals before exporting.
-
-4. Use the J-Compiler
-   - Open the compiler component (look for `JCompiler.jsx`) and paste code or describe desired behaviour.
-   - Run simulation: the component will present audit results and suggested fixes.
-
-5. Create a Project
-   - Use `ProjectGenerator.jsx` to run the interview flow. When complete, download the generated `.zip` containing docs and scaffolding.
-
-6. Share and Moderate
-   - Upload files via `PublicUploadModal.jsx`. Community ranking and AI moderation are applied automatically.
+### Engineering & Libraries
+- **Spreadsheet Engine**: `@silevis/reactgrid`
+- **Text Editor**: `@tiptap/react` + Starter Kit
+- **AI Core**: Google Gemini 2.0 Flash / OpenRouter Integration
+- **Backend & Auth**: Supabase (PostgreSQL, RLS, Storage)
+- **Cloud Infrastructure**: Puter.js (Edge compute and file orchestration)
 
 ---
 
-## Setup & Development
-
-Clone and install dependencies:
+## 📂 Project Structure
 
 ```bash
-git clone https://github.com/hope-int/IES-Notes.git
-cd IES-Notes
-npm install
+├── src/
+│   ├── components/
+│   │   ├── HopeDocs/      # Document editor suite
+│   │   ├── HopeSheets/    # Spreadsheet engine
+│   │   ├── AITutor/       # AI Chat and Dashboard
+│   │   ├── Presentation/  # Slide generation logic
+│   │   └── Roadmap/       # Career path visualization
+│   ├── utils/             # AI prompts and shared storage logic
+│   ├── index.css          # Tailwind v4 configuration and global themes
+│   └── App.jsx            # Routing and Global Navigation
+├── vite.config.js         # Optimized build pipeline with Tailwind v4 plugin
+└── README.md              # Project Documentation
 ```
 
-Create a `.env` file in the project root with the following variables:
+---
 
-- `VITE_SUPABASE_URL` — your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` — your Supabase anon/public key
-- `VITE_AI_API_KEY` — (optional) key for any external AI service used by `api/ai-completion.js`
+## ⚙️ Development Setup
 
-Run the dev server:
+### Prerequisites
+- Node.js (v18+)
+- NPM or PNPM
+- Supabase Project credentials
 
-```bash
-npm run dev
-```
+### Installation & Launch
+1. **Repository Setup**
+   ```bash
+   git clone https://github.com/hope-int/IES-Notes.git
+   cd IES-Notes
+   ```
 
-Build for production:
+2. **Dependency Installation**
+   ```bash
+   npm install --legacy-peer-deps  # Required for React 19 + Spreadsheet compatibility
+   ```
 
-```bash
-npm run build
-```
+3. **Environment Setup**
+   Configure `.env`:
+   ```env
+   VITE_SUPABASE_URL=your_url
+   VITE_SUPABASE_ANON_KEY=your_key
+   ```
 
-Notes:
-- The repository uses Vite and React with JSX components located under `src/`.
-- `api/ai-completion.js` provides a serverless-style endpoint for AI completions — inspect before enabling externally.
+4. **Start Development**
+   ```bash
+   npm run dev
+   ```
 
 ---
 
-## Project Structure (high level)
-
-- `src/` — React app source
-  - `App.jsx`, `main.jsx` — app entry points
-  - `supabaseClient.js` — Supabase initialization and helper functions
-  - `components/` — AI components and content generators (e.g., `AgenticPPTGenerator.jsx`, `ProjectGenerator.jsx`, `JCompiler.jsx`)
-  - `utils/` — AI service utilities, IndexedDB helpers, PPT rendering plans (`aiService.js`, `pptDB.js`, `indexedDB.js`)
-- `api/` — simple serverless-style API handlers (e.g., `ai-completion.js`)
-- `public/` — static assets and dataset
-- `create_syllabus_folders.py` — helper script for generating folder scaffolding
+## 🛡️ Security & Privacy
+- **Row Level Security (RLS)**: Every user's documents and sheets are sandboxed at the database level.
+- **Encrypted Persistence**: Sensitive user preferences are handled via secure session tokens.
+- **Local-First Design**: Auto-save engines prioritize local speed before cloud synchronization.
 
 ---
 
-## Security & Data Notes
-
-- Keep `VITE_SUPABASE_ANON_KEY` and any AI API keys out of public repos. Use environment variables in deployment.
-- `api/ai-completion.js` should be reviewed before exposing a public endpoint; it may proxy requests to external AI services and could leak keys if misconfigured.
-- Uploaded content is stored via Supabase — review RLS policies in your Supabase project for access control.
-
----
-
-## Troubleshooting
-
-- If the app fails to start, run `npm install` again and confirm `.env` values are set.
-- If AI features are not responding, check the API key and logs for `api/ai-completion.js` requests.
-- For Supabase auth issues, verify that your project's URL and anon key are correct and that the project's CORS and redirect settings allow your dev server origin.
-
----
-
-## Contributing
-
-- Contributions are welcome. Typical workflow:
-  1. Fork the repo
-  2. Create a feature branch
-  3. Open a PR describing changes and the motivation
-
----
-
-## License & Attribution
-
-State your license here (e.g., MIT) or add a `LICENSE` file.
-
----
-
-If you want, I can also:
-- add a short `DEVELOPER.md` for component-level notes
-- run the app locally in the container and verify the dev server
-- extract and document the API surface for `api/ai-completion.js` and `supabaseClient.js`
-
-Tell me which of those you'd like me to do next.
+<p align="center">
+  Built with ❤️ for the future of education by the <b>HOPE Team</b>
+</p>

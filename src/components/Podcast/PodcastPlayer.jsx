@@ -139,10 +139,10 @@ const PodcastPlayer = ({ currentPodcast, setCurrentPodcast, setHistory, history,
     // Placeholder for the "No Podcast Selected" state
     if (!currentPodcast) {
         return (
-            <div className="card border-0 shadow-lg rounded-5 mx-auto text-center p-5" style={{ maxWidth: '400px', background: '#fff' }}>
-                <div className="d-flex flex-column align-items-center justify-content-center h-100">
-                    <div className="bg-primary bg-opacity-10 p-4 rounded-circle mb-4 d-inline-flex align-items-center justify-content-center" style={{ width: '80px', height: '80px' }}>
-                        <UploadCloud size={40} className="text-primary" />
+            <div className="bg-white border-0 shadow-xl rounded-3xl mx-auto text-center p-8 max-w-sm">
+                <div className="flex flex-col items-center justify-center h-full">
+                    <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full mb-6 flex items-center justify-center">
+                        <UploadCloud size={40} />
                     </div>
 
                     <h4 className="fw-bold mb-2 text-dark">No Class Selected</h4>
@@ -150,8 +150,8 @@ const PodcastPlayer = ({ currentPodcast, setCurrentPodcast, setHistory, history,
                         Upload your PDF notes to generate an AI-powered audio class instantly.
                     </p>
 
-                    <label className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-2 hover-scale cursor-pointer transition-all">
-                        <input type="file" className="d-none" accept=".pdf" onChange={onUpload} />
+                    <label className="bg-blue-600 text-white rounded-full px-6 py-3 font-bold shadow-lg shadow-blue-500/30 flex items-center gap-2 hover:scale-105 cursor-pointer transition-all">
+                        <input type="file" className="hidden" accept=".pdf" onChange={onUpload} />
                         <UploadCloud size={18} />
                         <span>Upload PDF Notes</span>
                     </label>
@@ -161,7 +161,7 @@ const PodcastPlayer = ({ currentPodcast, setCurrentPodcast, setHistory, history,
     }
 
     return (
-        <div className="card border-0 shadow-lg rounded-5 overflow-hidden mx-auto" style={{ maxWidth: '400px', background: '#fff' }}>
+        <div className="bg-white border-0 shadow-2xl rounded-[2.5rem] overflow-hidden mx-auto max-w-md">
             {/* Hidden Audio Element */}
             {audioUrl && (
                 <audio
@@ -172,101 +172,58 @@ const PodcastPlayer = ({ currentPodcast, setCurrentPodcast, setHistory, history,
                 />
             )}
 
-            <div className="card-body p-4 d-flex flex-column align-items-center">
+            <div className="p-8 flex flex-col items-center">
 
                 {/* Cover Art */}
-                {/* Cover Art */}
                 <div
-                    className="mb-4 position-relative w-100 rounded-3 overflow-hidden shadow-sm shadow-indigo-500/20 mx-auto"
+                    className="mb-8 w-full relative aspect-square rounded-3xl overflow-hidden shadow-2xl shadow-purple-500/30 mx-auto"
                     style={{
-                        aspectRatio: '1/1',
-                        maxWidth: '300px',
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                     }}
                 >
                     {/* Background Noise Texture Overlay */}
-                    <div className="position-absolute top-0 start-0 w-100 h-100" style={{ opacity: 0.1, backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+                    <div className="absolute top-0 start-0 w-full h-full opacity-10" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
 
-                    <div className="d-flex flex-column align-items-center justify-content-center h-100 text-white p-3 position-relative z-1">
-
-                        {/* Animated Visualizer */}
-                        <div className="d-flex align-items-center justify-content-center gap-1 mb-4" style={{ height: '60px' }}>
-                            {[1, 2, 3, 4, 5, 4, 3, 2, 1].map((scale, i) => (
-                                <motion.div
-                                    key={i}
-                                    className="bg-white rounded-pill"
-                                    style={{ width: '6px', originY: 1 }}
-                                    animate={{
-                                        height: isPlaying ? [15 * scale * 0.3, 40 * scale * 0.3, 15 * scale * 0.3] : 10,
-                                        opacity: isPlaying ? [0.6, 1, 0.6] : 0.4
-                                    }}
-                                    transition={{
-                                        duration: 0.8,
-                                        repeat: Infinity,
-                                        ease: "easeInOut",
-                                        delay: i * 0.05
-                                    }}
-                                />
-                            ))}
-                        </div>
+                    <div className="flex flex-col items-center justify-center h-full text-white p-6 relative z-10 text-center">
 
                         <motion.div
-                            animate={{ scale: isPlaying ? 1.05 : 1 }}
+                            animate={{ scale: isPlaying ? 1.1 : 1 }}
                             transition={{ duration: 0.5 }}
-                            className="mb-3"
+                            className="mb-4"
                         >
-                            <Headphones size={56} strokeWidth={1.5} />
+                            <Headphones size={64} strokeWidth={1.5} />
                         </motion.div>
 
-                        <h2 className="fw-bold h3 mb-1 tracking-wider">AI NOTES</h2>
-                        <span className="badge bg-white bg-opacity-20 rounded-pill fw-normal px-3 backdrop-blur-md border border-white border-opacity-25">
+                        <h2 className="font-bold text-2xl mb-2 tracking-wide font-display">AI NOTES</h2>
+                        <span className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-sm font-medium border border-white/20">
                             AUDIO CLASS
                         </span>
                     </div>
                 </div>
 
                 {/* Title & Info */}
-                <div className="text-center w-100 mb-4">
-                    <h5 className="fw-bold text-dark mb-1 text-truncate px-2">{currentPodcast.title}</h5>
-                    <span className="badge bg-light text-secondary border rounded-pill fw-normal px-3 py-2">
+                <div className="text-center w-full mb-8 space-y-2">
+                    <h2 className="font-bold text-gray-900 text-2xl truncate px-4">{currentPodcast.title}</h2>
+                    <p className="text-gray-500 bg-gray-50 px-4 py-1 rounded-full inline-block text-sm font-medium border border-gray-100">
                         {currentPodcast.subtitle || 'AI Generated Class'}
-                    </span>
-                    {error && <div className="mt-2 text-danger small">{error}</div>}
+                    </p>
+                    {error && <div className="text-red-500 text-sm font-medium mt-2">{error}</div>}
                 </div>
 
-                {/* Custom Cool Progress Bar */}
-                <div className="w-100 mb-4 px-2">
-                    <div className="position-relative d-flex align-items-center" style={{ height: '24px' }}>
-                        {/* Background Track */}
-                        <div className="w-100 bg-light rounded-pill overflow-hidden" style={{ height: '6px' }}>
-                            <div
-                                className="h-100"
-                                style={{
-                                    width: `${progress}%`,
-                                    background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                                    transition: 'width 0.1s linear' // smoother update
-                                }}
-                            />
-                        </div>
-
-                        {/* Visual Thumb */}
+                {/* Progress Bar */}
+                <div className="w-full mb-8 px-2">
+                    <div className="relative h-2 w-full bg-gray-100 rounded-full mb-2 cursor-pointer group">
                         <div
-                            className="position-absolute bg-white rounded-circle shadow border border-2"
-                            style={{
-                                width: '16px',
-                                height: '16px',
-                                left: `calc(${progress}% - 8px)`,
-                                borderColor: '#764ba2',
-                                pointerEvents: 'none',
-                                transition: 'left 0.1s linear'
-                            }}
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full"
+                            style={{ width: `${progress}%` }}
                         />
-
-                        {/* Interactive Invisible Input */}
+                        <div
+                            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md border-2 border-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ left: `${progress}%`, marginLeft: '-6px' }}
+                        />
                         <input
                             type="range"
-                            className="position-absolute w-100 h-100 opacity-0 cursor-pointer"
-                            style={{ top: 0, left: 0, zIndex: 10, margin: 0 }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             min="0"
                             max="100"
                             value={progress}
@@ -274,74 +231,56 @@ const PodcastPlayer = ({ currentPodcast, setCurrentPodcast, setHistory, history,
                             disabled={!audioUrl}
                         />
                     </div>
-
-                    <div className="d-flex justify-content-between text-muted small mt-1 fw-bold font-monospace">
-                        <span style={{ fontSize: '0.75rem' }}>{formatTime(currentTime)}</span>
-                        <span style={{ fontSize: '0.75rem' }}>{formatTime(duration)}</span>
+                    <div className="flex justify-between text-xs font-semibold text-gray-400 font-mono tracking-wide">
+                        <span>{formatTime(currentTime)}</span>
+                        <span>{formatTime(duration)}</span>
                     </div>
                 </div>
 
                 {/* Controls */}
-                <div className="d-flex align-items-center justify-content-center gap-4 mb-4 text-secondary">
+                <div className="flex items-center justify-center gap-8 mb-8">
                     <button
-                        className="btn btn-link link-secondary p-0 text-decoration-none hover-scale"
+                        className="text-gray-400 hover:text-indigo-600 transition-colors"
                         onClick={skipBack}
                         disabled={!audioUrl}
-                        title="-15s"
                     >
-                        <div className="d-flex flex-column align-items-center small">
-                            <Rewind size={24} strokeWidth={1.5} />
-                            <span style={{ fontSize: '0.7rem' }}>-15s</span>
-                        </div>
+                        <Rewind size={28} strokeWidth={2} />
                     </button>
 
                     <button
-                        className="btn btn-primary btn-lg rounded-circle shadow-lg hover-scale d-flex align-items-center justify-content-center"
-                        style={{ width: '70px', height: '70px' }}
+                        className="w-20 h-20 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 shadow-xl shadow-indigo-500/40 flex items-center justify-center hover:scale-105 active:scale-95 transition-all text-white"
                         onClick={togglePlay}
                         disabled={!audioUrl}
                     >
-                        {isPlaying ? <Pause size={32} fill="white" /> : <Play size={32} fill="white" className="ms-1" />}
+                        {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
                     </button>
 
                     <button
-                        className="btn btn-link link-secondary p-0 text-decoration-none hover-scale"
+                        className="text-gray-400 hover:text-indigo-600 transition-colors"
                         onClick={skipForward}
                         disabled={!audioUrl}
-                        title="+15s"
                     >
-                        <div className="d-flex flex-column align-items-center small">
-                            <FastForward size={24} strokeWidth={1.5} />
-                            <span style={{ fontSize: '0.7rem' }}>+15s</span>
-                        </div>
+                        <FastForward size={28} strokeWidth={2} />
                     </button>
                 </div>
 
                 {/* Footer Actions */}
-                <div className="d-flex justify-content-between w-100 border-top pt-3 mt-auto">
+                <div className="flex items-center justify-between w-full pt-6 border-t border-gray-100 mt-auto px-2">
                     <button
-                        className="btn btn-sm btn-light rounded-pill border px-3 text-secondary fw-bold"
+                        className="px-4 py-2 bg-gray-50 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors"
                         onClick={changeSpeed}
                     >
                         {playbackRate}x Speed
                     </button>
 
-                    <div className="d-flex gap-2">
+                    <div className="flex gap-4">
                         <button
-                            className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-flex align-items-center gap-1"
+                            className="p-2 text-gray-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-indigo-50"
                             onClick={handleDownload}
                             title="Download MP3"
                             disabled={!audioUrl}
                         >
-                            <Download size={14} /> <span className="small fw-bold">Save</span>
-                        </button>
-
-                        <button
-                            className="btn btn-sm btn-link text-secondary text-decoration-none d-flex align-items-center gap-1"
-                            onClick={() => onRegenerate(currentPodcast)}
-                            title="Regenerate Audio will consume 1 credit"
-                        >
-                            <RefreshCw size={14} /> <span className="small fw-bold">Regenerate</span>
+                            <Download size={20} />
                         </button>
                     </div>
                 </div>

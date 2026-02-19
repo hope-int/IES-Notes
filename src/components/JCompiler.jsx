@@ -15,6 +15,7 @@ export default function JCompiler() {
     const [language, setLanguage] = useState('auto');
     const [copySuccess, setCopySuccess] = useState(false);
 
+    const [history, setHistory] = useState([]); // Context memory for AI
     const terminalEndRef = useRef(null);
 
     // Auto-scroll to bottom of terminal
@@ -35,7 +36,11 @@ export default function JCompiler() {
     const runSimulation = async () => {
         try {
             if (mode === 'compiler') {
-                const result = await simulateCodeExecution(input, language);
+                const result = await simulateCodeExecution(input, language, [], history);
+
+                // Add to history (limit to last 5 interactions to keep context manageable)
+                setHistory(prev => [...prev.slice(-9), { code: input, result }]);
+
                 setOutput({
                     text: result.output,
                     status: result.status,
@@ -138,6 +143,7 @@ export default function JCompiler() {
                                     <option value="cpp">⚙️ C++</option>
                                     <option value="html">🌐 HTML/CSS</option>
                                     <option value="c">⚙️ C</option>
+                                    <option value="sql">🐬 MySQL</option>
                                     <option value="assembly">⚙️ Assembly</option>
                                 </select>
 

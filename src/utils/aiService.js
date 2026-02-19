@@ -5,20 +5,20 @@ const cleanAndParseJSON = (text) => {
         return JSON.parse(cleaned);
     } catch (e) {
         // Simple heuristic for JSON array or object
-        const firstBrace = cleaned.indexOf('{');
-        const firstBracket = cleaned.indexOf('[');
+        const firstBrace = text.indexOf('{');
+        const firstBracket = text.indexOf('[');
         if (firstBrace === -1 && firstBracket === -1) throw e;
         const start = firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket) ? firstBrace : firstBracket;
-        const end = cleaned.lastIndexOf(start === firstBrace ? '}' : ']');
-        return JSON.parse(cleaned.substring(start, end + 1));
+        const end = text.lastIndexOf(start === firstBrace ? '}' : ']');
+        return JSON.parse(text.substring(start, end + 1));
     }
 };
 
 // Circuit Breaker State
 let puterFailures = 0;
 let puterDisabledUntil = 0;
-const PUTER_FAILURE_THRESHOLD = 5; // Disable after 5 consecutive failures (More resilient)
-const PUTER_COOLDOWN_MS = 60 * 1000; // 1 minute cooldown (Try again sooner)
+const PUTER_FAILURE_THRESHOLD = 5; // Disable after 5 consecutive failures
+const PUTER_COOLDOWN_MS = 60 * 1000; // 1 minute cooldown
 
 const isPuterHealthy = () => {
     if (Date.now() < puterDisabledUntil) return false;
@@ -29,7 +29,7 @@ const recordPuterFailure = () => {
     puterFailures++;
     if (puterFailures >= PUTER_FAILURE_THRESHOLD) {
         puterDisabledUntil = Date.now() + PUTER_COOLDOWN_MS;
-        console.warn(`Puter.js Circuit Breaker Tripped. Customized disabled for ${PUTER_COOLDOWN_MS / 1000}s.`);
+        console.warn(`Puter.js Circuit Breaker Tripped. Disabled for ${PUTER_COOLDOWN_MS / 1000}s.`);
     }
 };
 
@@ -38,25 +38,63 @@ const recordPuterSuccess = () => {
     puterDisabledUntil = 0;
 };
 
+// Helper: Map abstract/OpenRouter models to valid Groq models
+const getGroqModel = (requestedModel) => {
+    // If it's already a known Groq model, return it
+    const validGroqModels = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-70b-versatile",
+        "llama-3.1-8b-instant",
+        "llama3-70b-8192",
+        "llama3-8b-8192",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it",
+        "llama-3.2-11b-vision-preview",
+        "llama-3.2-90b-vision-preview"
+    ];
+    if (validGroqModels.includes(requestedModel)) return requestedModel;
+
+    // Map Vision models
+    if (requestedModel.includes('vision') || requestedModel.includes('vl') || requestedModel.includes('gemini') || requestedModel.includes('gpt-4o')) {
+        return "llama-3.2-11b-vision-preview"; // Best fallback for vision on Groq
+    }
+
+    // Map High Intelligence / Large models
+    if (requestedModel.includes('gpt-4') || requestedModel.includes('claude-3-5') || requestedModel.includes('gpt-oss-20b') || requestedModel.includes('70b')) {
+        return "llama-3.3-70b-versatile";
+    }
+
+    // Default fast model
+    return "llama-3.1-8b-instant";
+};
+
 // 1. Puter.js (Free, Serverless, No Key)
-const fetchPuter = async (messages, jsonMode = false, model = "claude-3-5-sonnet", retries = 3) => {
+const fetchPuter = async (messages, jsonMode = false, model = "arcee-ai/trinity-large-preview:free", retries = 2) => {
     if (!window.puter) {
-        // Attempt to wait for it briefly (race condition fix)
+        // Attempt to wait for it briefly
         await new Promise(resolve => setTimeout(resolve, 500));
         if (!window.puter) throw new Error("Puter.js library not loaded via CDN.");
     }
 
+    // Ensure model is valid for Puter (it doesn't support all OpenRouter models)
+    // Puter free tier usually supports specific ones. We'll stick to the requested one if it looks generic,
+    // or default to a safe one if it's a specific provider (like Groq/OpenAI specific).
+    let targetModel = model;
+    if (model.includes('gpt-') || model.includes('claude-') || model.includes('llama-')) {
+        // Puter often behaves best with its default or specific free models
+        targetModel = "arcee-ai/trinity-large-preview:free";
+    }
+
+    // Puter expects standard messages array
     const puterMessages = [...messages];
     if (jsonMode) {
-        puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format. Do not encompass the JSON in markdown code blocks." });
+        puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format. Do not wrap the JSON in markdown code blocks." });
     }
 
     for (let i = 0; i < retries; i++) {
         try {
-            // Call Puter.js with explicit model
-            const response = await window.puter.ai.chat(puterMessages, { model });
+            const response = await window.puter.ai.chat(puterMessages, { model: targetModel });
 
-            // If we got here, it worked
             recordPuterSuccess();
 
             if (response?.message?.content) {
@@ -70,66 +108,71 @@ const fetchPuter = async (messages, jsonMode = false, model = "claude-3-5-sonnet
 
         } catch (err) {
             console.warn(`Puter attempt ${i + 1} failed:`, err);
-            // If it's the last retry, throw the error to be caught by the fallback
             if (i === retries - 1) throw err;
-            // Wait before retrying (exponential backoff: 500ms, 1000ms, 2000ms)
-            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, i)));
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
 };
 
-// Secure Backend Fallback (Vercel Serverless Function)
-// Client-Side Fallback (FOR LOCAL DEV ONLY)
+// Client-Side Fallback (Direct to API)
 const fetchClientSideFallback = async (messages, model, jsonMode) => {
-    // Try OpenRouter Client-Side
+    // 1. Try OpenRouter First (Broadest Model Support)
     try {
         const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-        if (!apiKey) throw new Error("Client-Side OpenRouter Key Missing");
+        if (apiKey) {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": window.location.origin,
+                },
+                body: JSON.stringify({
+                    model: model, // Use requested model for OpenRouter
+                    messages,
+                    response_format: jsonMode ? { type: "json_object" } : undefined
+                })
+            });
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": window.location.origin,
-            },
-            body: JSON.stringify({
-                model,
-                messages,
-                response_format: jsonMode ? { type: "json_object" } : undefined
-            })
-        });
-
-        if (!response.ok) throw new Error(`OpenRouter Client Error: ${response.status}`);
-        const data = await response.json();
-        return data.choices[0].message.content;
+            if (response.ok) {
+                const data = await response.json();
+                return data.choices[0].message.content;
+            } else {
+                console.warn(`OpenRouter Client Error: ${response.status}`);
+            }
+        } else {
+            console.warn("Client-Side OpenRouter Key Missing");
+        }
     } catch (orErr) {
         console.warn("Client-Side OpenRouter failed, trying Groq...", orErr);
-
-        // Try Groq Client-Side
-        const groqKey = import.meta.env.VITE_GROQ_API_KEY;
-        if (!groqKey) throw new Error("Client-Side Groq Key Missing");
-
-        const gResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${groqKey}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: "llama3-70b-8192",
-                messages,
-                response_format: jsonMode ? { type: "json_object" } : undefined
-            })
-        });
-
-        if (!gResponse.ok) throw new Error(`Groq Client Error: ${gResponse.status}`);
-        const gData = await gResponse.json();
-        return gData.choices[0].message.content;
     }
+
+    // 2. Try Groq (Fast, Reliable Fallback)
+    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!groqKey) throw new Error("Client-Side Groq Key Missing");
+
+    // Map to a valid Groq model
+    const groqModel = getGroqModel(model);
+
+    const gResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${groqKey}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: groqModel,
+            messages,
+            response_format: jsonMode ? { type: "json_object" } : undefined
+        })
+    });
+
+    if (!gResponse.ok) throw new Error(`Groq Client Error: ${gResponse.status}`);
+    const gData = await gResponse.json();
+    return gData.choices[0].message.content;
 };
 
-// Secure Backend Fallback (Vercel Serverless Function) WITH Local Dev Support
+// Secure Backend Fallback (with Local Dev Bypass)
 const fetchBackendFallback = async (messages, model, jsonMode) => {
     try {
         const response = await fetch('/api/ai-completion', {
@@ -139,13 +182,11 @@ const fetchBackendFallback = async (messages, model, jsonMode) => {
         });
 
         if (!response.ok) {
-            // Local Dev Fallback (Vite)
-            // If API returns 404 (Not Found) AND we are in Dev mode, use client-side keys
-            if (response.status === 404 && import.meta.env.DEV) {
-                console.warn("Backend API not found (Local Dev detection). Falling back to Client-Side Keys.");
+            // Local Dev or 404 -> Client Side Keys
+            if ((response.status === 404 && import.meta.env.DEV) || response.status === 500) {
+                console.warn(`Backend API ${response.status}. Falling back to Client-Side Keys.`);
                 return await fetchClientSideFallback(messages, model, jsonMode);
             }
-
             const errorText = await response.text();
             throw new Error(`Backend Error (${response.status}): ${errorText}`);
         }
@@ -154,20 +195,20 @@ const fetchBackendFallback = async (messages, model, jsonMode) => {
         return data.content;
     } catch (error) {
         console.error("Secure Backend Call Failed:", error);
-        // If fetch failed completely (network error) and we are local, try client fallback
         if (import.meta.env.DEV) {
-            console.warn("Backend fetch failed locally (Network Error). Trying client-side fallback...");
             return await fetchClientSideFallback(messages, model, jsonMode);
         }
         throw error;
     }
 };
 
-
-// Dedicated Groq Fetch for J-Compiler (Faster & More Reliable for Code)
-const fetchGroqDirectly = async (messages, jsonMode, model = "llama-3.1-8b-instant") => {
+// Dedicated Groq Fetch (Direct)
+const fetchGroqDirectly = async (messages, jsonMode, model) => {
     const groqKey = import.meta.env.VITE_GROQ_API_KEY;
     if (!groqKey) throw new Error("Groq API Key Missing");
+
+    // IMPORTANT: Ensure model is valid for Groq
+    const validModel = getGroqModel(model);
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -176,7 +217,7 @@ const fetchGroqDirectly = async (messages, jsonMode, model = "llama-3.1-8b-insta
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: model, // NOW Dynamic
+            model: validModel,
             messages,
             response_format: jsonMode ? { type: "json_object" } : undefined,
             temperature: 0.1
@@ -185,18 +226,13 @@ const fetchGroqDirectly = async (messages, jsonMode, model = "llama-3.1-8b-insta
 
     if (!response.ok) {
         const errText = await response.text();
-
-        // RESCUE STRATEGY: Handle Groq's "json_validate_failed" by recovering the content
+        // Try to recover content from validation error if present
         try {
             const errJson = JSON.parse(errText);
-            if (errJson.error && errJson.error.code === 'json_validate_failed' && errJson.error.failed_generation) {
-                console.warn("Groq JSON Validation Failed, but recovering content:", errJson.error.failed_generation);
+            if (errJson.error?.failed_generation) {
                 return errJson.error.failed_generation;
             }
-        } catch (e) {
-            // ignore parsing error
-        }
-
+        } catch (e) { }
         throw new Error(`Groq Direct Error (${response.status}): ${errText}`);
     }
 
@@ -213,48 +249,50 @@ export const getAICompletion = async (messages, options = {}) => {
         provider = "auto" // 'auto' | 'groq' | 'puter'
     } = options;
 
-    // Strategy 1: Explicit Provider Request (e.g., J-Compiler requests Groq)
+    // Strategy 1: Explicit Groq
     if (provider === 'groq') {
         try {
             return await fetchGroqDirectly(messages, jsonMode, model);
         } catch (groqErr) {
             console.warn("Groq Direct failed, falling back to standard pipeline:", groqErr);
-            // Fall through to standard pipeline
         }
     }
 
-    // Strategy 2: Standard Pipeline (Puter -> Backend/OpenRouter)
-    // 1. Primary: Puter.js
-    let usePuter = isPuterHealthy();
+    // Strategy 2: Puter
+    // Only use Puter if not disabled and no multimodal content (images) which Puter might not handle well via simple API
+    // (Assuming Puter is text-focused for the free tier usually)
+    let usePuter = isPuterHealthy() && provider !== 'backend';
+
+    // Check for images in messages - Puter API might fail with complex array content
+    const hasImages = messages.some(m => Array.isArray(m.content));
+    if (hasImages) usePuter = false;
 
     if (usePuter) {
         try {
             return await fetchPuter(messages, jsonMode, model);
         } catch (puterErr) {
             recordPuterFailure();
-            console.warn("Puter.js failed. Switching to Backend/OpenRouter:", puterErr);
-            if (onFallback) onFallback(`Puter Error: ${puterErr.message}. Switching to Fallback...`);
+            console.warn("Puter.js failed. Switching to Backend/fallback:", puterErr);
+            if (onFallback) onFallback(`Puter Error. Switching to Fallback...`);
         }
     }
 
-    // 2. Backup: Secure Backend (OpenRouter -> Groq Fallback)
+    // Strategy 3: Backend / Fallback
     try {
         return await fetchBackendFallback(messages, model, jsonMode);
     } catch (backendErr) {
-        // 3. Final Resort: Client-Side Groq (if backend fails)
         console.warn("Backend failed. Attempting Client-Side Groq Last Resort.");
         try {
             return await fetchGroqDirectly(messages, jsonMode, model);
         } catch (finalErr) {
-            console.error("All AI Services Failed:", finalErr);
             throw new Error(`AI Failure: All providers exhausted.`);
         }
     }
 };
 
 // J-Compiler: Simulation & Debugging
-export const simulateCodeExecution = async (code, language = "auto", inputs = []) => {
-    const systemPrompt = `You are J-Compiler (Engine: GPT-OSS-20B).
+export const simulateCodeExecution = async (code, language = "auto", inputs = [], history = []) => {
+    const systemPrompt = `You are J-Compiler (Engine: Llama-3.3-70B).
     
     TASK: Execute/Audit code with Zero-Tolerance for errors.
 
@@ -263,6 +301,12 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
     2.  **EXECUTE**: If clean, simulate FULL console session (prompts + logic) in "output".
     3.  **REASONING**: provide line-by-line logic trace.
     4.  **REPAIR**: If error, provide optimized "fixedCode" and Markdown "errorExplanation".
+    5.  **CONTEXT**: Use the provided 'history' to recall previous definitions/context if relevant, but prioritize the current 'Code'.
+    6.  **DBMS SIMULATION**: If the language is SQL, MySQL, or PostgreSQL:
+        a) Simulate a persistent database state based on the provided code/history.
+        b) If a valid SELECT/SHOW query is executed, return the result in a generic ASCII table format (like MySQL CLI).
+        c) If schema modifications (CREATE/ALTER) or data changes (INSERT/UPDATE) occur, acknowledge them with "Query OK, N rows affected" in the output.
+        d) Show errors for invalid SQL syntax or missing tables.
 
     JSON FORMAT:
     {
@@ -274,20 +318,27 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
       "fixedCode": "Full optimized source"
     }`;
 
+    let contextMessage = "";
+    if (history.length > 0) {
+        contextMessage = "PREVIOUS CONTEXT (Memory):\n" + history.map((h, i) =>
+            `[Interaction ${i + 1}]\nCode:\n${h.code}\nOutput:\n${h.result.output || h.result.errorExplanation}\n---\n`
+        ).join("\n");
+    }
+
     const messages = [
         { role: "system", content: systemPrompt },
         {
             role: "user",
-            content: `Language: ${language}\n\nCode:\n${code}`
+            content: `${contextMessage}\nLanguage: ${language}\n\nCode:\n${code}`
         }
     ];
 
     try {
-        // Enforce GPT-OSS-20B for Powerful execution
+        // Use Groq directly with a high-intelligence model
         const responseText = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'groq',
-            model: 'openai/gpt-oss-20b'
+            model: 'llama-3.3-70b-versatile' // Explicitly use a supported high-end Groq model
         });
         return cleanAndParseJSON(responseText);
     } catch (e) {
@@ -298,7 +349,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
 
 // J-Compiler: Reverse Engineering (Output -> Code)
 export const reverseEngineerCode = async (expectedOutput, language = "javascript") => {
-    const systemPrompt = `You are J-Compiler Architect (GPT-OSS-20B).
+    const systemPrompt = `You are J-Compiler Architect.
     
     TASK: Convert output to optimized code.
     1. ANALYZE 'Expected Output'.
@@ -316,11 +367,10 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
     ];
 
     try {
-        // Enforce GPT-OSS-20B for Instant output
         const responseCallback = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'groq',
-            model: 'openai/gpt-oss-20b'
+            model: 'llama-3.3-70b-versatile'
         });
         return cleanAndParseJSON(responseCallback);
     } catch (e) {

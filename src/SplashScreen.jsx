@@ -9,7 +9,7 @@ const SplashScreen = ({ onComplete, isAppReady = true }) => {
     const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
     useEffect(() => {
-        console.log("Using fallback loader");
+
 
         // Minimum display time of 2.5s
         const timer = setTimeout(() => {

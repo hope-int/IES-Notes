@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
 
 :root {
   /* Clean Light Palette */
@@ -256,4 +259,68 @@ h6 {
   .markdown-content strong {
     font-weight: 800 !important;
   }
+}
+
+/* DOCUMENT PRINT STYLES */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  header,
+  .sticky,
+  [sticky],
+  button,
+  .no-print,
+  .tiptap-toolbar {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Target the document canvas specifically */
+  .bg-white.shadow-\[0_0_15px_rgba\(0\2c 0\2c 0\2c 0\.05\)\2c 0_10px_30px_rgba\(0\2c 0\2c 0\2c 0\.1\)\] {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    padding: 2.5cm !important;
+    /* Standard doc margins */
+  }
+}
+
+/* Tiptap Placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+  color: #cbd5e1;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Custom scrollbar utility */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 20px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
 }
