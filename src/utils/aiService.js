@@ -307,6 +307,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
         b) If a valid SELECT/SHOW query is executed, return the result in a generic ASCII table format (like MySQL CLI).
         c) If schema modifications (CREATE/ALTER) or data changes (INSERT/UPDATE) occur, acknowledge them with "Query OK, N rows affected" in the output.
         d) Show errors for invalid SQL syntax or missing tables.
+    7.  **VISUALIZATION**: If the code involves algorithms or data structures (Linked Lists, Trees, Sorting, Graphs), generate a strict Mermaid JS diagram representing the flow or data state in "mermaidGraph" (use \\n for line breaks, no markdown wrappers). If not applicable, return null.
 
     JSON FORMAT:
     {
@@ -314,8 +315,9 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
       "language": "detected",
       "output": "Console stream",
       "status": "success" | "error",
-      "errorExplanation": "### Audit Results\n- Bullet points",
-      "fixedCode": "Full optimized source"
+      "errorExplanation": "### Audit Results\\n- Bullet points",
+      "fixedCode": "Full optimized source",
+      "mermaidGraph": "graph TD\\n A-->B or null"
     }`;
 
     let contextMessage = "";

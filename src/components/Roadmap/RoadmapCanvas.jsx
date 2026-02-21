@@ -1,5 +1,4 @@
-
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import ReactFlow, {
     Background,
     Controls,
@@ -12,29 +11,87 @@ import 'reactflow/dist/style.css';
 import CustomNode from './CustomNode';
 import NodeDrawer from './NodeDrawer';
 import RoadmapWizard from './RoadmapWizard';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../supabaseClient';
+import { Loader2 } from 'lucide-react';
 
 const nodeTypes = {
-    custom: CustomNode,
+    custom: CustomNode
 };
 
-const RoadmapCanvas = ({ profile }) => {
+const RoadmapCanvas = () => {
+    const { userProfile: profile } = useAuth();
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-    const [isWizardOpen, setIsWizardOpen] = useState(true);
+    const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState(null);
+    const [isCheckingDB, setIsCheckingDB] = useState(true);
+
+
+    // Initial Database Check
+    useEffect(() => {
+        const fetchExistingRoadmap = async () => {
+            if (!profile?.id) return;
+            setIsCheckingDB(true);
+            try {
+                const { data, error } = await supabase
+                    .from('user_roadmaps')
+                    .select('*')
+                    .eq('user_id', profile.id)
+                    .maybeSingle();
+
+                if (error && error.code !== 'PGRST116') {
+                    console.error("Error fetching roadmap:", error);
+                }
+
+                if (data && data.nodes && data.nodes.length > 0) {
+                    setNodes(data.nodes);
+                    setEdges(data.edges);
+                    setIsWizardOpen(false);
+                } else {
+                    // No roadmap found, open wizard
+                    setIsWizardOpen(true);
+                }
+            } catch (err) {
+                console.error("Unknown error checking DB:", err);
+                setIsWizardOpen(true);
+            } finally {
+                setIsCheckingDB(false);
+            }
+        };
+
+        fetchExistingRoadmap();
+    }, [profile, setNodes, setEdges]);
+
+    // DB Sync Helper
+    const saveRoadmapToDB = async (currentNodes, currentEdges) => {
+        if (!profile?.id) return;
+        try {
+            const { error } = await supabase
+                .from('user_roadmaps')
+                .upsert({
+                    user_id: profile.id,
+                    nodes: currentNodes,
+                    edges: currentEdges,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+
+            if (error) console.error("Error saving roadmap to Supabase:", error);
+        } catch (err) {
+            console.error("Unknown error saving to DB:", err);
+        }
+    };
 
     // Handle Wizard Completion
-    const handleRoadmapGenerated = useCallback((data) => {
-        // Layout logic: Simple vertical spacing if x/y not provided well
-        const layoutNodes = data.nodes.map((node, index) => ({
-            ...node,
-            position: node.position || { x: 250, y: index * 150 },
-        }));
-
-        setNodes(layoutNodes);
+    const handleRoadmapGenerated = useCallback(async (data) => {
+        // Trust the AI's provided x/y coordinates directly
+        setNodes(data.nodes);
         setEdges(data.edges);
         setIsWizardOpen(false);
-    }, [setNodes, setEdges]);
+
+        // Persist to DB immediately
+        await saveRoadmapToDB(data.nodes, data.edges);
+    }, [profile, setNodes, setEdges]);
 
     // Handle Node Click
     const onNodeClick = useCallback((event, node) => {
@@ -46,7 +103,10 @@ const RoadmapCanvas = ({ profile }) => {
     }, []);
 
     // Handle "Mark as Completed" action
-    const handleNodeCompletion = useCallback((nodeId) => {
+    const handleNodeCompletion = useCallback(async (nodeId) => {
+        // We need to capture the *new* state to save it correctly
+        let nextNodes = [];
+
         setNodes((nds) => {
             // 1. Mark current node as completed
             const updatedNodes = nds.map((node) => {
@@ -71,12 +131,27 @@ const RoadmapCanvas = ({ profile }) => {
                 }
             });
 
+            nextNodes = updatedNodes;
             return updatedNodes;
         });
 
         // Close drawer after completion
         setSelectedNode(null);
+
+        // Save new state offline/online
+        setImmediate(() => saveRoadmapToDB(nextNodes, edges));
+
     }, [edges, setNodes]);
+
+    if (isCheckingDB) {
+        return (
+            <div className="w-full h-screen flex flex-col items-center justify-center bg-[var(--bg-page)] text-[var(--text-main)]">
+                <Loader2 className="w-12 h-12 text-[var(--primary-accent)] animate-spin mb-4" />
+                <h2 className="text-xl font-bold">Synchronizing Neuro-Link...</h2>
+                <p className="text-sm text-[var(--text-muted)] mt-2">Checking for saved learning paths.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full h-screen bg-[var(--bg-page)] text-[var(--text-main)] transition-colors duration-300">

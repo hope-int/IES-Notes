@@ -1,186 +1,190 @@
-
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, BookOpen, Clock, Target } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Loader2 } from 'lucide-react';
 import { generateRoadmap } from '../../utils/roadmapAI';
 
 const RoadmapWizard = ({ onRoadmapGenerated }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        goal: '',
-        currentLevel: '',
-        timeframe: '3 months'
+    const [answers, setAnswers] = useState({
+        q1: '',
+        q2: '',
+        q3: '',
+        q4: '',
+        q5: ''
     });
 
-    const handleNext = () => setStep(prev => prev + 1);
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    const questions = [
+        {
+            id: 1,
+            key: 'q1',
+            text: "What is your ultimate engineering goal?",
+            options: [
+                "Full Stack Web",
+                "Data Science & AI",
+                "Embedded & IoT",
+                "Cybersecurity"
+            ]
+        },
+        {
+            id: 2,
+            key: 'q2',
+            text: "What is your current coding level?",
+            options: [
+                "Absolute Beginner",
+                "I know basic syntax (Loops/Arrays)",
+                "I can build small projects",
+                "I am prepping for placements"
+            ]
+        },
+        {
+            id: 3,
+            key: 'q3',
+            text: "How comfortable are you with Data Structures & Algorithms?",
+            options: [
+                "Terrified of them",
+                "I know the basics",
+                "I can confidently invert a Binary Tree"
+            ]
+        },
+        {
+            id: 4,
+            key: 'q4',
+            text: "How do you actually want to learn?",
+            options: [
+                "Structured & Exam-focused",
+                "Building real-world projects",
+                "Polymath (Deconstruct topics across disciplines)"
+            ]
+        },
+        {
+            id: 5,
+            key: 'q5',
+            text: "What is your timeline?",
+            options: [
+                "Panic Mode (Exam tomorrow)",
+                "1 Month (Placement prep)",
+                "6 Months (Deep mastery)"
+            ]
+        }
+    ];
 
-    const handleSubmit = async () => {
-        setLoading(true);
-        try {
-            const data = await generateRoadmap(formData);
-            onRoadmapGenerated(data);
-        } catch (error) {
-            alert("Failed to generate roadmap. Please try again.");
-        } finally {
-            setLoading(false);
+    const currentQuestion = questions.find(q => q.id === step);
+
+    const handleOptionSelect = async (answer) => {
+        const newAnswers = { ...answers, [currentQuestion.key]: answer };
+        setAnswers(newAnswers);
+
+        if (step < 5) {
+            setStep(step + 1);
+        } else {
+            // Final step reached
+            setLoading(true);
+            try {
+                const data = await generateRoadmap(newAnswers);
+                onRoadmapGenerated(data);
+            } catch (error) {
+                console.error("Roadmap generation failed:", error);
+                alert("Failed to generate roadmap. Please try again.");
+                setStep(1); // Reset on failure
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
-    const variants = {
-        initial: { opacity: 0, x: 20 },
-        animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: -20 }
-    };
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="w-full max-w-2xl bg-white/95 backdrop-blur-xl border border-white/20 shadow-2xl rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden"
-            >
-                {/* Decorative Background Elements */}
-                <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -z-10" />
-                <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -z-10" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+            {/* Global Background (Liquid Aura style) */}
+            <div className="fixed inset-0 z-[-1] bg-white overflow-hidden">
+                <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] rounded-full bg-purple-200/50 blur-[120px]" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-blue-200/50 blur-[120px]" />
+            </div>
 
-                <div className="mb-10 text-center">
-                    <div className="inline-flex items-center justify-center p-3 mb-4 rounded-2xl bg-blue-50 text-blue-600">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="w-full max-w-2xl bg-white/60 backdrop-blur-2xl border border-white/40 shadow-2xl rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden"
+            >
+
+                <div className="mb-8 text-center relative z-10">
+                    <div className="inline-flex items-center justify-center p-3 mb-4 rounded-2xl bg-gradient-to-br from-purple-100 to-blue-50 text-purple-600 shadow-inner">
                         <Sparkles className="w-8 h-8" />
                     </div>
-                    <h2 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-2">
-                        AI Roadmap Generator
+                    <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 mb-2">
+                        AI Roadmap Engine
                     </h2>
-                    <p className="text-gray-500 text-lg">Chart your path to mastery in seconds.</p>
-                </div>
-
-                {/* Step Indicator */}
-                <div className="flex gap-3 mb-12 px-8">
-                    {[1, 2, 3].map(i => (
-                        <div
-                            key={i}
-                            className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${i <= step ? 'bg-gradient-to-r from-blue-500 to-purple-500' : 'bg-gray-100'
-                                }`}
-                        />
-                    ))}
+                    <p className="text-gray-500 font-medium">Diagnostic Setup</p>
                 </div>
 
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <div className="w-16 h-16 border-4 border-[var(--primary-accent)] border-t-transparent rounded-full animate-spin mb-4" />
-                        <h3 className="text-lg font-medium text-[var(--text-main)]">Crafting your destiny...</h3>
-                        <p className="text-[var(--text-muted)] text-sm mt-2">Our AI is analyzing thousands of career paths for you.</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-center relative z-10">
+                        <Loader2 className="w-16 h-16 text-purple-600 animate-spin mb-6" />
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Generating your personalized skill tree...</h3>
+                        <p className="text-gray-500 font-medium max-w-sm">
+                            Analyzing {answers.q1} pathways based on your {answers.q5} timeline...
+                        </p>
                     </div>
                 ) : (
-                    <motion.div
-                        key={step}
-                        variants={variants}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        transition={{ duration: 0.3 }}
-                    >
-                        {step === 1 && (
-                            <div className="space-y-6">
-                                <div className="text-center mb-8">
-                                    <label className="text-2xl font-bold text-gray-900">What is your ultimate goal?</label>
-                                </div>
-                                <input
-                                    type="text"
-                                    name="goal"
-                                    value={formData.goal}
-                                    onChange={handleChange}
-                                    placeholder="e.g. Full Stack Developer, Data Scientist..."
-                                    className="w-full bg-gray-50 border-0 rounded-2xl px-6 py-5 text-xl focus:ring-4 focus:ring-blue-100 transition-all placeholder:text-gray-400 font-medium text-center shadow-inner"
-                                    autoFocus
-                                />
-                                <button
-                                    onClick={handleNext}
-                                    disabled={!formData.goal}
-                                    className="w-full mt-6 bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-[1.02] transition-all text-white font-bold rounded-2xl py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
+                    <div className="relative z-10">
+                        {/* Step Indicator / Progress Bar */}
+                        <div className="flex items-center justify-between mb-8">
+                            <span className="text-sm font-bold text-purple-600 uppercase tracking-wider">Step {step} of 5</span>
+                            <div className="flex gap-2 w-2/3">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <div
+                                        key={i}
+                                        className={`h-2 flex-1 rounded-full transition-all duration-500 ${i <= step ? 'bg-gradient-to-r from-purple-500 to-blue-500 shadow-sm' : 'bg-gray-200'}`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Interactive Carousel Content */}
+                        <div className="min-h-[250px] relative">
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={step}
+                                    initial={{ x: 50, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    exit={{ x: -50, opacity: 0 }}
+                                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                                    className="w-full"
                                 >
-                                    Next Step <ArrowRight className="w-5 h-5" />
+                                    <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center leading-tight">
+                                        {currentQuestion.text}
+                                    </h3>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {currentQuestion.options.map((option, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleOptionSelect(option)}
+                                                className="bg-white/50 border-2 border-transparent hover:border-purple-500 hover:bg-purple-50 hover:shadow-lg hover:-translate-y-1 rounded-2xl p-6 cursor-pointer transition-all text-center font-bold text-gray-700 active:scale-95 flex flex-col items-center justify-center min-h-[100px]"
+                                                style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+                                            >
+                                                {option}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            </AnimatePresence>
+                        </div>
+
+                        {step > 1 && (
+                            <div className="mt-8 text-center">
+                                <button
+                                    onClick={() => setStep(step - 1)}
+                                    className="text-gray-400 hover:text-gray-700 font-medium transition-colors text-sm"
+                                >
+                                    ← Go Back
                                 </button>
                             </div>
                         )}
-
-                        {step === 2 && (
-                            <div className="space-y-6">
-                                <div className="text-center mb-8">
-                                    <label className="text-2xl font-bold text-gray-900">What do you already know?</label>
-                                </div>
-                                <textarea
-                                    name="currentLevel"
-                                    rows="4"
-                                    value={formData.currentLevel}
-                                    onChange={handleChange}
-                                    placeholder="I know Python loops but struggle with classes. I've used React a little bit..."
-                                    className="w-full bg-gray-50 border-0 rounded-2xl px-6 py-5 text-lg focus:ring-4 focus:ring-blue-100 transition-all placeholder:text-gray-400 font-medium shadow-inner resize-none"
-                                    autoFocus
-                                />
-                                <div className="flex gap-4 mt-6">
-                                    <button
-                                        onClick={() => setStep(1)}
-                                        className="px-8 py-4 rounded-2xl font-bold text-gray-500 hover:bg-gray-100 transition-all"
-                                    >
-                                        Back
-                                    </button>
-                                    <button
-                                        onClick={handleNext}
-                                        disabled={!formData.currentLevel}
-                                        className="flex-1 bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-[1.02] transition-all text-white font-bold rounded-2xl py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
-                                    >
-                                        Next Step <ArrowRight className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {step === 3 && (
-                            <div className="space-y-6">
-                                <div className="text-center mb-8">
-                                    <label className="text-2xl font-bold text-gray-900">Time Commitment?</label>
-                                </div>
-                                <div className="grid grid-cols-1 gap-4">
-                                    {['1 month', '3 months', '6 months', '1 year'].map((time) => (
-                                        <button
-                                            key={time}
-                                            onClick={() => setFormData({ ...formData, timeframe: time })}
-                                            className={`w-full p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${formData.timeframe === time
-                                                ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm'
-                                                : 'bg-white border-gray-100 hover:border-blue-200 text-gray-600 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <span className="font-bold text-lg">{time}</span>
-                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${formData.timeframe === time ? 'border-blue-600 bg-blue-600' : 'border-gray-300'
-                                                }`}>
-                                                {formData.timeframe === time && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <div className="flex gap-4 mt-8">
-                                    <button
-                                        onClick={() => setStep(2)}
-                                        className="px-8 py-4 rounded-2xl font-bold text-gray-500 hover:bg-gray-100 transition-all"
-                                    >
-                                        Back
-                                    </button>
-                                    <button
-                                        onClick={handleSubmit}
-                                        className="flex-1 bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-xl hover:shadow-blue-500/20 hover:scale-[1.02] transition-all text-white font-bold rounded-2xl py-4 text-lg flex items-center justify-center gap-2"
-                                    >
-                                        Generate Roadmap <Sparkles className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </motion.div>
+                    </div>
                 )}
             </motion.div>
-        </div >
+        </div>
     );
 };
 

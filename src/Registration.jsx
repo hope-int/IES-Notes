@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { motion } from 'framer-motion';
-import { User, GraduationCap, ChevronRight, Loader, LogIn, KeyRound } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, GraduationCap, ChevronRight, Loader, LogIn, KeyRound, Check, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { PrivacyPolicy, UserAgreement } from './assets/legalDocs';
 
 export default function Registration({ onComplete }) {
     const [step, setStep] = useState(1);
@@ -10,6 +12,17 @@ export default function Registration({ onComplete }) {
     const [loading, setLoading] = useState(false);
     const [departments, setDepartments] = useState([]);
     const [semesters, setSemesters] = useState([]);
+
+    // Consent states
+    const [privacyAgreed, setPrivacyAgreed] = useState(false);
+    const [termsAgreed, setTermsAgreed] = useState(false);
+    const [activeDocument, setActiveDocument] = useState(null); // 'privacy' | 'terms' | null
+    const allAgreed = privacyAgreed && termsAgreed;
+
+    const documents = {
+        'privacy': { title: 'Privacy Policy', content: PrivacyPolicy },
+        'terms': { title: 'User Agreement', content: UserAgreement }
+    };
 
     const [formData, setFormData] = useState({
         full_name: '',
@@ -198,10 +211,72 @@ export default function Registration({ onComplete }) {
                                 />
                             </div>
                         </div>
+
+                        {/* Consent Checkboxes */}
+                        <div className="space-y-4 mb-4 text-start">
+                            <label className="d-flex align-items-start gap-3 w-100 mb-2 cursor-pointer group">
+                                <div className="position-relative flex-shrink-0 mt-1">
+                                    <input
+                                        type="checkbox"
+                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
+                                        style={{ width: '24px', height: '24px', backgroundColor: privacyAgreed ? 'purple' : 'transparent', borderColor: privacyAgreed ? 'purple' : '#ccc' }}
+                                        checked={privacyAgreed}
+                                        onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                    />
+                                    <Check
+                                        size={14}
+                                        className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
+                                        style={{ opacity: privacyAgreed ? 1 : 0 }}
+                                        strokeWidth={4}
+                                    />
+                                </div>
+                                <span className="text-secondary small leading-relaxed select-none">
+                                    I have read and agree to the{' '}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); setActiveDocument('privacy'); }}
+                                        className="btn btn-link p-0 text-decoration-none fw-bold"
+                                        style={{ color: 'purple' }}
+                                    >
+                                        Privacy Policy
+                                    </button>
+                                </span>
+                            </label>
+
+                            <label className="d-flex align-items-start gap-3 w-100 mb-4 cursor-pointer group">
+                                <div className="position-relative flex-shrink-0 mt-1">
+                                    <input
+                                        type="checkbox"
+                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
+                                        style={{ width: '24px', height: '24px', backgroundColor: termsAgreed ? 'purple' : 'transparent', borderColor: termsAgreed ? 'purple' : '#ccc' }}
+                                        checked={termsAgreed}
+                                        onChange={(e) => setTermsAgreed(e.target.checked)}
+                                    />
+                                    <Check
+                                        size={14}
+                                        className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
+                                        style={{ opacity: termsAgreed ? 1 : 0 }}
+                                        strokeWidth={4}
+                                    />
+                                </div>
+                                <span className="text-secondary small leading-relaxed select-none">
+                                    I have read and agree to the{' '}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); setActiveDocument('terms'); }}
+                                        className="btn btn-link p-0 text-decoration-none fw-bold"
+                                        style={{ color: 'indigo' }}
+                                    >
+                                        User Agreement
+                                    </button>
+                                </span>
+                            </label>
+                        </div>
+
                         <button
                             type="submit"
-                            disabled={loading || !loginUid}
-                            className="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
+                            disabled={loading || !loginUid || !allAgreed}
+                            className={`btn w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 ${(!loginUid || !allAgreed) ? 'btn-secondary text-white-50' : 'btn-primary'}`}
                         >
                             {loading ? <Loader className="animate-spin" /> : (
                                 <>
@@ -286,11 +361,72 @@ export default function Registration({ onComplete }) {
                             </div>
                         </div>
 
+                        {/* Consent Checkboxes */}
+                        <div className="space-y-4 mb-4 text-start">
+                            <label className="d-flex align-items-start gap-3 w-100 mb-2 cursor-pointer group">
+                                <div className="position-relative flex-shrink-0 mt-1">
+                                    <input
+                                        type="checkbox"
+                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
+                                        style={{ width: '24px', height: '24px', backgroundColor: privacyAgreed ? 'purple' : 'transparent', borderColor: privacyAgreed ? 'purple' : '#ccc' }}
+                                        checked={privacyAgreed}
+                                        onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                    />
+                                    <Check
+                                        size={14}
+                                        className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
+                                        style={{ opacity: privacyAgreed ? 1 : 0 }}
+                                        strokeWidth={4}
+                                    />
+                                </div>
+                                <span className="text-secondary small leading-relaxed select-none">
+                                    I have read and agree to the{' '}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); setActiveDocument('privacy'); }}
+                                        className="btn btn-link p-0 text-decoration-none fw-bold"
+                                        style={{ color: 'purple' }}
+                                    >
+                                        Privacy Policy
+                                    </button>
+                                </span>
+                            </label>
+
+                            <label className="d-flex align-items-start gap-3 w-100 mb-4 cursor-pointer group">
+                                <div className="position-relative flex-shrink-0 mt-1">
+                                    <input
+                                        type="checkbox"
+                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
+                                        style={{ width: '24px', height: '24px', backgroundColor: termsAgreed ? 'purple' : 'transparent', borderColor: termsAgreed ? 'purple' : '#ccc' }}
+                                        checked={termsAgreed}
+                                        onChange={(e) => setTermsAgreed(e.target.checked)}
+                                    />
+                                    <Check
+                                        size={14}
+                                        className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
+                                        style={{ opacity: termsAgreed ? 1 : 0 }}
+                                        strokeWidth={4}
+                                    />
+                                </div>
+                                <span className="text-secondary small leading-relaxed select-none">
+                                    I have read and agree to the{' '}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); setActiveDocument('terms'); }}
+                                        className="btn btn-link p-0 text-decoration-none fw-bold"
+                                        style={{ color: 'indigo' }}
+                                    >
+                                        User Agreement
+                                    </button>
+                                </span>
+                            </label>
+                        </div>
+
                         <button
                             type="submit"
-                            disabled={loading || !formData.semester_id || !formData.full_name || !formData.phone_number}
-                            className="btn btn-primary w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
-                            style={{ backgroundColor: 'var(--primary-accent)' }}
+                            disabled={loading || !formData.semester_id || !formData.full_name || !formData.phone_number || !allAgreed}
+                            className={`btn w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 ${(!formData.semester_id || !formData.full_name || !formData.phone_number || !allAgreed) ? 'btn-secondary text-white-50' : 'btn-primary'}`}
+                            style={{ backgroundColor: (!formData.semester_id || !formData.full_name || !formData.phone_number || !allAgreed) ? '' : 'var(--primary-accent)' }}
                         >
                             {loading ? <Loader className="animate-spin" /> : (
                                 <>
@@ -302,6 +438,68 @@ export default function Registration({ onComplete }) {
                     </form>
                 )}
             </motion.div>
+
+            {/* The Document View Modal */}
+            <AnimatePresence>
+                {activeDocument && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 z-3"
+                        style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
+                    >
+                        {/* Backdrop for the inner modal */}
+                        <div
+                            className="position-absolute top-0 start-0 w-100 h-100"
+                            onClick={() => setActiveDocument(null)}
+                        />
+
+                        <motion.div
+                            initial={{ scale: 0.95, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 20 }}
+                            className="position-relative bg-white w-100 rounded-4 shadow-lg d-flex flex-column overflow-hidden"
+                            style={{ maxWidth: '600px', maxHeight: '90vh' }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Header */}
+                            <div className="d-flex align-items-center justify-content-between p-4 border-bottom bg-light">
+                                <h4 className="fw-bold mb-0 text-dark">
+                                    {documents[activeDocument].title}
+                                </h4>
+                                <button
+                                    onClick={() => setActiveDocument(null)}
+                                    className="btn btn-light rounded-circle p-2 d-flex align-items-center justify-content-center"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div className="p-4 overflow-auto prose prose-sm" style={{ maxHeight: '60vh', textAlign: 'left' }}>
+                                <ReactMarkdown>
+                                    {documents[activeDocument].content}
+                                </ReactMarkdown>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-4 border-top bg-light d-flex justify-content-end">
+                                <button
+                                    onClick={() => {
+                                        if (activeDocument === 'privacy') setPrivacyAgreed(true);
+                                        if (activeDocument === 'terms') setTermsAgreed(true);
+                                        setActiveDocument(null);
+                                    }}
+                                    className="btn btn-dark fw-bold px-4 py-2"
+                                >
+                                    Accept & Close
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div >
     );
 }

@@ -4,7 +4,7 @@ import {
     User, Upload, Link as LinkIcon, Youtube, Book,
     FileText, Globe, CheckCircle, AlertCircle, Loader,
     ChevronDown, MapPin, Calendar, Hash, Edit2, Save, X,
-    LogOut, Shield, Copy, GraduationCap, ArrowLeft
+    LogOut, Shield, Copy, GraduationCap, ArrowLeft, Coins, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -172,7 +172,34 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
                                 <div className="col-12">
                                     <ProfileCardItem isEditing={isEditing} icon={GraduationCap} label="College" value={editForm.college} onChange={v => setEditForm({ ...editForm, college: v })} placeholder="College Name" color="cyan" />
                                 </div>
+                                <div className="col-12 text-center mt-3">
+                                    <div className="d-inline-flex align-items-center gap-2 bg-warning bg-opacity-25 text-dark fw-bold px-4 py-2 rounded-pill border border-warning border-opacity-50 shadow-sm">
+                                        <Coins size={20} className="text-warning" style={{ filter: 'drop-shadow(0px 2px 2px rgba(0,0,0,0.2))' }} />
+                                        <span className="fs-5">{profile?.hope_coins || 0}</span> HOPE Coins
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Push Notifications Opt-In (UI Only Placeholder) */}
+                            {!isEditing && (
+                                <div className="mt-4 p-3 rounded-3 bg-white border border-secondary border-opacity-10 text-start d-flex align-items-center justify-content-between shadow-sm">
+                                    <div className="d-flex align-items-center gap-3">
+                                        <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
+                                            <Bell size={20} />
+                                        </div>
+                                        <div>
+                                            <h6 className="fw-bold mb-0 text-dark">Exam Alerts</h6>
+                                            <p className="small text-muted mb-0">Get notified for important updates</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold shadow-sm"
+                                        onClick={() => alert("Push Notifications will require VAPID keys to be configured in the Supabase Edge Functions. The database migration is ready!")}
+                                    >
+                                        Enable
+                                    </button>
+                                </div>
+                            )}
 
                             {/* UID Section */}
                             {!isEditing && (

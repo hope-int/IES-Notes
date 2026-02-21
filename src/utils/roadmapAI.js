@@ -1,24 +1,40 @@
+import { getAICompletion } from './aiService';
 
-// Puter.js is loaded via CDN in index.html to avoid "already defined" custom element errors
-const puter = window.puter;
+const cleanAndParseJSON = (text) => {
+  try {
+    let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const firstBrace = cleaned.indexOf('{');
+    const endBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && endBrace !== -1) {
+      cleaned = cleaned.substring(firstBrace, endBrace + 1);
+    }
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("JSON Parse Error:", e, "\\nOriginal Text:", text);
+    throw new Error("Failed to parse AI response.");
+  }
+};
 
-export const generateRoadmap = async ({ goal, currentLevel, timeframe }) => {
+export const generateRoadmap = async (answers) => {
   const prompt = `
-You are an elite Tech Career Coach. Your job is to generate a step-by-step learning roadmap based on the user's goal and current skill level. 
+You are an elite Tech Career Coach and Curriculum Architect. 
+Generate a HIGHLY DETAILED, strict JSON roadmap based on this student profile:
+- Goal: ${answers.q1}
+- Current Level: ${answers.q2}
+- DSA Comfort: ${answers.q3}
+- Learning Style: ${answers.q4}
+- Timeline: ${answers.q5}
 
-You MUST output ONLY a valid JSON object with two arrays: "nodes" and "edges".
+CRITICAL INSTRUCTIONS:
+1. You must break the journey into 4 to 6 "main" phases/milestones.
+2. For EVERY main phase, you must generate 2 to 4 "sub" topics that branch off horizontally from the main phase. 
+3. You should generate at least 15+ total nodes.
+4. If timeline is "Panic Mode", skip fundamentals; focus strictly on high-yield exam/interview topics.
+5. Provide logical \`x\` and \`y\` coordinates so the nodes form a beautiful top-to-bottom branching tree in React Flow. 
+   - Main nodes should go straight down (e.g., x: 250, y: 0 -> y: 200 -> y: 400).
+   - Sub-nodes should branch horizontally outward from their parent main node's y-level (e.g., x: 500, y: 200 or x: 0, y: 200).
 
-**User Details:**
-- Goal: ${goal}
-- Current Level: ${currentLevel}
-- Timeframe: ${timeframe}
-
-**Rules for Nodes:**
-- Break the journey into 5 to 8 major milestones.
-- Node \`id\` must be a simple string (e.g., "1", "2").
-- \`status\` must be "completed" (if they already know it based on their prompt), "active" (the immediate next step), or "locked" (future steps).
-- Ensure the first node is "completed" or "active" based on the user's level.
-- Ensure only ONE node is "active" at a time (the first uncompleted step).
+You MUST output ONLY a valid JSON object with "nodes" and "edges".
 
 **JSON SCHEMA:**
 {
@@ -26,28 +42,25 @@ You MUST output ONLY a valid JSON object with two arrays: "nodes" and "edges".
     {
       "id": "1",
       "data": { 
-        "label": "Python Basics", 
-        "description": "Variables, Loops, Functions", 
-        "status": "completed",
-        "resource_hint": "Focus on memory management"
+        "label": "Phase 1: Main Topic", 
+        "eli5_analogy": "Think of HTML as a Lego house...", 
+        "action_steps": [
+          "Step 1: Get the bricks",
+          "Step 2: Build the walls"
+        ],
+        "status": "completed" | "active" | "locked",
+        "nodeType": "main" 
       },
       "position": { "x": 250, "y": 0 }
-    },
-    {
-      "id": "2",
-      "data": { 
-        "label": "Object Oriented Python", 
-        "description": "Classes, Inheritance, Dunder methods", 
-        "status": "active",
-        "resource_hint": "Build a simple banking system"
-      },
-      "position": { "x": 250, "y": 150 }
     }
   ],
   "edges": [
-    { "id": "e1-2", "source": "1", "target": "2", "animated": true }
+    { "id": "e1-1a", "source": "1", "target": "1a", "animated": true }
   ]
 }
+
+Always explain the concept using a simple, real-world analogy (like Legos, cooking, or video games). 
+Break the learning path into 3 to 5 actionable, bite-sized steps written in extremely simple language.
 `;
 
   const maxRetries = 3;
@@ -55,14 +68,17 @@ You MUST output ONLY a valid JSON object with two arrays: "nodes" and "edges".
 
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const response = await puter.ai.chat(prompt, { model: 'arcee-ai/trinity-large-preview:free' });
+      // Use getAICompletion explicitly asking for jsonMode and a capable model
+      const jsonString = await getAICompletion(
+        [{ role: 'user', content: prompt }],
+        { jsonMode: true, model: 'llama-3.3-70b-versatile' }
+      );
 
-      // Attempt to parse JSON from the response. 
-      // Sometimes models wrap JSON in markdown blocks, so we clean it.
-      let jsonString = response.message.content;
-      jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+      const data = cleanAndParseJSON(jsonString);
 
-      const data = JSON.parse(jsonString);
+      if (!data.nodes || !data.edges) {
+        throw new Error("Invalid format: nodes or edges array missing");
+      }
 
       // Add types to nodes for React Flow custom node
       const formattedNodes = data.nodes.map(node => ({
@@ -75,16 +91,12 @@ You MUST output ONLY a valid JSON object with two arrays: "nodes" and "edges".
       console.warn(`Roadmap generation attempt ${i + 1} failed:`, error);
       lastError = error;
 
-      // If it's a network error or similar, wait and retry.
       if (i < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 1s, 2s wait
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       }
     }
   }
 
   console.error("All roadmap generation attempts failed:", lastError);
-  if (lastError.response) console.error("Error Response:", lastError.response);
-  if (lastError.message) console.error("Error Message:", lastError.message);
-
-  throw new Error(`Failed to generate roadmap after ${maxRetries} attempts. Please check your internet connection and try again.`);
+  throw new Error(`Failed to generate roadmap after ${maxRetries} attempts.`);
 };

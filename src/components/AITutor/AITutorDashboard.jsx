@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import {
     Sparkles, MessageSquare, Presentation, FileText, FileSpreadsheet, Code, Cpu, Terminal, Mic, BookOpen, ArrowLeft, Menu, Bot, ChevronRight
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
-const AITutorDashboard = ({ profile }) => {
+const AITutorDashboard = () => {
+    const { userProfile: profile } = useAuth();
     const navigate = useNavigate();
 
     return (

@@ -5,6 +5,7 @@ import { simulateCodeExecution, reverseEngineerCode } from '../utils/aiService';
 import { Lightbulb, Play, Code, Terminal, ArrowRight, RotateCcw, Check, Copy, ArrowLeft, Cpu, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import MermaidRenderer from './MermaidRenderer';
 
 export default function JCompiler() {
     const navigate = useNavigate();
@@ -46,6 +47,7 @@ export default function JCompiler() {
                     status: result.status,
                     explanation: result.errorExplanation,
                     fixedCode: result.fixedCode,
+                    mermaidGraph: result.mermaidGraph,
                     detectedLanguage: result.language
                 });
             } else {
@@ -238,6 +240,16 @@ export default function JCompiler() {
                                             {output.text}
                                             <div ref={terminalEndRef} />
                                         </div>
+
+                                        {/* Visual Data Structure Generation */}
+                                        {output.mermaidGraph && (
+                                            <div className="mt-3 pt-3 border-top border-secondary border-opacity-25">
+                                                <h6 className="d-flex align-items-center gap-2 mb-2 text-info">
+                                                    <Sparkles size={18} /> Visual Trace Execution
+                                                </h6>
+                                                <MermaidRenderer chart={output.mermaidGraph} />
+                                            </div>
+                                        )}
 
                                         {/* AI Analysis (Error or Generator) */}
                                         {(output.status === 'error' || mode === 'generator') && (

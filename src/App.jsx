@@ -31,6 +31,7 @@ import AIChat from './components/AITutor/AITutor';
 import AITutorDashboard from './components/AITutor/AITutorDashboard';
 import { getDeviceId, getClientIp } from './utils/deviceUtils';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { useAuth } from './contexts/AuthContext';
 
 // Mapping string icon names to components
 const iconMap = {
@@ -46,6 +47,7 @@ const iconMap = {
 
 import SplashScreen from './SplashScreen';
 import SkeletonLoader from './components/SkeletonLoader';
+import InstallPWA from './components/InstallPWA';
 
 function App() {
   /* Navigation & Routing */
@@ -56,10 +58,8 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   // Auth State
-  const [session, setSession] = useState(null);
-  const [showAdmin, setShowAdmin] = useState(false);
+  const { session, userProfile, initializing, showAdmin, setShowAdmin, warningMessage, showWarningModal, dismissWarning, handleLogout: contextLogout, handleRegistrationComplete: contextRegistrationComplete } = useAuth();
   const [showProfile, setShowProfile] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -91,8 +91,6 @@ function App() {
   const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes', '/handbook', '/presentation', '/report', '/assignment', '/mini-project', '/final-project', '/roadmap', '/ai-chat', '/ai-tutor', '/docs', '/sheets'].includes(location.pathname);
 
   // Warning State
-  const [warningMessage, setWarningMessage] = useState(null);
-  const [showWarningModal, setShowWarningModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
@@ -107,7 +105,6 @@ function App() {
   const [notes, setNotes] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [initializing, setInitializing] = useState(true);
 
   // UI State
   const [searchTerm, setSearchTerm] = useState('');
@@ -123,16 +120,13 @@ function App() {
   // --- Effects ---
 
   useEffect(() => {
-    checkUserStatus();
-
-    // Listen for Auth changes (for Admins)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (userProfile && userProfile.semester_id && navStack.length === 1 && navStack[0].type === 'home') {
+      setNavStack([
+        { type: 'sem', id: userProfile.semester_id, title: userProfile.semester_name || 'My Semester' }
+      ]);
+      fetchSubjects(userProfile.semester_id);
+    }
+  }, [userProfile]);
 
   // Robustly check (and wait for) Puter.js to initialize
   useEffect(() => {
@@ -168,87 +162,8 @@ function App() {
     }
   }, []);
 
-  const checkUserStatus = async () => {
-    // 1. Check Local Storage for Student Profile (Main Flow)
-    const storedProfile = localStorage.getItem('hope_student_profile');
-    if (storedProfile) {
-      const profile = JSON.parse(storedProfile);
-      setUserProfile(profile);
-
-      // DEEP LINKING: Start at Semester View if ID exists
-      if (profile.semester_id) {
-        setNavStack([
-          { type: 'sem', id: profile.semester_id, title: profile.semester_name || 'My Semester' }
-        ]);
-        // Pre-fetch subjects for this view
-        await fetchSubjects(profile.semester_id);
-      }
-      setInitializing(false);
-      return;
-    }
-
-    // 2. Check Supabase Session (For Admins / Fallback)
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      setSession(session);
-      await fetchProfile(session.user.id);
-    } else {
-      // 3. Fallback: Auto-Login via Device ID
-      const deviceId = getDeviceId();
-      // Only attempt if we have a device ID (always true due to getter)
-      const { data: deviceLink } = await supabase
-        .from('user_devices')
-        .select('user_id')
-        .eq('device_id', deviceId)
-        .maybeSingle();
-
-      if (deviceLink?.user_id) {
-
-        await fetchProfile(deviceLink.user_id);
-      }
-    }
-
-
-
-
-    setInitializing(false);
-  };
-
-  const fetchProfile = async (userId) => {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (profile) {
-      setUserProfile(profile);
-      if (profile.is_admin) {
-        setShowAdmin(true);
-      }
-      if (profile.latest_warning_message) {
-        setWarningMessage(profile.latest_warning_message);
-        setShowWarningModal(true);
-      }
-    }
-  };
-
-  const dismissWarning = async () => {
-    if (!userProfile) return;
-    setShowWarningModal(false);
-
-    // Attempt to clear warning on server
-    try {
-      const { error } = await supabase.from('profiles').update({ latest_warning_message: null }).eq('id', userProfile.id);
-      if (error) throw error;
-      setWarningMessage(null);
-    } catch (err) {
-      console.error("Failed to dismiss warning", err);
-    }
-  };
-
   const handleRegistrationComplete = async (profile) => {
-    setUserProfile(profile);
+    contextRegistrationComplete(profile);
     if (profile.semester_id) {
       setNavStack([
         { type: 'sem', id: profile.semester_id, title: profile.semester_name || 'My Semester' }
@@ -430,10 +345,7 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('hope_student_profile');
-    setShowAdmin(false);
-    setUserProfile(null);
+    await contextLogout();
     setNavStack([{ type: 'home', title: 'Home', id: null }]);
   };
 
@@ -484,6 +396,7 @@ function App() {
 
   return (
     <>
+      <InstallPWA />
       <AnimatePresence>
         {isPuterAuthNeeded && (
           <PuterAuthPopup onAuthComplete={(success) => {
@@ -506,7 +419,7 @@ function App() {
           onOpenAdmin={() => setShowAdmin(true)}
         />
       ) : (
-        <div className={`min-vh-100 transition-colors ${isSpecialRoute ? '' : 'pb-5'}`}>
+        <div className={`min-vh-100 transition-colors ${isSpecialRoute ? '' : 'pb-32'}`}>
 
           {!isSpecialRoute && (
             <>
@@ -850,7 +763,7 @@ function App() {
               </section>
 
               {/* Community Tab */}
-              {activeTab === 'community' && <CommunityFeed profile={userProfile} />}
+              {activeTab === 'community' && <CommunityFeed />}
 
               {/* AI Tutor Tab */}
               {/* AI Tutor Tab removed (now a Route) */}
@@ -905,12 +818,12 @@ function App() {
             <Route path="/assignment" element={<AssignmentGenerator onBack={() => window.history.back()} />} />
             <Route path="/mini-project" element={<ProjectGenerator type="mini-project" onBack={() => window.history.back()} />} />
             <Route path="/final-project" element={<ProjectGenerator type="final-project" onBack={() => window.history.back()} />} />
-            <Route path="/roadmap" element={<RoadmapCanvas profile={userProfile} />} />
+            <Route path="/roadmap" element={<RoadmapCanvas />} />
 
             <Route path="/admin" element={session || userProfile ? <AdminPanel /> : <Navigate to="/" />} />
             <Route path="/compiler" element={session || userProfile ? <JCompiler /> : <Navigate to="/" />} />
-            <Route path="/ai-tutor" element={<AITutorDashboard profile={userProfile} />} />
-            <Route path="/ai-chat" element={<AIChat profile={userProfile} />} />
+            <Route path="/ai-tutor" element={<AITutorDashboard />} />
+            <Route path="/ai-chat" element={<AIChat />} />
             <Route path="/docs" element={<HopeDocsLayout onBack={() => navigate(-1)} />} />
             <Route path="/sheets" element={<HopeSheetsLayout onBack={() => navigate(-1)} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -946,7 +859,7 @@ function App() {
       )
       }
       {/* Floating Navigation Bar - Global */}
-      {location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && (
+      {location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && (
         <div className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" style={{ pointerEvents: 'none', zIndex: 1055 }}>
           <motion.div
             whileHover={{

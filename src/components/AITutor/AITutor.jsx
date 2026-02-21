@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, RefreshCw, ChevronDown, BookOpen, Home, MessageSquare, History, Plus, Trash2, Menu, X, Share2, FileText, ArrowLeft, LayoutGrid, Copy, Printer, FileType } from 'lucide-react';
+import {
+    MessageSquare, Send, Paperclip, X, Image as ImageIcon,
+    FileType, Sparkles, BookOpen, Clock, FileText, ChevronRight, Menu, Trash2, Bot, Plus, Code, ArrowLeft, LayoutGrid, Copy, RefreshCw
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -8,15 +11,17 @@ import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import mermaid from 'mermaid';
+import 'katex/dist/katex.min.css';
 import { saveFileToDB, getFileFromDB, clearFilesFromDB } from '../../utils/indexedDB';
 import * as pdfjsLib from 'pdfjs-dist';
+import MermaidRenderer from '../MermaidRenderer';
 // Explicitly setting worker for Vite compatibility
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 // ContentGenerator removed
 
 
 import { getAICompletion } from '../../utils/aiService';
+import { useAuth } from '../../contexts/AuthContext';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -71,7 +76,8 @@ const Mermaid = ({ chart }) => {
     );
 };
 
-export default function AIChat({ profile, setActiveTab }) {
+export default function AIChat({ setActiveTab }) {
+    const { userProfile: profile } = useAuth();
     const [sessions, setSessions] = useState(() => {
         const savedSessions = localStorage.getItem('hope_ai_sessions');
         if (savedSessions) return JSON.parse(savedSessions);
@@ -732,6 +738,10 @@ export default function AIChat({ profile, setActiveTab }) {
                                                 rehypePlugins={[rehypeKatex]}
                                                 components={{
                                                     code({ node, inline, className, children, ...props }) {
+                                                        const match = /language-(\w+)/.exec(className || '');
+                                                        if (!inline && match && match[1] === 'mermaid') {
+                                                            return <MermaidRenderer chart={String(children).replace(/\\n$/, '')} />;
+                                                        }
                                                         if (inline) return <code className="bg-secondary bg-opacity-10 px-1 rounded text-purple" {...props}>{children}</code>;
                                                         return <div className="bg-light p-3 rounded-3 my-2 overflow-auto border border-light"><code {...props} className="text-dark small" style={{ fontFamily: 'Fira Code, monospace' }}>{children}</code></div>
                                                     },

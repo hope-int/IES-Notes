@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import {
     MessageSquare, Share2, ArrowBigUp, ArrowBigDown,
-    MoreHorizontal, User, RefreshCw, Send, Ghost, Trash2, CornerDownRight, Shield
+    MoreHorizontal, User, RefreshCw, Send, Ghost, Trash2, CornerDownRight, Shield, Coins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SkeletonLoader from './SkeletonLoader';
+import { useAuth } from './contexts/AuthContext';
 
-export default function CommunityFeed({ profile }) {
+export default function CommunityFeed() {
+    const { userProfile: profile } = useAuth();
     const [posts, setPosts] = useState([]);
     const [newPost, setNewPost] = useState('');
     const [loading, setLoading] = useState(true);
@@ -340,6 +342,11 @@ export default function CommunityFeed({ profile }) {
                 const currentLikes = parseInt(p.likes) || 0;
                 const newLikes = currentLikes + diff;
 
+                // Simple gamification logic (MVP) - Award 50 coins every 10 upvotes
+                if (newLikes > 0 && newLikes % 10 === 0 && diff === 1 && p.user_id) {
+                    supabase.rpc('award_hope_coins', { user_id: p.user_id, amount: 50 }).then(() => console.log('Coins awarded!'));
+                }
+
                 return { ...p, likes: newLikes };
             }
             return p;
@@ -380,7 +387,12 @@ export default function CommunityFeed({ profile }) {
 
             {/* Header / Sort */}
             <div className="d-flex align-items-center justify-content-between mb-4">
-                <h4 className="fw-bold mb-0 text-dark">Community</h4>
+                <div className="d-flex align-items-center gap-3">
+                    <h4 className="fw-bold mb-0 text-dark">Community</h4>
+                    <span className="badge bg-warning text-dark px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-1">
+                        <Coins size={14} /> {profile?.hope_coins || 0}
+                    </span>
+                </div>
                 <div className="d-flex glass-panel rounded-pill p-1 shadow-sm border border-secondary border-opacity-10">
                     <button
                         onClick={() => setSortMethod('new')}
