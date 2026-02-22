@@ -85,9 +85,9 @@ const AITutorDashboard = () => {
                             { id: 'presentation', icon: Presentation, title: "AI Presentation", desc: "Instant slide generation.", color: '#3b82f6', beta: true },
                             { id: 'handbook', icon: BookOpen, title: "Revision Kit", desc: "Concise exam-ready notes.", color: '#2563eb' },
                             { id: 'j-compiler', icon: Terminal, title: "J-Compiler", desc: "Interactive AI Code Sim.", color: '#1e293b' },
-                            { id: 'report', icon: FileText, title: "Academic Report", desc: "Draft professional reports.", color: '#059669', beta: true },
+                            { id: 'report', icon: FileText, title: "Academic Report", desc: "Draft professional reports.", color: '#059669' },
                             { id: 'mini-project', icon: Code, title: "Project Designer", desc: "Prototypes & logic flows.", color: '#0891b2', beta: true },
-                            { id: 'assignment', icon: Sparkles, title: "Assignment Helper", desc: "Smart quiz & task gen.", color: '#ea580c', beta: true },
+                            { id: 'assignment', icon: Sparkles, title: "Assignment Helper", desc: "Smart quiz & task gen.", color: '#ea580c' },
                             { id: 'podcast-class', icon: Mic, title: "Podcast Class", desc: "Notes to immersive audio.", color: '#db2777', beta: true },
                             { id: 'docs', icon: FileText, title: "HOPE Docs", desc: "Premium writing suite.", color: '#7c3aed', beta: true },
                             { id: 'sheets', icon: FileSpreadsheet, title: "HOPE Sheets", desc: "Engineering spreadsheets.", color: '#059669', beta: true }

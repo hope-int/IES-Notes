@@ -158,7 +158,7 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
                 ],
                 {
                     jsonMode: true,
-                    onFallback: (err) => addLog(`⚠️ Primary AI busy (${err}). Switching to Gemini Backup...`)
+                    onFallback: (err) => addLog(`⚠️ Primary AI busy (${err}). Switching to Llama-3 Backup...`)
                 }
             );
 
@@ -314,7 +314,7 @@ IMPORTANT: Content MUST be perfectly contained within the 16:9 frame. Use 'vh' u
             ],
             {
                 jsonMode: false,
-                onFallback: (err) => addLog(`⚠️ Primary AI busy (${err}). Switching to Gemini Backup...`)
+                onFallback: (err) => addLog(`⚠️ Primary AI busy (${err}). Switching to Llama-3 Backup...`)
             }
         );
 

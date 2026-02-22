@@ -19,6 +19,28 @@ const ProjectDesigner = ({ onBack }) => {
         complexity: 'Intermediate'
     });
 
+    const [isMobile, setIsMobile] = useState(false);
+    const [showExplorer, setShowExplorer] = useState(true);
+    const [showCoPilot, setShowCoPilot] = useState(true);
+    const [activeTab, setActiveTab] = useState('ide'); // 'explorer', 'ide', 'copilot'
+
+    useEffect(() => {
+        const checkMobile = () => {
+            const mobile = window.innerWidth < 1024;
+            setIsMobile(mobile);
+            if (mobile) {
+                setShowExplorer(false);
+                setShowCoPilot(false);
+            } else {
+                setShowExplorer(true);
+                setShowCoPilot(true);
+            }
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const [files, setFiles] = useState([
         { id: 'doc_1', name: 'Synopsis.md', type: 'markdown', status: 'idle', content: '# Project Synopsis\nWaiting for generation...' },
         { id: 'diagram_1', name: 'Architecture.mmd', type: 'mermaid', status: 'idle', content: 'graph TD;\n  A-->B;' },
@@ -235,173 +257,284 @@ const ProjectDesigner = ({ onBack }) => {
                         className="flex flex-col h-screen bg-white"
                     >
                         {/* IDE Header */}
-                        <header className="h-[60px] border-b border-slate-200 px-6 flex items-center justify-between bg-white z-10">
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => setStep(1)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500">
+                        <header className={`h-16 border-b border-slate-200 px-4 md:px-6 flex items-center justify-between bg-white z-[60] shrink-0 sticky top-0`}>
+                            <div className="flex items-center gap-3 md:gap-4">
+                                <button onClick={() => setStep(1)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500">
                                     <Icons.ArrowLeft size={20} />
                                 </button>
                                 <div>
-                                    <h1 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                                        <Icons.Box className="text-indigo-600" size={20} />
-                                        Designer Pro Studio
+                                    <h1 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
+                                        <Icons.Box className="text-indigo-600" size={isMobile ? 18 : 20} />
+                                        <span className={isMobile ? 'truncate max-w-[120px]' : ''}>Designer Pro Studio</span>
                                     </h1>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3">
-                                <div className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest shrink-0">
+                            <div className="flex items-center gap-1.5 md:gap-3">
+                                <div className={`px-2 md:px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest shrink-0 ${isMobile && activeTab !== 'ide' ? 'hidden' : ''}`}>
                                     {formData.type}
                                 </div>
-                                <div className="h-6 w-px bg-slate-200 mx-2" />
-                                <div className="flex items-center gap-2">
+                                <div className={`h-6 w-px bg-slate-200 mx-1 md:mx-2 ${isMobile ? 'hidden' : ''}`} />
+                                <div className={`flex items-center gap-2 ${isMobile ? 'hidden' : ''}`}>
                                     {isOrchestrating && <Icons.Loader2 className="animate-spin text-indigo-600" size={18} />}
-                                    <span className="text-xs font-bold text-slate-500 truncate max-w-[200px]">{formData.topic}</span>
+                                    <span className="text-xs font-bold text-slate-500 truncate max-w-[150px]">{formData.topic}</span>
                                 </div>
+
+                                <motion.button
+                                    whileTap={{ scale: 0.95 }}
+                                    className="p-2 bg-slate-900 text-white rounded-xl shadow-lg shadow-slate-200 flex items-center gap-2"
+                                >
+                                    <Icons.Download size={18} />
+                                    {!isMobile && <span className="text-xs font-black uppercase tracking-widest">Export</span>}
+                                </motion.button>
                             </div>
                         </header>
 
                         {/* IDE Panels */}
-                        <div className="flex-1 overflow-hidden">
-                            <PanelGroup direction="horizontal">
-                                <Panel defaultSize={20} minSize={15} className="bg-slate-900 flex flex-col">
-                                    <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Explorer</span>
-                                        <Icons.FolderTree size={14} className="text-slate-500" />
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto py-2">
-                                        {files.map(file => (
-                                            <button
-                                                key={file.id}
-                                                onClick={() => setActiveFileId(file.id)}
-                                                className={`w-full flex items-center justify-between px-4 py-3 transition-all ${activeFileId === file.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-300'}`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    {getIcon(file.type)}
-                                                    <span className="text-sm font-bold">{file.name}</span>
-                                                </div>
-                                                <div className="flex items-center">
-                                                    {file.status === 'pending' && <Icons.Loader2 className="animate-spin text-indigo-200" size={14} />}
-                                                    {file.status === 'complete' && <Icons.CheckCircle className="text-emerald-400" size={14} />}
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </Panel>
-
-                                <PanelResizeHandle className="w-1 bg-slate-200 hover:bg-indigo-400 transition-colors cursor-col-resize" />
-
-                                <Panel defaultSize={55} minSize={30} className="bg-white flex flex-col overflow-hidden">
-                                    <header className="h-10 border-b border-slate-100 px-4 flex items-center bg-slate-50/50">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{activeFile.name}</span>
-                                    </header>
-                                    <div className="flex-1 overflow-auto relative bg-white">
-                                        {activeFile.type === 'markdown' && (
-                                            <div className="prose prose-slate max-w-none p-10 font-inter antialiased">
-                                                <ReactMarkdown>{activeFile.content}</ReactMarkdown>
-                                            </div>
-                                        )}
-                                        {activeFile.type === 'code' && (
-                                            <Editor
-                                                height="100%"
-                                                defaultLanguage="python"
-                                                theme="vs-light"
-                                                value={activeFile.content}
-                                                options={{
-                                                    readOnly: isOrchestrating,
-                                                    minimap: { enabled: false },
-                                                    fontSize: 14,
-                                                    fontFamily: "'Fira Code', 'Cascadia Code', monospace",
-                                                    scrollBeyondLastLine: false,
-                                                    renderLineHighlight: 'all',
-                                                    scrollbar: { vertical: 'hidden', horizontal: 'hidden' }
-                                                }}
+                        <div className="flex-1 flex overflow-hidden relative">
+                            {/* Left Sidebar: Explorer */}
+                            <AnimatePresence>
+                                {showExplorer && (
+                                    <>
+                                        {isMobile && (
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                onClick={() => setShowExplorer(false)}
+                                                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"
                                             />
                                         )}
-                                        {activeFile.type === 'mermaid' && (
-                                            <div className="p-8 h-full flex flex-col bg-slate-50">
-                                                <div className="mb-4 flex items-center justify-between">
-                                                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded uppercase tracking-widest">Mermaid Architecture</span>
+                                        <motion.aside
+                                            initial={isMobile ? { x: '-100%' } : { width: 0, opacity: 0 }}
+                                            animate={isMobile ? { x: 0 } : { width: 300, opacity: 1 }}
+                                            exit={isMobile ? { x: '-100%' } : { width: 0, opacity: 0 }}
+                                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                            className={`bg-slate-900 flex flex-col border-r border-slate-800 ${isMobile ? 'fixed inset-y-0 left-0 z-50 w-full max-w-[280px]' : 'relative'}`}
+                                        >
+                                            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Icons.FolderTree size={16} className="text-indigo-400" />
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Project Files</span>
                                                 </div>
-                                                <pre className="flex-1 p-8 bg-slate-900 text-emerald-400 rounded-3xl overflow-auto font-mono text-sm leading-relaxed border border-slate-800 shadow-2xl selection:bg-indigo-500/30">
-                                                    {activeFile.content}
-                                                </pre>
+                                                {isMobile && (
+                                                    <button onClick={() => setShowExplorer(false)} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500">
+                                                        <Icons.X size={18} />
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
-                                        {activeFile.type === 'slide' && (
-                                            <div className="p-12 h-full flex flex-col items-center justify-center bg-slate-50">
-                                                <div className="aspect-video w-full max-w-4xl bg-white border border-slate-200 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
-                                                    <div className="bg-slate-900 px-8 py-4 flex items-center justify-between">
-                                                        <Icons.Presentation size={20} className="text-white" />
-                                                        <div className="flex gap-1">
-                                                            <div className="w-2 h-2 rounded-full bg-red-400" />
-                                                            <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                                                            <div className="w-2 h-2 rounded-full bg-green-400" />
+                                            <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
+                                                {files.map(file => (
+                                                    <button
+                                                        key={file.id}
+                                                        onClick={() => {
+                                                            setActiveFileId(file.id);
+                                                            if (isMobile) {
+                                                                setShowExplorer(false);
+                                                                setActiveTab('ide');
+                                                            }
+                                                        }}
+                                                        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all ${activeFileId === file.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-300'}`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`${activeFileId === file.id ? 'text-white' : 'text-indigo-400/60'}`}>
+                                                                {getIcon(file.type)}
+                                                            </div>
+                                                            <span className="text-sm font-bold tracking-tight">{file.name}</span>
                                                         </div>
-                                                    </div>
-                                                    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                                                        {activeFile.content.length > 0 ? (
-                                                            <div className="w-full">
-                                                                <h2 className="text-4xl font-black text-slate-900 mb-6">{activeFile.content[0].title}</h2>
-                                                                <ul className="space-y-4 text-left max-w-xl mx-auto">
-                                                                    {activeFile.content[0].bullets?.map((b, i) => (
-                                                                        <li key={i} className="flex items-start gap-4 text-xl font-medium text-slate-600">
-                                                                            <Icons.ArrowRight className="mt-1 text-indigo-600 shrink-0" size={24} />
-                                                                            {b}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-col items-center gap-4 text-slate-300">
-                                                                <Icons.LayoutTemplate size={64} className="opacity-20" />
-                                                                <p className="font-bold text-xl uppercase tracking-tighter">Deck Visualizing...</p>
-                                                            </div>
-                                                        )}
+                                                        <div className="flex items-center">
+                                                            {file.status === 'pending' && <Icons.Loader2 className="animate-spin text-white/50" size={14} />}
+                                                            {file.status === 'complete' && <Icons.CheckCircle className="text-emerald-400" size={14} />}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </motion.aside>
+                                    </>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Center: IDE Canvas */}
+                            <main className="flex-1 overflow-hidden flex flex-col bg-slate-50 relative">
+                                <header className="h-10 border-b border-slate-200 px-4 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active:</span>
+                                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{activeFile.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full ${activeFile.status === 'complete' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{activeFile.status}</span>
+                                    </div>
+                                </header>
+
+                                <div className="flex-1 overflow-auto bg-white m-0 md:m-4 rounded-none md:rounded-3xl border-0 md:border md:border-slate-200 shadow-none md:shadow-2xl relative">
+                                    {activeFile.type === 'markdown' && (
+                                        <div className="prose prose-slate max-w-none p-6 md:p-14 font-inter antialiased">
+                                            <ReactMarkdown>{activeFile.content}</ReactMarkdown>
+                                        </div>
+                                    )}
+                                    {activeFile.type === 'code' && (
+                                        <Editor
+                                            height="100%"
+                                            defaultLanguage="python"
+                                            theme="vs-light"
+                                            value={activeFile.content}
+                                            options={{
+                                                readOnly: isOrchestrating,
+                                                minimap: { enabled: false },
+                                                fontSize: isMobile ? 12 : 14,
+                                                fontFamily: "'Fira Code', 'Cascadia Code', monospace",
+                                                scrollBeyondLastLine: false,
+                                                renderLineHighlight: 'all',
+                                                padding: { top: 20, bottom: 20 },
+                                                scrollbar: { vertical: 'hidden', horizontal: 'hidden' }
+                                            }}
+                                        />
+                                    )}
+                                    {activeFile.type === 'mermaid' && (
+                                        <div className="p-4 md:p-12 h-full flex flex-col bg-slate-50">
+                                            <div className="mb-4 flex items-center justify-between">
+                                                <span className="text-[10px] font-black text-indigo-600 bg-indigo-100 px-2.5 py-1 rounded-lg uppercase tracking-widest">System Architecture</span>
+                                            </div>
+                                            <pre className="flex-1 p-6 md:p-10 bg-slate-900 text-emerald-400 rounded-3xl overflow-auto font-mono text-xs md:text-sm leading-relaxed border border-slate-800 shadow-2xl selection:bg-indigo-500/30 custom-scrollbar">
+                                                {activeFile.content}
+                                            </pre>
+                                        </div>
+                                    )}
+                                    {activeFile.type === 'slide' && (
+                                        <div className="p-4 md:p-16 h-full flex flex-col items-center justify-center bg-slate-50 overflow-y-auto">
+                                            <div className="aspect-video w-full max-w-4xl bg-white border border-slate-200 rounded-[1.5rem] md:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col">
+                                                <div className="bg-slate-900 px-6 py-3 md:px-8 md:py-4 flex items-center justify-between">
+                                                    <Icons.Presentation size={18} className="text-white/60" />
+                                                    <div className="flex gap-1.5">
+                                                        <div className="w-2 h-2 rounded-full bg-slate-700" />
+                                                        <div className="w-2 h-2 rounded-full bg-slate-700" />
+                                                        <div className="w-2 h-2 rounded-full bg-slate-700" />
                                                     </div>
                                                 </div>
-                                                <div className="mt-8 flex gap-3 overflow-x-auto pb-4 max-w-full">
-                                                    {Array.isArray(activeFile.content) && activeFile.content.map((_, i) => (
-                                                        <div key={i} className={`w-24 h-14 rounded-xl border-2 transition-all ${i === 0 ? 'border-indigo-600 bg-white ring-4 ring-indigo-50' : 'border-slate-200 bg-slate-100 opacity-50'}`}></div>
-                                                    ))}
+                                                <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-16 text-center">
+                                                    {Array.isArray(activeFile.content) && activeFile.content.length > 0 ? (
+                                                        <div className="w-full">
+                                                            <h2 className="text-2xl md:text-5xl font-black text-slate-900 mb-6 md:mb-10 tracking-tighter">{activeFile.content[0].title}</h2>
+                                                            <ul className="space-y-3 md:space-y-6 text-left max-w-2xl mx-auto">
+                                                                {activeFile.content[0].bullets?.map((b, i) => (
+                                                                    <li key={i} className="flex items-start gap-3 md:gap-5 text-base md:text-2xl font-bold text-slate-600">
+                                                                        <div className="w-1.5 h-1.5 md:w-2.5 md:h-2.5 rounded-full bg-indigo-500 mt-2 md:mt-3 shrink-0" />
+                                                                        {b}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-6 text-slate-300">
+                                                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
+                                                                <Icons.LayoutTemplate size={60} className="opacity-20 text-indigo-600" />
+                                                            </motion.div>
+                                                            <p className="font-black text-sm md:text-xl uppercase tracking-[0.2em] text-slate-400">Synthesizing Visuals...</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </Panel>
-
-                                <PanelResizeHandle className="w-1 bg-slate-200 hover:bg-indigo-400 transition-colors cursor-col-resize" />
-
-                                <Panel defaultSize={25} minSize={20} className="bg-white flex flex-col border-l border-slate-100 shadow-2xl overflow-hidden">
-                                    <header className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
-                                        <div className="flex items-center gap-2">
-                                            <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-                                                <Icons.Bot size={16} />
+                                            <div className="mt-8 flex gap-2 overflow-x-auto pb-4 max-w-full no-scrollbar">
+                                                {Array.isArray(activeFile.content) && activeFile.content.map((_, i) => (
+                                                    <div key={i} className={`w-16 md:w-24 h-10 md:h-14 rounded-xl border-2 shrink-0 transition-all ${i === 0 ? 'border-indigo-600 bg-white shadow-lg ring-2 ring-indigo-50' : 'border-slate-200 bg-slate-100 opacity-40'}`}></div>
+                                                ))}
                                             </div>
-                                            <span className="font-black text-slate-900 text-sm">Co-Pilot Core</span>
                                         </div>
-                                        <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full uppercase tracking-widest ring-1 ring-indigo-200/50">Active</span>
-                                    </header>
+                                    )}
+                                </div>
 
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
-                                        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm leading-relaxed text-sm font-medium text-slate-600">
-                                            Ready to assist. I'm monitoring the **{activeFile.name}** generation. Ask me to refine logic or explain the architecture.
-                                        </div>
+                                {/* Mobile Bottom Nav */}
+                                {isMobile && (
+                                    <div className="h-20 shrink-0 bg-white border-t border-slate-200 flex items-center justify-around px-4 z-50">
+                                        <button
+                                            onClick={() => { setShowExplorer(true); setActiveTab('explorer'); }}
+                                            className={`flex flex-col items-center gap-1 ${activeTab === 'explorer' ? 'text-indigo-600' : 'text-slate-400'}`}
+                                        >
+                                            <Icons.FolderTree size={20} />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Files</span>
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowExplorer(false); setShowCoPilot(false); setActiveTab('ide'); }}
+                                            className={`flex flex-col items-center gap-1 ${activeTab === 'ide' ? 'text-indigo-600' : 'text-slate-400'}`}
+                                        >
+                                            <Icons.Code size={20} />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Canvas</span>
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowCoPilot(true); setActiveTab('copilot'); }}
+                                            className={`flex flex-col items-center gap-1 ${activeTab === 'copilot' ? 'text-indigo-600' : 'text-slate-400'}`}
+                                        >
+                                            <Icons.Sparkles size={20} />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Co-Pilot</span>
+                                        </button>
                                     </div>
+                                )}
+                            </main>
 
-                                    <div className="p-4 bg-white border-t border-slate-100">
-                                        <div className="relative group">
-                                            <input
-                                                type="text"
-                                                placeholder={`Refine ${activeFile.name}...`}
-                                                className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-indigo-400 rounded-[1.2rem] py-4 pl-5 pr-12 text-sm focus:outline-none transition-all shadow-inner"
+                            {/* Right Sidebar: Co-Pilot */}
+                            <AnimatePresence>
+                                {showCoPilot && (
+                                    <>
+                                        {isMobile && (
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                onClick={() => setShowCoPilot(false)}
+                                                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"
                                             />
-                                            <button className="absolute right-2 top-2 p-2 bg-slate-900 text-white rounded-xl hover:bg-black transition-all shadow-lg active:scale-95 group-hover:bg-indigo-600">
-                                                <Icons.Send size={18} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </Panel>
-                            </PanelGroup>
+                                        )}
+                                        <motion.aside
+                                            initial={isMobile ? { x: '100%' } : { width: 0, opacity: 0 }}
+                                            animate={isMobile ? { x: 0 } : { width: 340, opacity: 1 }}
+                                            exit={isMobile ? { x: '100%' } : { width: 0, opacity: 0 }}
+                                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                            className={`bg-white flex flex-col border-l border-slate-200 shadow-2xl ${isMobile ? 'fixed inset-y-0 right-0 z-50 w-full max-w-[320px]' : 'relative'}`}
+                                        >
+                                            <header className="p-5 border-b border-slate-100 flex items-center justify-between bg-white">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-200">
+                                                        <Icons.Bot size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-black text-slate-900 text-sm leading-none block">HOPE Co-Pilot</span>
+                                                        <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mt-1 block">Context Aware</span>
+                                                    </div>
+                                                </div>
+                                                {isMobile && (
+                                                    <button onClick={() => setShowCoPilot(false)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400">
+                                                        <Icons.X size={18} />
+                                                    </button>
+                                                )}
+                                            </header>
+
+                                            <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-slate-50/30">
+                                                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm leading-relaxed text-sm font-bold text-slate-600 relative overflow-hidden">
+                                                    <div className="absolute top-0 right-0 p-2 opacity-10"><Icons.Sparkles size={24} /></div>
+                                                    Engineer, I'm analyzing the <strong>{activeFile.name}</strong> payload.
+                                                    <div className="mt-4 p-3 bg-indigo-50 rounded-2xl text-[11px] text-indigo-700 ring-1 ring-indigo-100">
+                                                        "Specify any architectural pivots or logic refinements you need for this module."
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-5 bg-white border-t border-slate-100">
+                                                <div className="relative group">
+                                                    <input
+                                                        type="text"
+                                                        placeholder={`Refine ${activeFile.name}...`}
+                                                        className="w-full bg-slate-50 border-2 border-slate-100 focus:bg-white focus:border-indigo-500 rounded-2xl py-4.5 pl-6 pr-14 text-sm font-bold focus:outline-none transition-all shadow-inner"
+                                                    />
+                                                    <button className="absolute right-2.5 top-2.5 p-2.5 bg-slate-900 text-white rounded-xl hover:bg-indigo-600 transition-all shadow-lg active:scale-95">
+                                                        <Icons.Send size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.aside>
+                                    </>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </motion.div>
                 )}

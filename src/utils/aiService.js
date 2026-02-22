@@ -55,7 +55,7 @@ const getGroqModel = (requestedModel) => {
     if (validGroqModels.includes(requestedModel)) return requestedModel;
 
     // Map Vision models
-    if (requestedModel.includes('vision') || requestedModel.includes('vl') || requestedModel.includes('gemini') || requestedModel.includes('gpt-4o')) {
+    if (requestedModel.includes('vision') || requestedModel.includes('vl') || requestedModel.includes('gpt-4o')) {
         return "llama-3.2-11b-vision-preview"; // Best fallback for vision on Groq
     }
 

@@ -39,6 +39,27 @@ const ReportGenerator = ({ onBack }) => {
     const [showConfigDock, setShowConfigDock] = useState(true);
     const [showOutlineSidebar, setShowOutlineSidebar] = useState(true);
     const [activeDockTab, setActiveDockTab] = useState('config'); // 'config' | 'copilot'
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Track screen size
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // On mobile, default sidebars to closed
+    useEffect(() => {
+        if (isMobile) {
+            setShowConfigDock(false);
+            setShowOutlineSidebar(false);
+        } else {
+            setShowConfigDock(true);
+            setShowOutlineSidebar(true);
+        }
+    }, [isMobile]);
+
     const scrollRef = useRef(null);
     const logContainerRef = useRef(null);
 
@@ -79,6 +100,11 @@ const ReportGenerator = ({ onBack }) => {
             // Ensure each item has a unique ID for React keys and dragging later
             setOutline(bp.blueprint.map((s, idx) => ({ ...s, id: `sec-${idx}` })));
             setStep(2);
+            // Automatically open outline sidebar for verification on mobile
+            if (isMobile) {
+                setShowOutlineSidebar(true);
+                setShowConfigDock(false);
+            }
         } catch (err) {
             console.error("Blueprint Error:", err);
             setError("Failed to architect the document structure. Please try again.");
@@ -104,6 +130,10 @@ const ReportGenerator = ({ onBack }) => {
     const handleStartWriting = () => {
         setStep(3);
         setActiveDockTab('copilot');
+        // Close outline sidebar on mobile to show the canvas
+        if (isMobile) {
+            setShowOutlineSidebar(false);
+        }
         startAgenticWriting();
     };
 
@@ -236,42 +266,42 @@ const ReportGenerator = ({ onBack }) => {
     return (
         <div className="w-full h-screen bg-slate-100 flex flex-col font-inter overflow-hidden">
             {/* Studio Header */}
-            <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-50 shrink-0">
-                <div className="flex items-center gap-4">
+            <header className="min-h-[72px] md:min-h-[88px] py-3 md:py-4 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between z-[60] shrink-0">
+                <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
                     <motion.button
                         whileHover={{ scale: 1.1, backgroundColor: '#f1f5f9' }}
                         whileTap={{ scale: 0.9 }}
                         onClick={onBack}
-                        className="p-2 rounded-xl transition-colors text-slate-500 hover:text-slate-900"
+                        className="p-2 rounded-xl transition-colors text-slate-500 hover:text-slate-900 shrink-0"
                     >
                         <Icons.ArrowLeft size={20} />
                     </motion.button>
-                    <div className="h-6 w-px bg-slate-200 mx-1" />
-                    <div>
-                        <h2 className="text-sm font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter">
-                            <Icons.FileText size={16} className="text-indigo-600" />
+                    <div className="h-8 w-px bg-slate-200 mx-1 shrink-0" />
+                    <div className="min-w-0 flex-shrink">
+                        <h2 className="text-xs md:text-sm font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter truncate">
+                            <Icons.FileText size={16} className="text-indigo-600 shrink-0" />
                             {blueprint?.title || "Untitled Research"}
                         </h2>
                         <div className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full ${currentGeneratingIdx !== -1 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                            <div className={`w-1.5 h-1.5 rounded-full ${currentGeneratingIdx !== -1 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'} shrink-0`} />
+                            <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest truncate">
                                 {currentGeneratingIdx !== -1 ? "AI Agent Writing..." : "Studio Ready"}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 md:gap-3">
                     <button
                         onClick={() => setShowOutlineSidebar(!showOutlineSidebar)}
-                        className={`p-2.5 rounded-xl transition-all ${showOutlineSidebar ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`rounded-xl transition-all ${showOutlineSidebar ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50'} ${isMobile ? 'p-2' : 'p-2.5'} min-h-[44px] min-w-[44px] flex items-center justify-center`}
                         title="Toggle Outline"
                     >
                         <Icons.Columns size={18} />
                     </button>
                     <button
                         onClick={() => setShowConfigDock(!showConfigDock)}
-                        className={`p-2.5 rounded-xl transition-all ${showConfigDock ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`rounded-xl transition-all ${showConfigDock ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50'} ${isMobile ? 'p-2' : 'p-2.5'} min-h-[44px] min-w-[44px] flex items-center justify-center`}
                         title="Toggle Config"
                     >
                         <Icons.Layout size={18} />
@@ -281,11 +311,11 @@ const ReportGenerator = ({ onBack }) => {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={downloadPDF}
-                        disabled={currentGeneratingIdx !== -1 || !blueprint}
-                        className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black shadow-lg disabled:opacity-50"
+                        className="flex items-center gap-2 bg-slate-900 text-white px-3 md:px-4 py-2 text-[10px] md:text-xs font-black shadow-lg disabled:opacity-50 shrink-0 whitespace-nowrap"
+                        style={{ borderRadius: '12px' }}
                     >
                         <Icons.Download size={14} />
-                        Export
+                        <span className="hidden xs:inline">Export</span>
                     </motion.button>
                 </div>
             </header>
@@ -294,104 +324,150 @@ const ReportGenerator = ({ onBack }) => {
                 {/* Left Sidebar: Document Map (Blueprint) */}
                 <AnimatePresence>
                     {showOutlineSidebar && (
-                        <motion.aside
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: 320, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            className="bg-white border-r border-slate-200 flex flex-col shrink-0 overflow-hidden"
-                        >
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Document Outline</h3>
-                                <button onClick={handleAddOutlineItem} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                                    <Icons.Plus size={16} />
-                                </button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                                {outline.length === 0 ? (
-                                    <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-40">
-                                        <Icons.LayoutList size={40} className="mb-4" />
-                                        <p className="text-xs font-bold uppercase tracking-tight">Outline will appear after configuration</p>
-                                    </div>
-                                ) : (
-                                    outline.map((section, idx) => (
-                                        <motion.div
-                                            key={section.id}
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            className={`p-4 rounded-2xl border-2 transition-all group ${currentGeneratingIdx === idx ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-100' : 'border-slate-100 hover:border-indigo-200'}`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <span className="text-[10px] font-black text-slate-400 mt-1">{String(idx + 1).padStart(2, '0')}</span>
-                                                <div className="flex-1 min-w-0">
-                                                    <input
-                                                        className="w-full bg-transparent font-bold text-slate-800 text-sm focus:outline-none"
-                                                        value={section.heading}
-                                                        onChange={(e) => handleUpdateOutlineHeading(section.id, e.target.value)}
-                                                    />
-                                                    <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{section.brief}</p>
-                                                </div>
-                                                <button onClick={() => handleDeleteOutlineItem(section.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-rose-500 transition-all">
-                                                    <Icons.X size={14} />
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    ))
-                                )}
-                            </div>
-                            {currentGeneratingIdx === -1 && outline.length > 0 && generatedParagraphs.length === 0 && (
-                                <div className="p-6 border-t border-slate-100">
-                                    <button
-                                        onClick={handleStartWriting}
-                                        className="w-full bg-indigo-600 text-white py-3 rounded-xl text-xs font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <Icons.Zap size={14} />
-                                        Finalize & Compile
-                                    </button>
-                                </div>
+                        <>
+                            {isMobile && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setShowOutlineSidebar(false)}
+                                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100]"
+                                />
                             )}
-                        </motion.aside>
+                            <motion.aside
+                                initial={isMobile ? { x: '-100%' } : { width: 0, opacity: 0 }}
+                                animate={isMobile ? { x: 0 } : { width: 320, opacity: 1 }}
+                                exit={isMobile ? { x: '-100%' } : { width: 0, opacity: 0 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                className={`bg-white border-r border-slate-200 flex flex-col shrink-0 overflow-hidden ${isMobile ? 'fixed inset-y-0 left-0 z-[110] w-full max-w-xs' : 'relative'}`}
+                            >
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Document Outline</h3>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={handleAddOutlineItem} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors min-h-[44px] flex items-center">
+                                            <Icons.Plus size={16} />
+                                        </button>
+                                        {isMobile && (
+                                            <button onClick={() => setShowOutlineSidebar(false)} className="p-1.5 text-slate-400 hover:bg-slate-50 rounded-lg transition-colors min-h-[44px] flex items-center">
+                                                <Icons.X size={16} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                                    {outline.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-40">
+                                            <Icons.LayoutList size={40} className="mb-4" />
+                                            <p className="text-xs font-bold uppercase tracking-tight">Outline will appear after configuration</p>
+                                        </div>
+                                    ) : (
+                                        outline.map((section, idx) => (
+                                            <motion.div
+                                                key={section.id}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className={`p-4 rounded-2xl border-2 transition-all group ${currentGeneratingIdx === idx ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-100' : 'border-slate-100 hover:border-indigo-200'}`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <span className="text-[10px] font-black text-slate-400 mt-1">{String(idx + 1).padStart(2, '0')}</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <input
+                                                            className="w-full bg-transparent font-bold text-slate-800 text-sm focus:outline-none"
+                                                            value={section.heading}
+                                                            onChange={(e) => handleUpdateOutlineHeading(section.id, e.target.value)}
+                                                        />
+                                                        <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{section.brief}</p>
+                                                    </div>
+                                                    <button onClick={() => handleDeleteOutlineItem(section.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-rose-500 transition-all">
+                                                        <Icons.X size={14} />
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        ))
+                                    )}
+                                </div>
+                                {currentGeneratingIdx === -1 && outline.length > 0 && generatedParagraphs.length === 0 && (
+                                    <div className="p-6 border-t border-slate-100">
+                                        <button
+                                            onClick={handleStartWriting}
+                                            className="w-full bg-indigo-600 text-white py-3 text-xs font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 min-h-[44px]"
+                                            style={{ borderRadius: '16px' }}
+                                        >
+                                            <Icons.Zap size={14} />
+                                            Finalize & Compile
+                                        </button>
+                                    </div>
+                                )}
+                            </motion.aside>
+                        </>
                     )}
                 </AnimatePresence>
 
                 {/* Center: The A4 Canvas */}
-                <main className="flex-1 overflow-y-auto bg-slate-100/80 custom-scrollbar relative" ref={scrollRef}>
+                <main className="flex-1 overflow-y-auto bg-slate-100/80 custom-scrollbar relative pb-24 md:pb-0" ref={scrollRef}>
                     {/* Welcome / Initial Config State */}
                     {!blueprint && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center p-8">
+                        <div className={`flex items-center justify-center p-4 md:p-8 ${isMobile ? 'fixed inset-0 z-[100] bg-slate-50 overflow-y-auto' : 'absolute inset-0 z-10'}`}>
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="bg-white/70 backdrop-blur-2xl border border-white shadow-2xl rounded-[3rem] p-12 max-w-2xl w-full text-center"
+                                className={`bg-white md:bg-white/70 md:backdrop-blur-2xl border-0 md:border md:border-white shadow-2xl rounded-none md:rounded-[3rem] p-8 md:p-12 pb-safe max-w-2xl w-full text-center ${isMobile ? 'min-h-screen flex flex-col justify-center z-[20] pt-20 md:pt-0' : ''}`}
                             >
-                                <div className="w-20 h-20 bg-slate-900 rounded-[2rem] text-white flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-indigo-200">
-                                    <Icons.PenTool size={40} />
+                                {isMobile && (
+                                    <button
+                                        onClick={onBack}
+                                        className="absolute top-6 left-6 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                        <Icons.ArrowLeft size={24} />
+                                    </button>
+                                )}
+                                <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-900 rounded-[1.5rem] md:rounded-[2rem] text-white flex items-center justify-center mx-auto mb-6 md:mb-8 shadow-2xl shadow-indigo-200">
+                                    <Icons.PenTool size={isMobile ? 30 : 40} />
                                 </div>
-                                <h2 className="text-4xl font-black text-slate-900 tracking-tighter mb-4">Start Your Research</h2>
-                                <p className="text-slate-500 font-medium mb-10">Configure your research parameters in the right dock to generate a document blueprint.</p>
-                                <div className="h-px bg-slate-100 w-full mb-10" />
-                                <div className="grid grid-cols-2 gap-4 text-left">
-                                    <div className="p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100">
-                                        <div className="p-2 bg-indigo-600 text-white rounded-lg w-fit mb-4">
+                                <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter mb-4">Start Your Research</h2>
+                                <p className="text-slate-500 font-medium mb-8 md:mb-10 text-sm md:text-base">Configure your research parameters to generate a high-fidelity document blueprint.</p>
+                                <div className="h-px bg-slate-100 w-full mb-8 md:mb-10" />
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left mb-8 md:mb-10">
+                                    <div className="p-4 md:p-6 bg-indigo-50/50 rounded-2xl md:rounded-3xl border border-indigo-100 flex items-center md:block gap-4 md:gap-0">
+                                        <div className="p-2 bg-indigo-600 text-white rounded-lg w-fit md:mb-4 shrink-0">
                                             <Icons.Sparkles size={16} />
                                         </div>
-                                        <h4 className="font-bold text-slate-900 text-sm">Agentic Engine</h4>
-                                        <p className="text-[10px] text-slate-500 mt-1 font-medium italic">Powered by Llama-3.3-70B</p>
-                                    </div>
-                                    <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100">
-                                        <div className="p-2 bg-emerald-600 text-white rounded-lg w-fit mb-4">
-                                            <Icons.FileCheck size={16} />
+                                        <div>
+                                            <h4 className="font-bold text-slate-900 text-sm">Agentic Engine</h4>
+                                            <p className="text-[10px] text-slate-500 mt-1 font-medium italic">High Intelligence Model</p>
                                         </div>
-                                        <h4 className="font-bold text-slate-900 text-sm">Academic Quality</h4>
-                                        <p className="text-[10px] text-slate-500 mt-1 font-medium italic">Handwriting & Serif Support</p>
+                                    </div>
+                                    <div className="p-4 md:p-6 bg-slate-50/80 rounded-2xl md:rounded-3xl border border-slate-100 flex items-center md:block gap-4 md:gap-0">
+                                        <div className="p-2 bg-slate-900 text-white rounded-lg w-fit md:mb-4 shrink-0">
+                                            <Icons.Layout size={16} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-900 text-sm">Adaptive Layout</h4>
+                                            <p className="text-[10px] text-slate-500 mt-1 font-medium italic">Mobile-First Design</p>
+                                        </div>
                                     </div>
                                 </div>
+
+                                {isMobile && (
+                                    <button
+                                        onClick={() => {
+                                            setShowConfigDock(true);
+                                            setActiveDockTab('config');
+                                        }}
+                                        className="w-full bg-slate-900 text-white py-5 font-black text-lg shadow-xl mt-4 min-h-[50px] mb-8"
+                                        style={{ borderRadius: '16px' }}
+                                    >
+                                        Continue to Config
+                                    </button>
+                                )}
                             </motion.div>
                         </div>
                     )}
 
-                    <div className="py-20 flex justify-center min-h-full">
+                    <div className="py-10 md:py-20 flex justify-center min-h-full px-0 md:px-4">
                         <motion.div
-                            className={`bg-white shadow-[0_0_80px_rgba(0,0,0,0.08)] ring-1 ring-slate-200 w-full max-w-[816px] min-h-[1154px] p-16 md:p-24 relative overflow-hidden transition-all duration-500 rounded-sm mb-40`}
+                            className={`bg-white shadow-[0_0_80px_rgba(0,0,0,0.08)] ring-1 ring-slate-200 w-full max-w-[816px] min-h-screen md:min-h-[1154px] p-6 md:p-24 relative overflow-x-hidden overflow-y-visible transition-all duration-500 rounded-none md:rounded-sm mb-20 md:mb-40`}
                             style={{
                                 fontFamily: fonts[formData.documentFont].family,
                                 fontSize: formData.documentSize === 'sm' ? '0.875rem' : formData.documentSize === 'base' ? '1rem' : '1.25rem'
@@ -495,190 +571,276 @@ const ReportGenerator = ({ onBack }) => {
                 {/* Right Sidebar: The Dock */}
                 <AnimatePresence>
                     {showConfigDock && (
-                        <motion.aside
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: 380, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            className="bg-white border-l border-slate-200 flex flex-col shrink-0 overflow-hidden"
-                        >
-                            {/* Tab Switcher */}
-                            <div className="p-4 bg-slate-50 flex gap-2">
-                                <button
-                                    onClick={() => setActiveDockTab('config')}
-                                    className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeDockTab === 'config' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <Icons.Settings size={14} />
-                                    Configure
-                                </button>
-                                <button
-                                    onClick={() => setActiveDockTab('copilot')}
-                                    className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeDockTab === 'copilot' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <Icons.ShieldCheck size={14} />
-                                    Co-Pilot
-                                </button>
-                            </div>
+                        <>
+                            {isMobile && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setShowConfigDock(false)}
+                                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100]"
+                                />
+                            )}
+                            <motion.aside
+                                initial={isMobile ? { x: '100%' } : { width: 0, opacity: 0 }}
+                                animate={isMobile ? { x: 0 } : { width: 380, opacity: 1 }}
+                                exit={isMobile ? { x: '100%' } : { width: 0, opacity: 0 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                                className={`bg-white border-l border-slate-200 flex flex-col shrink-0 overflow-hidden ${isMobile ? 'fixed inset-y-0 right-0 z-[110] w-[85vw] max-w-sm' : 'relative'}`}
+                            >
+                                {/* Tab Switcher */}
+                                <div className="p-4 bg-slate-50 flex gap-2 shrink-0">
+                                    <button
+                                        onClick={() => setActiveDockTab('config')}
+                                        className={`flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 min-h-[44px] ${activeDockTab === 'config' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        <Icons.Settings size={14} />
+                                        Configure
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveDockTab('copilot')}
+                                        className={`flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 min-h-[44px] ${activeDockTab === 'copilot' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                                    >
+                                        <Icons.ShieldCheck size={14} />
+                                        Co-Pilot
+                                    </button>
+                                    {isMobile && (
+                                        <button onClick={() => setShowConfigDock(false)} className="p-2.5 text-slate-400 hover:bg-slate-100 rounded-xl transition-all min-h-[44px] flex items-center">
+                                            <Icons.X size={18} />
+                                        </button>
+                                    )}
+                                </div>
 
-                            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {activeDockTab === 'config' ? (
-                                    <div className="p-8 space-y-10">
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Research Goal</label>
-                                            <div className="relative group">
-                                                <textarea
-                                                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-3xl p-5 text-sm font-medium focus:bg-white focus:border-indigo-400 transition-all min-h-[140px] resize-none"
-                                                    value={formData.topic}
-                                                    onChange={e => setFormData({ ...formData, topic: e.target.value })}
-                                                    placeholder="Enter your topic..."
-                                                />
-                                                <button
-                                                    onClick={handleEnhanceTopic}
-                                                    disabled={loading || !formData.topic}
-                                                    className="absolute bottom-4 right-4 p-2 bg-white border border-slate-200 rounded-full text-indigo-600 shadow-sm hover:scale-110 transition-transform"
-                                                >
-                                                    {loading ? <Icons.Loader2 className="animate-spin" size={16} /> : <Icons.Sparkles size={16} />}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-6">
+                                <div className="flex-1 flex flex-col overflow-hidden">
+                                    {activeDockTab === 'config' ? (
+                                        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 md:space-y-10 custom-scrollbar">
                                             <div className="space-y-4">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Typography</label>
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    {Object.entries(fonts).map(([key, font]) => (
-                                                        <button
-                                                            key={key}
-                                                            onClick={() => setFormData({ ...formData, documentFont: key })}
-                                                            className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${formData.documentFont === key ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-50 hover:border-slate-200'}`}
-                                                        >
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-bold text-slate-900">{font.name}</span>
-                                                                <span className="text-[10px] text-slate-500 font-medium">Professional Standard</span>
-                                                            </div>
-                                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${formData.documentFont === key ? 'border-indigo-600 bg-indigo-600' : 'border-slate-200'}`}>
-                                                                {formData.documentFont === key && <Icons.Check size={12} className="text-white" />}
-                                                            </div>
-                                                        </button>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Research Goal</label>
+                                                <div className="relative group">
+                                                    <textarea
+                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-3xl p-5 text-sm font-medium focus:bg-white focus:border-indigo-400 transition-all min-h-[140px] resize-none"
+                                                        value={formData.topic}
+                                                        onChange={e => setFormData({ ...formData, topic: e.target.value })}
+                                                        placeholder="Enter your topic..."
+                                                    />
+                                                    <button
+                                                        onClick={handleEnhanceTopic}
+                                                        disabled={loading || !formData.topic}
+                                                        className="absolute bottom-4 right-4 p-2 bg-white border border-slate-200 rounded-full text-indigo-600 shadow-sm hover:scale-110 transition-transform min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                                    >
+                                                        {loading ? <Icons.Loader2 className="animate-spin" size={16} /> : <Icons.Sparkles size={16} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-6">
+                                                <div className="space-y-4">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Typography</label>
+                                                    <div className="grid grid-cols-1 gap-2">
+                                                        {Object.entries(fonts).map(([key, font]) => (
+                                                            <button
+                                                                key={key}
+                                                                onClick={() => setFormData({ ...formData, documentFont: key })}
+                                                                className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${formData.documentFont === key ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-50 hover:border-slate-200'}`}
+                                                            >
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-bold text-slate-900">{font.name}</span>
+                                                                    <span className="text-[10px] text-slate-500 font-medium">Professional Standard</span>
+                                                                </div>
+                                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${formData.documentFont === key ? 'border-indigo-600 bg-indigo-600' : 'border-slate-200'}`}>
+                                                                    {formData.documentFont === key && <Icons.Check size={12} className="text-white" />}
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-6">
+                                                    {[
+                                                        { label: 'Audience', key: 'audience', options: ['University Students', 'Professionals', 'General'] },
+                                                        { label: 'Tone', key: 'tone', options: ['Academic', 'Analytical', 'Persuasive'] }
+                                                    ].map(field => (
+                                                        <div key={field.key} className="space-y-3">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{field.label}</label>
+                                                            <select
+                                                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold appearance-none outline-none focus:border-indigo-400 transition-all cursor-pointer"
+                                                                value={formData[field.key]}
+                                                                onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
+                                                            >
+                                                                {field.options.map(o => <option key={o}>{o}</option>)}
+                                                            </select>
+                                                        </div>
                                                     ))}
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-6">
-                                                {[
-                                                    { label: 'Audience', key: 'audience', options: ['University Students', 'Professionals', 'General'] },
-                                                    { label: 'Tone', key: 'tone', options: ['Academic', 'Analytical', 'Persuasive'] }
-                                                ].map(field => (
-                                                    <div key={field.key} className="space-y-3">
-                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{field.label}</label>
-                                                        <select
-                                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold appearance-none outline-none focus:border-indigo-400 transition-all cursor-pointer"
-                                                            value={formData[field.key]}
-                                                            onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
-                                                        >
-                                                            {field.options.map(o => <option key={o}>{o}</option>)}
-                                                        </select>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            <button
+                                                onClick={handleGenerateBlueprint}
+                                                disabled={loading || !formData.topic}
+                                                className="w-full bg-slate-900 text-white py-5 font-black text-lg shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3 mb-6 md:mb-0 min-h-[44px]"
+                                                style={{ borderRadius: '16px' }}
+                                            >
+                                                {loading ? <Icons.Loader2 className="animate-spin" /> : <Icons.Cpu size={20} className="text-indigo-400" />}
+                                                {blueprint ? "Update Blueprint" : "Architect Blueprint"}
+                                            </button>
                                         </div>
-
-                                        <button
-                                            onClick={handleGenerateBlueprint}
-                                            disabled={loading || !formData.topic}
-                                            className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black text-lg shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3"
-                                        >
-                                            {loading ? <Icons.Loader2 className="animate-spin" /> : <Icons.Cpu size={20} className="text-indigo-400" />}
-                                            {blueprint ? "Update Blueprint" : "Architect Blueprint"}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="p-8 space-y-10 flex flex-col h-full">
-                                        {/* Status Card */}
-                                        <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-indigo-100">
-                                            <Icons.Cpu className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
-                                            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">System Status</p>
-                                            <h4 className="text-2xl font-black tracking-tight mb-4">Orchestrator Online</h4>
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex-1">
-                                                    <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                                                        <motion.div
-                                                            className="h-full bg-emerald-400"
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${(generatedParagraphs.length / (outline.length || 1)) * 100}%` }}
-                                                        />
+                                    ) : (
+                                        <>
+                                            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 md:space-y-10 custom-scrollbar">
+                                                {/* Status Card */}
+                                                <div className="bg-indigo-600 rounded-[2.5rem] p-4 md:p-8 text-white relative overflow-hidden shadow-2xl shadow-indigo-100 shrink-0">
+                                                    <Icons.Cpu className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">System Status</p>
+                                                    <h4 className="text-xl md:text-2xl font-black tracking-tight mb-4">Orchestrator Online</h4>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                                                <motion.div
+                                                                    className="h-full bg-emerald-400"
+                                                                    initial={{ width: 0 }}
+                                                                    animate={{ width: `${(generatedParagraphs.length / (outline.length || 1)) * 100}%` }}
+                                                                />
+                                                            </div>
+                                                            <p className="text-[10px] font-bold mt-2 opacity-80 uppercase tracking-widest">{generatedParagraphs.length} / {outline.length} Sections</p>
+                                                        </div>
                                                     </div>
-                                                    <p className="text-[10px] font-bold mt-2 opacity-80 uppercase tracking-widest">{generatedParagraphs.length} / {outline.length} Sections</p>
+                                                </div>
+
+                                                {/* Terminal */}
+                                                <div className="space-y-3 shrink-0">
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Live Log Stream</p>
+                                                    <div ref={logContainerRef} className="bg-slate-900 rounded-[2rem] p-6 h-32 md:h-64 overflow-y-auto font-mono text-[10px] space-y-3 shadow-inner border border-slate-800 custom-scrollbar flex-shrink-0">
+                                                        {logs.length === 0 ? <p className="text-slate-600">Idle...</p> : logs.map(l => (
+                                                            <div key={l.id} className="flex gap-3 leading-relaxed border-l border-white/5 pl-3">
+                                                                <span className="text-slate-500">{l.time}</span>
+                                                                <span className={l.type === 'success' ? 'text-emerald-400' : l.type === 'error' ? 'text-rose-400' : l.type === 'ai' ? 'text-indigo-300' : 'text-slate-400'}>{l.message}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Contextual Actions */}
+                                                <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 shrink-0">
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Contextual Controls</p>
+                                                    {selectedParaIdx !== null ? (
+                                                        <div className="space-y-4">
+                                                            <div className="p-4 bg-white rounded-2xl border border-indigo-100">
+                                                                <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Editing Section</p>
+                                                                <p className="text-xs font-bold text-slate-900 truncate">{generatedParagraphs[selectedParaIdx].heading}</p>
+                                                            </div>
+                                                            <button onClick={() => handleRegenerateSection(selectedParaIdx)} disabled={isCoPilotLoading} className="w-full py-4 bg-white border-2 border-slate-100 text-[10px] font-black text-slate-700 hover:border-indigo-400 flex items-center justify-center gap-2 transition-all min-h-[44px]" style={{ borderRadius: '12px' }}>
+                                                                {isCoPilotLoading ? <Icons.Loader2 className="animate-spin" /> : <Icons.RefreshCw size={14} />}
+                                                                Regenerate Block
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-24 flex flex-col items-center justify-center text-center opacity-30">
+                                                            <Icons.MousePointer2 size={24} className="mb-2" />
+                                                            <p className="text-[9px] font-bold uppercase">Select block to edit</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        {/* Terminal */}
-                                        <div className="space-y-3">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Live Log Stream</p>
-                                            <div ref={logContainerRef} className="bg-slate-900 rounded-[2rem] p-6 h-64 overflow-y-auto font-mono text-[10px] space-y-3 shadow-inner border border-slate-800 custom-scrollbar">
-                                                {logs.length === 0 ? <p className="text-slate-600">Idle...</p> : logs.map(l => (
-                                                    <div key={l.id} className="flex gap-3 leading-relaxed border-l border-white/5 pl-3">
-                                                        <span className="text-slate-500">{l.time}</span>
-                                                        <span className={l.type === 'success' ? 'text-emerald-400' : l.type === 'error' ? 'text-rose-400' : l.type === 'ai' ? 'text-indigo-300' : 'text-slate-400'}>{l.message}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Contextual Actions */}
-                                        <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 flex-1">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Contextual Controls</p>
-                                            {selectedParaIdx !== null ? (
-                                                <div className="space-y-4">
-                                                    <div className="p-4 bg-white rounded-2xl border border-indigo-100">
-                                                        <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Editing Section</p>
-                                                        <p className="text-sm font-bold text-slate-900 truncate">{generatedParagraphs[selectedParaIdx].heading}</p>
-                                                    </div>
-                                                    <button onClick={() => handleRegenerateSection(selectedParaIdx)} disabled={isCoPilotLoading} className="w-full py-4 bg-white border-2 border-slate-100 rounded-2xl text-xs font-black text-slate-700 hover:border-indigo-400 flex items-center justify-center gap-2 transition-all">
-                                                        {isCoPilotLoading ? <Icons.Loader2 className="animate-spin" /> : <Icons.RefreshCw size={14} />}
-                                                        Regenerate Block
+                                            {/* Fixed Footer Chat Form */}
+                                            <form
+                                                className="shrink-0 p-4 pb-10 md:pb-6 border-t border-slate-100 bg-white"
+                                                onSubmit={(e) => {
+                                                    e.preventDefault();
+                                                    if (coPilotInput && selectedParaIdx !== null) {
+                                                        handleRewriteParagraph(selectedParaIdx, coPilotInput);
+                                                        setCoPilotInput('');
+                                                    }
+                                                }}
+                                            >
+                                                <div className="relative">
+                                                    <input
+                                                        className="w-full bg-slate-100 border-2 border-transparent focus:bg-white focus:border-indigo-400 rounded-2xl py-4 pl-5 pr-14 text-sm font-medium transition-all shadow-inner disabled:opacity-50"
+                                                        placeholder={selectedParaIdx !== null ? "Refine this block..." : "Select block first..."}
+                                                        value={coPilotInput}
+                                                        onChange={e => setCoPilotInput(e.target.value)}
+                                                        disabled={selectedParaIdx === null || isCoPilotLoading}
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        disabled={!coPilotInput || selectedParaIdx === null || isCoPilotLoading}
+                                                        className="absolute right-2 top-2 p-2.5 bg-slate-900 text-white hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                                        style={{ borderRadius: '12px' }}
+                                                    >
+                                                        {isCoPilotLoading ? <Icons.Loader2 className="animate-spin" size={18} /> : <Icons.Send size={18} />}
                                                     </button>
                                                 </div>
-                                            ) : (
-                                                <div className="h-32 flex flex-col items-center justify-center text-center opacity-30">
-                                                    <Icons.MousePointer2 size={24} className="mb-2" />
-                                                    <p className="text-[10px] font-bold uppercase">Select block to edit</p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Chat Form */}
-                                        <form
-                                            className="mt-auto relative"
-                                            onSubmit={(e) => {
-                                                e.preventDefault();
-                                                if (coPilotInput && selectedParaIdx !== null) {
-                                                    handleRewriteParagraph(selectedParaIdx, coPilotInput);
-                                                    setCoPilotInput('');
-                                                }
-                                            }}
-                                        >
-                                            <input
-                                                className="w-full bg-slate-100 border-2 border-transparent focus:bg-white focus:border-indigo-400 rounded-2xl py-4 pl-5 pr-14 text-sm font-medium transition-all shadow-inner disabled:opacity-50"
-                                                placeholder={selectedParaIdx !== null ? "Refine this block..." : "Select block first..."}
-                                                value={coPilotInput}
-                                                onChange={e => setCoPilotInput(e.target.value)}
-                                                disabled={selectedParaIdx === null || isCoPilotLoading}
-                                            />
-                                            <button
-                                                type="submit"
-                                                disabled={!coPilotInput || selectedParaIdx === null || isCoPilotLoading}
-                                                className="absolute right-2 top-2 p-2.5 bg-slate-900 text-white rounded-xl hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-50"
-                                            >
-                                                {isCoPilotLoading ? <Icons.Loader2 className="animate-spin" size={18} /> : <Icons.Send size={18} />}
-                                            </button>
-                                        </form>
-                                    </div>
-                                )}
-                            </div>
-                        </motion.aside>
+                                            </form>
+                                        </>
+                                    )}
+                                </div>
+                            </motion.aside>
+                        </>
                     )}
                 </AnimatePresence>
+
+                {/* Mobile Bottom Navigation Bar */}
+                {isMobile && (
+                    <div className="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 h-20 pb-safe z-[60] px-6 flex items-center justify-between shadow-[0_-10px_30px_rgba(0,0,0,0.05)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                        {outline.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    setShowOutlineSidebar(true);
+                                    setShowConfigDock(false);
+                                }}
+                                className={`flex flex-col items-center gap-1.5 transition-all ${showOutlineSidebar ? 'text-indigo-600' : 'text-slate-400'}`}
+                            >
+                                <Icons.Columns size={20} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Outline</span>
+                            </button>
+                        )}
+                        {outline.length > 0 && <div className="h-10 w-px bg-slate-100 mx-2" />}
+
+                        <button
+                            onClick={() => {
+                                setShowOutlineSidebar(false);
+                                setShowConfigDock(false);
+                            }}
+                            className={`flex flex-col items-center gap-1.5 transition-all ${!showOutlineSidebar && !showConfigDock ? 'text-indigo-600' : 'text-slate-400'}`}
+                        >
+                            <Icons.FileText size={20} />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Canvas</span>
+                        </button>
+
+                        <div className="h-10 w-px bg-slate-100 mx-2" />
+
+                        <button
+                            onClick={() => {
+                                setShowConfigDock(true);
+                                setShowOutlineSidebar(false);
+                                setActiveDockTab('copilot');
+                            }}
+                            className={`flex flex-col items-center gap-1.5 transition-all ${showConfigDock && activeDockTab === 'copilot' ? 'text-indigo-600' : 'text-slate-400'}`}
+                        >
+                            <div className="relative">
+                                <Icons.Zap size={20} />
+                                {currentGeneratingIdx !== -1 && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border-2 border-white" />
+                                )}
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Co-Pilot</span>
+                        </button>
+
+                        <div className="h-10 w-px bg-slate-100 mx-2" />
+
+                        <button
+                            onClick={() => {
+                                setShowConfigDock(true);
+                                setShowOutlineSidebar(false);
+                                setActiveDockTab('config');
+                            }}
+                            className={`flex flex-col items-center gap-1.5 transition-all ${showConfigDock && activeDockTab === 'config' ? 'text-indigo-600' : 'text-slate-400'}`}
+                        >
+                            <Icons.Settings size={20} />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Config</span>
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
