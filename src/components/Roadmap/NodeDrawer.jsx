@@ -3,13 +3,19 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, Lightbulb } from 'lucide-react';
 
-const NodeDrawer = ({ node, isOpen, onClose, onComplete }) => {
+const NodeDrawer = ({ node, isOpen, onClose, onComplete, isMobile }) => {
     if (!node) return null;
 
     const { label, eli5_analogy, action_steps, status } = node.data;
 
     // Animation variants for the drawer slide-in
-    const drawerVariants = {
+    const drawerVariants = isMobile ? {
+        // Bottom Sheet animation
+        hidden: { y: '100%', opacity: 0 },
+        visible: { y: 0, opacity: 1, transition: { type: 'spring', damping: 25, stiffness: 200 } },
+        exit: { y: '100%', opacity: 0 }
+    } : {
+        // Side Drawer animation
         hidden: { x: '100%', opacity: 0 },
         visible: { x: 0, opacity: 1, transition: { type: 'spring', damping: 25, stiffness: 200 } },
         exit: { x: '100%', opacity: 0 }
@@ -34,8 +40,19 @@ const NodeDrawer = ({ node, isOpen, onClose, onComplete }) => {
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className="fixed inset-y-0 right-0 w-full sm:w-[450px] bg-white border-l border-gray-200 z-[60] shadow-2xl flex flex-col"
+                        className={`
+                            fixed bg-white z-[60] shadow-2xl flex flex-col
+                            ${isMobile
+                                ? 'bottom-0 left-0 right-0 h-[85vh] rounded-t-3xl border-t border-slate-200'
+                                : 'inset-y-0 right-0 w-[450px] border-l border-slate-200'}
+                        `}
                     >
+                        {/* Mobile Drag Handle */}
+                        {isMobile && (
+                            <div className="w-full flex justify-center pt-3 pb-1">
+                                <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
+                            </div>
+                        )}
                         {/* Header */}
                         <div className="p-8 pb-4 flex items-start justify-between">
                             <h2 className="text-2xl font-extrabold text-slate-900 leading-tight pr-8">{label}</h2>
@@ -86,7 +103,7 @@ const NodeDrawer = ({ node, isOpen, onClose, onComplete }) => {
                         {/* Footer / Action Button */}
                         <div className="p-8 border-t border-slate-100 bg-slate-50/30">
                             {status === 'completed' ? (
-                                <div className="w-full py-4 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-2xl font-bold flex items-center justify-center gap-2">
+                                <div className="w-full py-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-bold flex items-center justify-center gap-2">
                                     <CheckCircle className="w-5 h-5" />
                                     Phase Mastered
                                 </div>
@@ -96,7 +113,7 @@ const NodeDrawer = ({ node, isOpen, onClose, onComplete }) => {
                                         onComplete(node.id);
                                         onClose();
                                     }}
-                                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                                    className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-full font-bold text-lg shadow-lg shadow-blue-200 transition-all duration-300 flex items-center justify-center gap-2"
                                 >
                                     <CheckCircle className="w-6 h-6" />
                                     Mark as Completed

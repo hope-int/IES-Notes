@@ -30,9 +30,10 @@ CRITICAL INSTRUCTIONS:
 2. For EVERY main phase, you must generate 2 to 4 "sub" topics that branch off horizontally from the main phase. 
 3. You should generate at least 15+ total nodes.
 4. If timeline is "Panic Mode", skip fundamentals; focus strictly on high-yield exam/interview topics.
-5. Provide logical \`x\` and \`y\` coordinates so the nodes form a beautiful top-to-bottom branching tree in React Flow. 
-   - Main nodes should go straight down (e.g., x: 250, y: 0 -> y: 200 -> y: 400).
-   - Sub-nodes should branch horizontally outward from their parent main node's y-level (e.g., x: 500, y: 200 or x: 0, y: 200).
+5. Use a strict Grid System for coordinates:
+   - Main nodes MUST be positioned at y: 0, y: 250, y: 500, y: 750, etc. (x: 250).
+   - Sub-nodes MUST be positioned at the same y-level as their parent but with x offsets of -250 or +250 (e.g., x: 0 or x: 500).
+   - Ensure absolutely NO nodes overlap. Include "type": "smoothstep" on all edges.
 
 You MUST output ONLY a valid JSON object with "nodes" and "edges".
 

@@ -20,6 +20,9 @@ const PresentationGenerator = ({ onBack }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [loadingText, setLoadingText] = useState('');
+    const [vibe, setVibe] = useState('Modern');
+    const [complexity, setComplexity] = useState('Balanced');
+    const [layoutPreference, setLayoutPreference] = useState('Canvas');
 
     // Step 2 State
     const [blueprint, setBlueprint] = useState([]);
@@ -42,6 +45,67 @@ const PresentationGenerator = ({ onBack }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [lastSaved, setLastSaved] = useState(null);
     const [isCoPilotLoading, setIsCoPilotLoading] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // Resizable Panel State
+    const [panelSize, setPanelSize] = useState(340);
+    const [isResizing, setIsResizing] = useState(false);
+    const panelRef = useRef(null);
+
+    const startResizing = (e) => {
+        setIsResizing(true);
+        // Prevent scroll on touch devices while resizing
+        if (e.cancelable) e.preventDefault();
+    };
+
+    const stopResizing = () => {
+        setIsResizing(false);
+    };
+
+    useEffect(() => {
+        const resize = (e) => {
+            if (!isResizing) return;
+
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                const clientY = e.clientY || e.touches?.[0].clientY;
+                if (clientY === undefined) return;
+                const newHeight = window.innerHeight - clientY;
+                if (newHeight > 150 && newHeight < window.innerHeight * 0.8) {
+                    setPanelSize(newHeight);
+                }
+            } else {
+                const clientX = e.clientX || e.touches?.[0].clientX;
+                if (clientX === undefined) return;
+                const newWidth = window.innerWidth - clientX;
+                if (newWidth > 200 && newWidth < 800) {
+                    setPanelSize(newWidth);
+                }
+            }
+        };
+
+        if (isResizing) {
+            window.addEventListener('mousemove', resize);
+            window.addEventListener('mouseup', stopResizing);
+            window.addEventListener('mouseleave', stopResizing);
+            window.addEventListener('touchmove', resize, { passive: false });
+            window.addEventListener('touchend', stopResizing);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+            window.removeEventListener('mouseleave', stopResizing);
+            window.removeEventListener('touchmove', resize);
+            window.removeEventListener('touchend', stopResizing);
+        };
+    }, [isResizing]);
 
     const canvasRef = useRef(null);
 
@@ -94,9 +158,11 @@ DO NOT use markdown, quotes, or conversational filler. Just return the raw expan
 
         try {
             const systemPrompt = `You are an expert Presentation Architect. 
-The user wants a presentation about: "${topic}".
+Overall Presentation Topic: "${topic}".
 Target Audience: "${audience}"
 Tone: "${tone}"
+Visual Vibe: "${vibe}"
+Layout Preference: "${layoutPreference}"
 
 Generate a strictly formatted JSON outline for ${slideCount} slides.
 
@@ -161,26 +227,35 @@ SCHEMA:
                 const systemPrompt = `You are an expert Presentation Copywriter. 
 Overall Presentation Topic: "${topic}"
 Target Audience: "${audience}"
+Visual Vibe: "${vibe}"
+Layout Preference: "${layoutPreference}"
 
-Your task is to generate the content for ONLY ONE specific slide.
+Your task is to generate the content and a CONTEXTUAL DESIGN for ONLY ONE specific slide.
 
 CURRENT SLIDE TARGET:
 - Title: "${currentSlideTarget.title}"
-- Required Layout: "${currentSlideTarget.layout}"
+- Blueprint Layout: "${currentSlideTarget.layout}"
 
 CRITICAL RULES:
-1. MAX 3 bullet points per slide (so 3 on left / 3 on right if TWO_COLUMN).
-2. MAX 12 words per bullet point. If you write more, the presentation will crash.
-3. Every slide title MUST be a bold 'Assertion' (e.g., 'RFG Increases Efficiency by 50%').
-4. The bullets MUST provide the 'Evidence' (data, metrics, technical steps).
-5. Be punchy and highly ${tone.toLowerCase()} in tone.
-6. Output ONLY valid JSON matching the required layout structure. Do not use markdown wrappers.
+1. MAX 3 bullet points per slide.
+2. MAX 12 words per bullet point.
+3. Every slide title MUST be a bold 'Assertion'.
+4. Be punchy and highly ${tone.toLowerCase()} in tone.
+5. You MUST provide a "design" object that describes how this slide should look based on its context.
 
-JSON SCHEMA EXAMPLES (Return ONLY the keys required for your layout):
-- If TITLE_SLIDE: { "slide_number": ${currentSlideTarget.slide_number}, "layout": "TITLE_SLIDE", "title": "Main Title" }
-- If TWO_COLUMN: { "slide_number": ${currentSlideTarget.slide_number}, "layout": "TWO_COLUMN", "title": "...", "bullets_left": ["..."], "bullets_right": ["..."] }
-- If BIG_STAT: { "slide_number": ${currentSlideTarget.slide_number}, "layout": "BIG_STAT", "title": "...", "stat": "45%", "bullets": ["..."] }
-- If STANDARD_BULLETS: { "slide_number": ${currentSlideTarget.slide_number}, "layout": "STANDARD_BULLETS", "title": "...", "bullets": ["..."] }
+JSON SCHEMA:
+{
+  "slide_number": ${currentSlideTarget.slide_number},
+  "title": "...",
+  "bullets": ["..."],
+  "design": {
+    "bgType": "gradient | solid | mesh | glass",
+    "colors": { "primary": "hex", "secondary": "hex", "accent": "hex" },
+    "layoutHints": "center-card | split-vertical | hero-stat | grid-3x1",
+    "decorations": ["floating-orbs", "grid-pattern", "border-glow", "abstract-shapes"],
+    "icon": "lucide icon name relating to context"
+  }
+}
 `;
 
                 const aiText = await getAICompletion([
@@ -234,17 +309,25 @@ JSON SCHEMA EXAMPLES (Return ONLY the keys required for your layout):
             const slideToFix = finalSlides[index];
             const systemPrompt = `You are fixing ONE specific slide in a presentation.
             The user did not like this slide's content. Rewrite it using the ASSERTION-EVIDENCE style.
-            The slide is currently using layout: ${slideToFix.layout}. 
-            Keep the exact same layout type, but write a better Assetion (Title) and stronger Evidence (Bullets).
+            Overall Topic: "${topic}"
+            Visual Vibe: "${vibe}"
             
-            Return ONLY a JSON object representing this single slide.
+            Keep the content punchy but YOU MUST also provide an updated "design" object for this slide based on its content context.
             
-            SCHEMA EXAMPLE:
+            Return ONLY a JSON object.
+            
+            SCHEMA:
             {
               "slide_number": ${slideToFix.slide_number},
-              "layout": "${slideToFix.layout}",
-              "title": "New Strong Assertion Title",
-              "bullets": ["New evidence 1", "New evidence 2"]
+              "title": "...",
+              "bullets": ["..."],
+              "design": {
+                "bgType": "gradient | solid | mesh | glass",
+                "colors": { "primary": "hex", "secondary": "hex", "accent": "hex" },
+                "layoutHints": "center-card | split-vertical | hero-stat | grid-3x1",
+                "decorations": ["floating-orbs", "grid-pattern", "border-glow", "abstract-shapes"],
+                "icon": "lucide icon name"
+              }
             }`;
 
             const aiText = await getAICompletion([
@@ -374,9 +457,23 @@ The user wants to edit THIS SPECIFIC SLIDE. Their request: "${userPrompt}"
 
 CRITICAL RULES:
 1. Return ONLY the updated JSON for THIS SLIDE.
-2. Maintain the layout type: "${currentSlide.layout}".
-3. Keep assertions strong and evidence punchy.
-4. Output valid JSON, no markdown.`;
+2. Maintain the ASSERTION-EVIDENCE style.
+3. You MUST provide an updated "design" object if the user request implies a visual change or if the content significantly changes its context.
+4. Output valid JSON, no markdown.
+
+SCHEMA:
+{
+  "title": "...",
+  "bullets": ["..."],
+  "design": {
+    "bgType": "...", 
+    "colors": { "primary": "...", "secondary": "...", "accent": "..." },
+    "layoutHints": "...",
+    "decorations": [...],
+    "icon": "..."
+  }
+}
+`;
 
             const aiText = await getAICompletion([
                 { role: "system", content: systemPrompt },
@@ -398,7 +495,12 @@ CRITICAL RULES:
     };
 
     return (
-        <div className="min-vh-100 w-full flex flex-col text-slate-900 relative overflow-hidden bg-slate-50" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="!flex !flex-col !w-full !h-screen !bg-slate-50 !text-slate-900 !overflow-hidden relative !font-sans">
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+            `}</style>
 
             {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} recycle={false} numberOfPieces={500} />}
 
@@ -409,27 +511,40 @@ CRITICAL RULES:
             </div>
 
             {/* Header */}
-            <header className="p-4 d-flex align-items-center justify-content-between position-relative z-1 border-bottom border-dark border-opacity-10 shadow-sm" style={{ background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(12px)' }}>
-                <div className="d-flex align-items-center gap-3">
-                    <button onClick={onBack} className="btn btn-outline-dark rounded-circle p-2 border-opacity-25" style={{ width: 44, height: 44 }}>
+            <header className="!sticky !top-0 !z-40 !h-16 !bg-white/80 !backdrop-blur-lg !border-b !border-slate-200 !px-4 md:!px-6 !flex !items-center !justify-between !gap-4">
+                <div className="!flex !items-center !gap-3">
+                    <button onClick={onBack} className="!w-10 !h-10 !flex !items-center !justify-center !rounded-full !bg-slate-100 hover:!bg-slate-200 !transition-colors !text-slate-600 focus:!outline-none">
                         <ArrowLeft size={20} />
                     </button>
-                    <div>
-                        <h4 className="fw-bold m-0 d-flex align-items-center gap-2 text-dark">
-                            <MonitorPlay className="text-primary" /> HOPE Studio
+                    <div className="hidden sm:block">
+                        <h4 className="!font-bold !m-0 !flex !items-center !gap-2 !text-slate-900 !text-lg">
+                            <MonitorPlay className="!text-blue-600" /> HOPE Studio
                         </h4>
-                        <span className="small text-secondary fw-medium">Agentic Slide Architect</span>
+                        <span className="!text-xs !text-slate-500 !font-medium">Agentic Slide Architect</span>
                     </div>
                 </div>
 
                 {/* Stepper Wizard Indicator */}
-                <div className="d-none d-md-flex align-items-center gap-2 bg-light px-3 py-2 rounded-pill border border-dark border-opacity-10">
-                    <span className={`badge rounded-pill px-3 py-2 ${currentStep >= 1 ? 'bg-primary' : 'bg-transparent text-secondary border border-secondary'}`}>1. Idea</span>
-                    <div style={{ width: 30, height: 2, background: currentStep >= 2 ? '#3B82F6' : '#CBD5E1' }} />
-                    <span className={`badge rounded-pill px-3 py-2 ${currentStep >= 2 ? 'bg-primary' : 'bg-transparent text-secondary border border-secondary'}`}>2. Blueprint</span>
-                    <div style={{ width: 30, height: 2, background: currentStep >= 3 ? '#3B82F6' : '#CBD5E1' }} />
-                    <span className={`badge rounded-pill px-3 py-2 ${currentStep === 3 ? 'bg-primary' : 'bg-transparent text-secondary border border-secondary'}`}>3. Final Studio</span>
-                </div >
+                <div className="!hidden md:!flex !items-center !gap-2 !bg-slate-100 !px-3 !py-1.5 !rounded-full !border !border-slate-200">
+                    <span className={`!text-[10px] !font-bold !uppercase !tracking-wider !px-2.5 !py-1 !rounded-full ${currentStep >= 1 ? '!bg-blue-600 !text-white' : '!bg-slate-200 !text-slate-500'}`}>Idea</span>
+                    <div className={`!w-6 !h-0.5 ${currentStep >= 2 ? '!bg-blue-600' : '!bg-slate-300'}`} />
+                    <span className={`!text-[10px] !font-bold !uppercase !tracking-wider !px-2.5 !py-1 !rounded-full ${currentStep >= 2 ? '!bg-blue-600 !text-white' : '!bg-slate-200 !text-slate-500'}`}>Blueprint</span>
+                    <div className={`!w-6 !h-0.5 ${currentStep >= 3 ? '!bg-blue-600' : '!bg-slate-300'}`} />
+                    <span className={`!text-[10px] !font-bold !uppercase !tracking-wider !px-2.5 !py-1 !rounded-full ${currentStep === 3 ? '!bg-blue-600 !text-white' : '!bg-slate-200 !text-slate-500'}`}>Studio</span>
+                </div>
+
+                <div className="!flex !items-center !gap-3">
+                    {currentStep === 3 && (
+                        <button
+                            onClick={handleDownload}
+                            disabled={isDownloading}
+                            className="!bg-emerald-600 hover:!bg-emerald-700 !text-white !px-4 !py-2 !rounded-xl !text-sm !font-bold !flex !items-center !gap-2 !shadow-sm !transition-all"
+                        >
+                            {isDownloading ? <Loader2 className="!animate-spin" size={16} /> : <Download size={16} />}
+                            <span className="hidden sm:inline">Export PPTX</span>
+                        </button>
+                    )}
+                </div>
             </header >
 
             <main className="flex-grow-1 position-relative z-1 d-flex flex-column" style={{ overflowY: 'auto' }}>
@@ -443,57 +558,56 @@ CRITICAL RULES:
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="container d-flex flex-column justify-content-center align-items-center h-100 flex-grow-1 py-5 px-4"
+                            className="!container !flex !flex-col !justify-center !items-center !h-full !flex-grow !py-5 !px-4"
                         >
-                            <div className="max-w-3xl mx-auto bg-white/80 backdrop-blur-2xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] p-8 md:p-12 w-100">
-                                <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight text-center mb-3">What are we presenting today?</h1>
-                                <p className="text-lg text-slate-500 text-center mb-10">Provide a topic. Our Agentic Director will architect the perfect slide sequence.</p>
+                            <div className="!max-w-3xl !mx-auto !bg-white/80 !backdrop-blur-2xl !border !border-slate-200 !shadow-xl !rounded-[2rem] !p-8 md:!p-12 !w-full">
+                                <h1 className="!text-3xl md:!text-4xl !font-extrabold !text-slate-900 !tracking-tight !text-center !mb-3">What are we presenting today?</h1>
+                                <p className="!text-base md:!text-lg !text-slate-500 !text-center !mb-10">Provide a topic. Our Agentic Director will architect the perfect slide sequence.</p>
 
                                 {/* Prompt Input with Embedded Action */}
-                                <div className="relative mb-8">
+                                <div className="!relative !mb-8">
                                     <textarea
-                                        className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 rounded-2xl p-6 pb-12 text-lg text-slate-800 placeholder-slate-400 transition-all resize-none min-h-[140px] shadow-inner"
+                                        className="!w-full !bg-slate-50 !border !border-slate-200 focus:!bg-white focus:!border-blue-500 focus:!ring-4 focus:!ring-blue-500/10 !rounded-2xl !p-6 !pb-12 !text-lg !text-slate-800 placeholder:!text-slate-400 !transition-all !resize-none !min-h-[140px] !shadow-inner !outline-none !appearance-none"
                                         placeholder="e.g., The Future of Quantum Architecture"
                                         value={topic}
                                         onChange={e => setTopic(e.target.value)}
-                                        style={{ outline: 'none' }}
                                         autoFocus
                                     />
                                     <button
-                                        className="absolute bottom-4 right-4 text-xs font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all shadow-sm disabled:opacity-50"
+                                        className="!absolute !bottom-4 !right-4 !text-xs !font-bold !bg-blue-50 !text-blue-700 hover:!bg-blue-100 !px-3 !py-1.5 !rounded-lg !flex !items-center !gap-1 !transition-all !shadow-sm disabled:!opacity-50"
                                         title="Let the AI expand your idea into a detailed prompt"
                                         onClick={handleEnhancePrompt}
                                         disabled={isEnhancing || !topic.trim()}
                                     >
-                                        {isEnhancing ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
+                                        {isEnhancing ? <Loader2 className="!animate-spin" size={12} /> : <Sparkles size={12} />}
                                         {isEnhancing ? 'Enhancing...' : 'Enhance Prompt'}
                                     </button>
                                 </div>
 
                                 {/* Primary Configurations */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">Narrative Tone</label>
-                                        <div className="flex flex-wrap gap-2">
+                                <div className="!grid !grid-cols-1 md:!grid-cols-2 !gap-8 !mt-8">
+                                    <div className="!w-full">
+                                        <label className="!text-[10px] !font-bold !text-slate-400 !uppercase !tracking-widest !mb-3 !block">Narrative Tone</label>
+                                        <div className="!flex !flex-wrap !gap-2">
                                             {['Academic', 'Pitch', 'Casual'].map(t => (
                                                 <div
                                                     key={t}
                                                     onClick={() => setTone(t)}
-                                                    className={`px-4 py-2 text-sm font-medium transition-all cursor-pointer ${tone === t ? 'bg-slate-900 text-white shadow-md border-slate-900 rounded-lg scale-[1.02]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg'}`}
+                                                    className={`!px-4 !py-2 !text-sm !font-semibold !transition-all !cursor-pointer !rounded-xl !border ${tone === t ? '!bg-slate-900 !text-white !border-slate-900 !shadow-lg !scale-[1.02]' : '!bg-white !border-slate-200 !text-slate-600 hover:!bg-slate-50'}`}
                                                 >
                                                     {t}
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">Presentation Length</label>
-                                        <div className="flex flex-wrap gap-2">
+                                    <div className="!w-full">
+                                        <label className="!text-[10px] !font-bold !text-slate-400 !uppercase !tracking-widest !mb-3 !block">Presentation Length</label>
+                                        <div className="!flex !flex-wrap !gap-2">
                                             {[{ label: 'Short (5)', value: 5 }, { label: 'Standard (8)', value: 8 }, { label: 'In-Depth (12+)', value: 12 }].map(c => (
                                                 <div
                                                     key={c.value}
                                                     onClick={() => setSlideCount(c.value)}
-                                                    className={`px-4 py-2 text-sm font-medium transition-all cursor-pointer ${slideCount === c.value ? 'bg-slate-900 text-white shadow-md border-slate-900 rounded-lg scale-[1.02]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg'}`}
+                                                    className={`!px-4 !py-2 !text-sm !font-semibold !transition-all !cursor-pointer !rounded-xl !border ${slideCount === c.value ? '!bg-slate-900 !text-white !border-slate-900 !shadow-lg !scale-[1.02]' : '!bg-white !border-slate-200 !text-slate-600 hover:!bg-slate-50'}`}
                                                 >
                                                     {c.label}
                                                 </div>
@@ -502,10 +616,42 @@ CRITICAL RULES:
                                     </div>
                                 </div>
 
+                                {/* Depth Customization: Vibe & Layout */}
+                                <div className="!grid !grid-cols-1 md:!grid-cols-2 !gap-8 !mt-8">
+                                    <div className="!w-full">
+                                        <label className="!text-[10px] !font-bold !text-slate-400 !uppercase !tracking-widest !mb-3 !block">Visual Vibe</label>
+                                        <div className="!flex !flex-wrap !gap-2">
+                                            {['Modern', 'Neon', 'Organic', 'Monochrome'].map(v => (
+                                                <div
+                                                    key={v}
+                                                    onClick={() => setVibe(v)}
+                                                    className={`!px-4 !py-2 !text-sm !font-semibold !transition-all !cursor-pointer !rounded-xl !border ${vibe === v ? '!bg-blue-600 !text-white !border-blue-600 !shadow-lg !scale-[1.02]' : '!bg-white !border-slate-200 !text-slate-600 hover:!bg-slate-50'}`}
+                                                >
+                                                    {v}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="!w-full">
+                                        <label className="!text-[10px] !font-bold !text-slate-400 !uppercase !tracking-widest !mb-3 !block">Layout Preference</label>
+                                        <div className="!flex !flex-wrap !gap-2">
+                                            {['Canvas', 'Grid', 'Editorial'].map(l => (
+                                                <div
+                                                    key={l}
+                                                    onClick={() => setLayoutPreference(l)}
+                                                    className={`!px-4 !py-2 !text-sm !font-semibold !transition-all !cursor-pointer !rounded-xl !border ${layoutPreference === l ? '!bg-blue-600 !text-white !border-blue-600 !shadow-lg !scale-[1.02]' : '!bg-white !border-slate-200 !text-slate-600 hover:!bg-slate-50'}`}
+                                                >
+                                                    {l}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Advanced Settings Accordion */}
-                                <div className="mt-8 border-t border-slate-100 pt-6">
+                                <div className="!mt-8 !border-t !border-slate-100 !pt-6">
                                     <div
-                                        className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 cursor-pointer transition-colors w-max"
+                                        className="!flex !items-center !gap-2 !text-sm !font-bold !text-slate-500 hover:!text-slate-900 !cursor-pointer !transition-colors !w-max"
                                         onClick={() => setShowAdvanced(!showAdvanced)}
                                     >
                                         <Settings2 size={16} /> Advanced Customization
@@ -517,17 +663,17 @@ CRITICAL RULES:
                                                 initial={{ height: 0, opacity: 0, marginTop: 0 }}
                                                 animate={{ height: 'auto', opacity: 1, marginTop: '1.5rem' }}
                                                 exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                                className="overflow-hidden"
+                                                className="!overflow-hidden"
                                             >
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                <div className="!grid !grid-cols-1 md:!grid-cols-2 !gap-8">
                                                     <div>
-                                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">Target Audience</label>
-                                                        <div className="flex flex-wrap gap-2">
+                                                        <label className="!text-[10px] !font-bold !text-slate-400 !uppercase !tracking-widest !mb-3 !block">Target Audience</label>
+                                                        <div className="!flex !flex-wrap !gap-2">
                                                             {['Beginner', 'General', 'Expert/Professor'].map(a => (
                                                                 <div
                                                                     key={a}
                                                                     onClick={() => setAudience(a)}
-                                                                    className={`px-4 py-2 text-sm font-medium transition-all cursor-pointer ${audience === a ? 'bg-slate-900 text-white shadow-md border-slate-900 rounded-lg scale-[1.02]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg'}`}
+                                                                    className={`!px-4 !py-2 !text-sm !font-semibold !transition-all !cursor-pointer !rounded-xl !border ${audience === a ? '!bg-slate-900 !text-white !border-slate-900 !shadow-lg !scale-[1.02]' : '!bg-white !border-slate-200 !text-slate-600 hover:!bg-slate-50'}`}
                                                                 >
                                                                     {a}
                                                                 </div>
@@ -535,11 +681,11 @@ CRITICAL RULES:
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 block">Theme Preset</label>
-                                                        <div className="flex flex-wrap gap-2">
+                                                        <label className="!text-[10px] !font-bold !text-slate-400 !uppercase !tracking-widest !mb-3 !block">Theme Preset</label>
+                                                        <div className="!flex !flex-wrap !gap-2">
                                                             {[
-                                                                { id: 'dark', name: 'Phantom Dark', bg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', text: 'white' },
-                                                                { id: 'corporate', name: 'Cloud Light', bg: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', text: '#0f172a' }
+                                                                { id: 'dark', name: 'Phantom Dark', bg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' },
+                                                                { id: 'corporate', name: 'Cloud Light', bg: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' }
                                                             ].map(t => (
                                                                 <div
                                                                     key={t.id}
@@ -547,9 +693,9 @@ CRITICAL RULES:
                                                                         setThemePreset(t.id);
                                                                         setTheme(t.id);
                                                                     }}
-                                                                    className={`px-4 py-2 text-sm font-medium transition-all cursor-pointer d-flex align-items-center gap-2 ${themePreset === t.id ? 'bg-slate-900 text-white shadow-md border-slate-900 rounded-lg scale-[1.02]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg'}`}
+                                                                    className={`!px-4 !py-2 !text-sm !font-semibold !transition-all !cursor-pointer !rounded-xl !border !flex !items-center !gap-2 ${themePreset === t.id ? '!bg-slate-900 !text-white !border-slate-900 !shadow-lg !scale-[1.02]' : '!bg-white !border-slate-200 !text-slate-600 hover:!bg-slate-50'}`}
                                                                 >
-                                                                    <div className="rounded-circle shadow-sm" style={{ width: '12px', height: '12px', background: t.bg }} />
+                                                                    <div className="!rounded-full !shadow-sm" style={{ width: '12px', height: '12px', background: t.bg }} />
                                                                     {t.name}
                                                                 </div>
                                                             ))}
@@ -562,17 +708,16 @@ CRITICAL RULES:
                                 </div>
 
                                 {/* Action Button */}
-                                <div className="mt-10 mx-auto w-full md:w-2/3 flex justify-center">
+                                <div className="!mt-10 !mx-auto !w-full md:!w-2/3 !flex !justify-center">
                                     <button
-                                        className={`w-full flex items-center justify-center gap-3 text-lg font-semibold py-4 px-8 rounded-pill transition-all duration-300 ${isLoading ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-black text-white shadow-xl hover:shadow-2xl hover:-translate-y-1'}`}
+                                        className={`!w-full !flex !items-center !justify-center !gap-3 !text-lg !font-bold !py-4 !px-8 !rounded-full !transition-all !duration-300 ${isLoading ? '!bg-slate-100 !text-slate-400 !cursor-not-allowed' : '!bg-blue-600 hover:!bg-blue-700 !text-white !shadow-xl hover:!shadow-2xl hover:!-translate-y-1'}`}
                                         onClick={engineerBlueprint}
                                         disabled={isLoading || !topic.trim()}
-                                        style={{ border: 'none' }}
                                     >
                                         {isLoading ? (
-                                            <><Loader2 className="animate-spin" size={22} /> Synthesizing research...</>
+                                            <><Loader2 className="!animate-spin" size={22} /> Synthesizing research...</>
                                         ) : (
-                                            <><Sparkles className="w-5 h-5 text-purple-400" /> Architect Blueprint</>
+                                            <><Sparkles className="!w-5 !h-5 !text-white" /> Architect Blueprint</>
                                         )}
                                     </button>
                                 </div>
@@ -581,181 +726,148 @@ CRITICAL RULES:
                     )}
 
                     {/* STEP 2: THE BLUEPRINT */}
-                    {
-                        currentStep === 2 && (
-                            <motion.div
-                                key="step2"
-                                initial={{ opacity: 0, x: 50 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -50 }}
-                                transition={{ duration: 0.4 }}
-                                className="container py-5"
-                                style={{ maxWidth: 800 }}
-                            >
-                                <div className="d-flex justify-content-between align-items-center mb-5">
-                                    <div>
-                                        <h2 className="fw-bold m-0 text-dark"><LayoutDashboard className="me-2 text-primary d-inline" /> Review Slide Deck Outline</h2>
-                                        <p className="text-secondary mt-1">Refine the architecture before we write the final content.</p>
-                                    </div>
-                                    <button className="btn btn-outline-secondary rounded-pill" onClick={() => setCurrentStep(1)}>Go Back</button>
+                    {currentStep === 2 && (
+                        <motion.div
+                            key="step2"
+                            initial={{ opacity: 0, x: 50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -50 }}
+                            transition={{ duration: 0.4 }}
+                            className="!container !py-5 !max-w-[800px] !mx-auto !flex !flex-col !gap-6"
+                        >
+                            <div className="!flex !justify-between !items-center !mb-2">
+                                <div>
+                                    <h2 className="!font-bold !m-0 !text-slate-900 !flex !items-center !gap-2 !text-2xl">
+                                        <LayoutDashboard className="!text-blue-600" /> Review Slide Deck Outline
+                                    </h2>
+                                    <p className="!text-slate-500 !mt-1 !text-sm">Refine the architecture before we write the final content.</p>
                                 </div>
+                                <button className="!px-4 !py-2 !rounded-full !border !border-slate-200 !text-slate-600 hover:!bg-slate-50 !text-sm !font-semibold !transition-colors" onClick={() => setCurrentStep(1)}>Go Back</button>
+                            </div>
 
-                                <div className="d-flex flex-column gap-3 mb-5">
-                                    {blueprint.map((slide, index) => (
-                                        <motion.div
-                                            key={slide.slide_number}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: index * 0.05 }}
-                                            className="p-3 rounded-4 d-flex align-items-center gap-4 bg-white shadow-sm border border-dark border-opacity-10 hover-bg-light transition-all"
-                                        >
-                                            <div className="text-secondary fw-bold fs-4 ms-2" style={{ width: '40px' }}>{slide.slide_number}</div>
-                                            <div className="flex-grow-1">
-                                                <div className="d-flex align-items-center justify-content-between mb-2">
-                                                    <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 fw-bold" style={{ fontSize: '0.7em' }}>
-                                                        {slide.layout}
-                                                    </span>
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={slide.title}
-                                                    onChange={(e) => handleUpdateBlueprintTitle(index, e.target.value)}
-                                                    className="form-control bg-transparent border-0 text-dark fs-5 fw-medium p-0 shadow-none hide-focus"
-                                                />
+                            <div className="!flex !flex-col !gap-3 !mb-5">
+                                {blueprint.map((slide, index) => (
+                                    <motion.div
+                                        key={slide.slide_number}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: index * 0.05 }}
+                                        className="!p-4 !rounded-2xl !flex !items-center !gap-4 !bg-white !shadow-sm !border !border-slate-100 hover:!border-blue-200 hover:!shadow-md hover:!bg-slate-50/50 !transition-all !group"
+                                    >
+                                        <div className="!text-slate-400 !font-black !text-2xl !w-10 !text-center">{slide.slide_number}</div>
+                                        <div className="!flex-grow">
+                                            <div className="!flex !items-center !justify-between !mb-2">
+                                                <span className="!text-[10px] !font-black !uppercase !tracking-widest !bg-blue-50 !text-blue-600 !px-2 !py-0.5 !rounded !border !border-blue-100">
+                                                    {slide.layout}
+                                                </span>
                                             </div>
-                                            <button
-                                                onClick={() => handleDeleteBlueprint(index)}
-                                                className="btn btn-link text-secondary hover-text-danger p-2 rounded-circle"
-                                            >
-                                                <Trash2 size={20} />
-                                            </button>
-                                        </motion.div>
-                                    ))}
-                                </div>
+                                            <input
+                                                type="text"
+                                                value={slide.title}
+                                                onChange={(e) => handleUpdateBlueprintTitle(index, e.target.value)}
+                                                className="!w-full !bg-transparent !border-0 !text-slate-900 !text-lg !font-bold !p-0 !outline-none focus:!ring-0 !appearance-none"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteBlueprint(index)}
+                                            className="!p-2 !rounded-full !text-slate-300 hover:!text-red-500 hover:!bg-red-50 !transition-all"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    </motion.div>
+                                ))}
+                            </div>
 
-                                <button
-                                    className="btn btn-primary w-100 btn-lg rounded-pill py-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-lg text-white"
-                                    onClick={generateStudioContent}
-                                    disabled={isLoading}
-                                    style={{ background: 'linear-gradient(135deg, #10B981 0%, #3B82F6 100%)', border: 'none' }}
-                                >
-                                    {isLoading ? (
-                                        <><Loader2 className="spin" size={22} /> {loadingText}</>
-                                    ) : (
-                                        <>Looks Perfect <ArrowRight size={20} /> Generate Content</>
-                                    )}
-                                </button>
-                            </motion.div>
-                        )
-                    }
+                            <button
+                                className="!w-full !flex !items-center !justify-center !gap-3 !text-lg !font-bold !py-4 !rounded-full !transition-all !duration-300 !bg-blue-600 !text-white !shadow-xl hover:!bg-blue-700 hover:!-translate-y-1"
+                                onClick={generateStudioContent}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? (
+                                    <><Loader2 className="!animate-spin" size={22} /> {loadingText}</>
+                                ) : (
+                                    <>Looks Perfect <ArrowRight size={20} /> Generate Content</>
+                                )}
+                            </button>
+                        </motion.div>
+                    )}
 
                     {/* STEP 3: THE STUDIO */}
-                    {
-                        currentStep === 3 && (
-                            <motion.div
-                                key="step3"
-                                initial={{ opacity: 0, scale: 0.98 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 0.5 }}
-                                className="d-flex flex-column flex-grow-1 overflow-hidden"
-                            >
-                                {/* Split Screen Layout */}
-                                <div className="row g-0 flex-grow-1 bg-white" style={{ height: '0px' }}>
-                                    {/* Left Panel: The Visualizer */}
-                                    <div className="col-lg-8 h-100 d-flex flex-column p-4 border-end border-dark border-opacity-10 bg-slate-100">
-                                        <div className="d-flex align-items-center justify-content-between mb-3 w-100 px-lg-5">
-                                            <h5 className="fw-bold m-0 text-dark">Live Canvas Preview</h5>
-                                            <div className="d-flex align-items-center gap-3">
+                    {currentStep === 3 && (
+                        <motion.div
+                            key="step3"
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.98 }}
+                            transition={{ duration: 0.5 }}
+                            className="!flex !flex-col !flex-grow !overflow-hidden"
+                        >
+                            {/* Split Screen Layout */}
+                            <div className="!flex !flex-col md:!flex-row !flex-grow !overflow-hidden">
+                                {/* Left Panel: The Visualizer */}
+                                <div className="!flex-1 !flex !flex-col !p-4 !bg-slate-100 !border-r !border-slate-200 !justify-between">
+                                    <div className="!flex-1 !flex !flex-col !min-h-0">
+                                        <div className="!flex !items-center !justify-between !mb-4 !px-2">
+                                            <h5 className="!font-bold !m-0 !text-slate-900 !text-lg">Live Canvas Preview</h5>
+                                            <div className="!flex !items-center !gap-3">
                                                 <button
                                                     onClick={toggleFullscreen}
-                                                    className="btn btn-sm btn-dark rounded-pill px-3 py-1.5 flex items-center gap-2 shadow-lg"
+                                                    className="!bg-slate-900 hover:!bg-black !text-white !px-4 !py-1.5 !rounded-full !text-sm !font-bold !flex !items-center !gap-2 !shadow-lg !transition-all"
                                                 >
                                                     <Play size={14} fill="currentColor" /> Present Mode
                                                 </button>
-                                                <div className="badge bg-white text-dark fw-bold border border-dark border-opacity-10 py-2 px-3 rounded-pill shadow-sm">
+                                                <div className="!bg-white !text-slate-900 !font-bold !text-xs !border !border-slate-200 !py-1.5 !px-3 !rounded-full !shadow-sm">
                                                     Slide {activeSlideIndex + 1} of {finalSlides.length}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* The 16:9 Slides Canvas Container (Phase 7 & 8 Upgrade) */}
-                                        <div className="flex-grow-1 d-flex align-items-center justify-content-center w-100 relative pt-4">
-                                            <div
+                                        {/* The 16:9 Slides Canvas Container */}
+                                        <div className="!flex-grow !flex !items-center !justify-center !relative !p-4">
+                                            <motion.div
                                                 id="presentation-canvas"
-                                                className={`w-full aspect-video bg-white shadow-2xl rounded-xl overflow-hidden relative transition-all duration-300 ${isFullscreen ? 'rounded-none' : ''}`}
+                                                className={`!relative !overflow-hidden !bg-white !shadow-2xl ${isFullscreen ? '!rounded-none' : '!rounded-xl !border !border-slate-200'}`}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ duration: 0.4 }}
                                                 style={{
-                                                    maxWidth: isFullscreen ? 'none' : '850px',
+                                                    width: isFullscreen ? '100vw' : '100%',
+                                                    height: isFullscreen ? '100vh' : 'auto',
+                                                    maxWidth: isFullscreen ? 'none' : '960px',
+                                                    aspectRatio: isFullscreen ? 'auto' : '16/9',
                                                 }}
                                             >
-                                                {/* Presentation Mode Controls (Visible only in Fullscreen) */}
+                                                {/* Fullscreen Controls */}
                                                 {isFullscreen && (
-                                                    <div className="absolute top-6 right-8 z-[100] flex gap-4 opacity-0 hover:opacity-100 transition-opacity">
+                                                    <div className="!absolute !top-6 !right-8 !z-[100] !flex !gap-4 !opacity-0 hover:!opacity-100 !transition-opacity">
                                                         <button
                                                             onClick={toggleFullscreen}
-                                                            className="bg-black/50 backdrop-blur-md text-white p-3 rounded-full hover:bg-black/70 transition-all border border-white/20"
+                                                            className="!bg-black/50 !backdrop-blur-md !text-white !p-3 !rounded-full hover:!bg-black/70 !transition-all !border !border-white/20"
                                                         >
                                                             <Minimize2 size={24} />
                                                         </button>
                                                     </div>
                                                 )}
 
-                                                {/* Header Accent Bar (Mimics native PPT layout) */}
+                                                {/* Accent Bar */}
                                                 {!isFullscreen && (
                                                     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '1.5%', background: vStyles.accent, zIndex: 10 }} />
                                                 )}
 
-                                                {/* Play Button Overlay */}
-                                                {!isFullscreen && !generatingIndex && (
-                                                    <button
-                                                        onClick={toggleFullscreen}
-                                                        className="absolute top-4 right-4 z-20 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white p-2 rounded-lg border border-white/20 transition-all shadow-sm group"
-                                                        title="Present (F)"
-                                                    >
-                                                        <Play size={18} fill="currentColor" />
-                                                    </button>
-                                                )}
-
-                                                {/* If this specific slide is currently being generated */}
+                                                {/* Slide Content */}
                                                 {generatingIndex === activeSlideIndex ? (
-                                                    <div className="absolute inset-0 bg-slate-950 flex flex-col p-8 z-10 font-mono">
-                                                        {/* Matrix UI remains as-is for premium feedback */}
-                                                        <div className="flex items-center gap-2 mb-4 border-bottom border-emerald-500/30 pb-2">
-                                                            <div className="w-3 h-3 rounded-full bg-red-500/50" />
-                                                            <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-                                                            <div className="w-3 h-3 rounded-full bg-green-500/50" />
-                                                            <span className="text-emerald-500/50 text-xs ml-2">HOPE_STUDIO_OS v4.2.0</span>
+                                                    <div className="!absolute !inset-0 !bg-slate-950 !flex !flex-col !p-8 !z-10 !font-mono">
+                                                        <div className="!flex !items-center !gap-2 !mb-4 !border-b !border-emerald-500/30 !pb-2">
+                                                            <div className="!w-3 !h-3 !rounded-full !bg-red-500/50" />
+                                                            <div className="!w-3 !h-3 !rounded-full !bg-yellow-500/50" />
+                                                            <div className="!w-3 !h-3 !rounded-full !bg-green-500/50" />
+                                                            <span className="!text-emerald-500/50 !text-xs !ml-2">HOPE_STUDIO_OS v4.2.0</span>
                                                         </div>
-                                                        <div className="flex-1 overflow-hidden">
-                                                            <p className="text-emerald-500 mb-2">
-                                                                <span className="opacity-50">$</span> tail -f /dev/ai_brain/output
-                                                            </p>
-                                                            <motion.div
-                                                                initial={{ opacity: 0 }}
-                                                                animate={{ opacity: 1 }}
-                                                                className="text-emerald-400/80 leading-relaxed text-sm"
-                                                            >
-                                                                {`{
-  "status": "processing",
-  "slide_idx": ${generatingIndex},
-  "tokens": 4096,
-  "logic": "assertion_evidence_loop",
-  "writing_assertion": "${blueprint[generatingIndex]?.title || '... '}",
-  "fetching_evidence": [ 
-    "verifying_sources",
-    "checking_slide_constraints",
-    "rendering_html" 
-  ]
-}`}
-                                                                <motion.span
-                                                                    animate={{ opacity: [0, 1, 0] }}
-                                                                    transition={{ repeat: Infinity, duration: 0.8 }}
-                                                                    className="inline-block w-2 h-4 bg-emerald-400 ml-1 align-middle"
-                                                                />
-                                                            </motion.div>
-                                                        </div>
-                                                        <div className="mt-4 flex items-center gap-4 text-emerald-500/40 text-xs">
-                                                            <span className="animate-pulse">● SYNTHESIZING DATA...</span>
-                                                            <span className="ml-auto">LATENCY: 42ms</span>
+                                                        <div className="!flex-1 !overflow-hidden">
+                                                            <p className="!text-emerald-500 !mb-2"><span className="!opacity-50">$</span> tail -f /dev/ai_brain/output</p>
+                                                            <div className="!text-emerald-400/80 !leading-relaxed !text-sm">
+                                                                {`{ "status": "processing", "slide_idx": ${generatingIndex}, "logic": "assertion_evidence_loop" }`}
+                                                                <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="!inline-block !w-2 !h-4 !bg-emerald-400 !ml-1 !align-middle" />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -766,50 +878,49 @@ CRITICAL RULES:
                                                             animate={{ opacity: 1, x: 0 }}
                                                             exit={{ opacity: 0, x: -50 }}
                                                             transition={{ duration: 0.4, ease: "easeOut" }}
-                                                            className="w-full h-full flex flex-col relative"
+                                                            className="!w-full !h-full !flex !flex-col !p-4 !box-border"
                                                         >
                                                             <SlideRenderer slideData={finalSlides[activeSlideIndex]} />
                                                         </motion.div>
                                                     </AnimatePresence>
                                                 )}
-                                            </div>
+                                            </motion.div>
                                         </div>
+                                    </div>
 
-                                        {/* Bottom Ribbon (Regenerate added Phase 3) */}
-                                        <div className="d-flex flex-column mt-3">
-                                            {/* Regenerate Button Overlay */}
-                                            <div className="d-flex justify-content-end mb-2 pe-4">
+                                    {/* Bottom Ribbon */}
+                                    <div className="!shrink-0">
+                                        <div className="!flex !flex-col !mt-3">
+                                            <div className="!flex !justify-end !mb-2 !pe-4">
                                                 <button
                                                     onClick={() => handleRegenerateSlide(activeSlideIndex)}
                                                     disabled={isLoading}
-                                                    className="btn btn-sm btn-outline-secondary rounded-pill d-flex align-items-center gap-1 hover-bg-light fw-medium bg-white shadow-sm"
+                                                    className="!bg-white hover:!bg-slate-50 !text-slate-700 !px-4 !py-1.5 !rounded-full !text-xs !font-bold !flex !items-center !gap-2 !shadow-sm !border !border-slate-200 !transition-all"
                                                 >
-                                                    {isLoading ? <Loader2 className="spin" size={14} /> : <Sparkles size={14} />}
+                                                    {isLoading ? <Loader2 className="!animate-spin" size={14} /> : <Sparkles size={14} />}
                                                     Regenerate Slide {activeSlideIndex + 1}
                                                 </button>
                                             </div>
 
-                                            <div className="d-flex overflow-auto pb-2 gap-3 custom-scrollbar hide-scrollbar" style={{ height: '90px', flexShrink: 0 }}>
+                                            <div className="!flex !overflow-x-auto !pb-2 !gap-3 !scrollbar-hide" style={{ height: '90px', flexShrink: 0, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                                 {blueprint.map((slide, i) => {
                                                     const isGenerated = finalSlides.length > i;
                                                     const isGeneratingNow = generatingIndex === i;
-
                                                     return (
                                                         <div
                                                             key={i}
                                                             onClick={() => setActiveSlideIndex(i)}
-                                                            className={`rounded-3 cursor-pointer overflow-hidden border transition-all flex-shrink-0 
-                                                                ${isGenerated ? 'bg-white border-slate-300' : 'bg-slate-50 border-dashed border-slate-200'}
-                                                                ${activeSlideIndex === i ? 'ring-2 ring-primary shadow-sm scale-105 border-primary' : 'opacity-75 hover-opacity-100'}
-                                                                ${isGeneratingNow ? 'border-purple-500 ring-2 ring-purple-500/20' : ''}
+                                                            className={`!rounded-3 !cursor-pointer !overflow-hidden !border !transition-all !flex-shrink-0 
+                                                                ${isGenerated ? '!bg-white !border-slate-300' : '!bg-slate-50 !border-dashed !border-slate-200'}
+                                                                ${activeSlideIndex === i ? '!ring-2 !ring-blue-600 !shadow-sm !scale-105 !border-blue-600' : '!opacity-75 hover:!opacity-100'}
+                                                                ${isGeneratingNow ? '!border-blue-500 !ring-2 !ring-blue-500/20' : ''}
                                                             `}
                                                             style={{ width: '130px', height: '100%', background: isGenerated ? vStyles.bg : '#f8fafc', color: isGenerated ? vStyles.text : '#94a3b8' }}
                                                         >
-                                                            <div className="w-100 h-100 d-flex flex-column p-2 relative">
-                                                                <div className="small fw-bold text-truncate" style={{ fontSize: '0.65rem', color: isGenerated ? vStyles.accent : '#94a3b8' }}>{slide.layout}</div>
-                                                                <div className="fw-medium text-truncate mt-1" style={{ fontSize: '0.75rem' }}>{isGenerated ? finalSlides[i]?.title : slide.title}</div>
-                                                                {/* Mini Accent Bar Indicator */}
-                                                                {isGenerated && <div className="position-absolute bottom-0 start-0 w-100" style={{ height: '2px', background: vStyles.accent }} />}
+                                                            <div className="!w-full !h-full !flex !flex-col !p-2 !relative">
+                                                                <div className="!font-bold !text-truncate" style={{ fontSize: '0.65rem', color: isGenerated ? vStyles.accent : '#94a3b8' }}>{slide.layout}</div>
+                                                                <div className="!font-medium !text-truncate !mt-1" style={{ fontSize: '0.75rem' }}>{isGenerated ? finalSlides[i]?.title : slide.title}</div>
+                                                                {isGenerated && <div className="!absolute !bottom-0 !left-0 !w-full" style={{ height: '2px', background: vStyles.accent }} />}
                                                             </div>
                                                         </div>
                                                     );
@@ -817,155 +928,117 @@ CRITICAL RULES:
                                             </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Right Panel: Advanced Control Deck (Phase 7 Overhaul) */}
-                                    <div className="col-lg-4 h-100 bg-white d-flex flex-column border-start border-slate-100">
-                                        {/* Tab Headers */}
-                                        <div className="d-flex border-bottom border-slate-100 p-2">
-                                            <button
-                                                onClick={() => setActiveTab('copilot')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl transition-all font-bold text-sm ${activeTab === 'copilot' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
-                                            >
-                                                <MessageSquare size={16} /> AI Co-Pilot
-                                            </button>
-                                            <button
-                                                onClick={() => setActiveTab('export')}
-                                                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl transition-all font-bold text-sm ${activeTab === 'export' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}
-                                            >
-                                                <Paintbrush size={16} /> Style & Export
-                                            </button>
-                                        </div>
-
-                                        <div className="flex-1 flex flex-col overflow-hidden p-6">
-                                            <AnimatePresence mode="wait">
-                                                {activeTab === 'copilot' ? (
-                                                    <motion.div
-                                                        key="copilot"
-                                                        initial={{ opacity: 0, x: 20 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        exit={{ opacity: 0, x: -20 }}
-                                                        className="flex-1 flex flex-col h-100"
-                                                    >
-                                                        <div className="mb-4">
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <h5 className="font-bold text-slate-900">Editing Slide {activeSlideIndex + 1}</h5>
-                                                                <span className="text-[10px] uppercase tracking-widest text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded">Active Context</span>
-                                                            </div>
-                                                            <p className="text-xs text-slate-500">Ask the co-pilot to rewrite, simplify, or improve this specific slide.</p>
-                                                        </div>
-
-                                                        {/* Chat History */}
-                                                        <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 custom-scrollbar">
-                                                            {coPilotHistory.length === 0 && (
-                                                                <div className="h-100 flex flex-col items-center justify-center text-center p-6 opacity-30">
-                                                                    <Sparkles size={48} className="mb-4 text-slate-300" />
-                                                                    <p className="text-sm font-medium">No edits requested yet.<br />Try: "Make the bullets shorter"</p>
-                                                                </div>
-                                                            )}
-                                                            {coPilotHistory.map((chat, idx) => (
-                                                                <div key={idx} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                                                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${chat.role === 'user' ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-100 text-slate-800'} shadow-sm`}>
-                                                                        {chat.content}
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                            {isCoPilotLoading && (
-                                                                <div className="flex justify-start">
-                                                                    <div className="bg-slate-100 p-3 rounded-2xl flex gap-2">
-                                                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
-                                                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-.3s]" />
-                                                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-.5s]" />
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-
-                                                        {/* Input Area */}
-                                                        <div className="relative mt-auto">
-                                                            <input
-                                                                type="text"
-                                                                value={coPilotMessage}
-                                                                onChange={e => setCoPilotMessage(e.target.value)}
-                                                                onKeyDown={e => e.key === 'Enter' && editSlideWithAI()}
-                                                                placeholder="Type instructions..."
-                                                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-5 pr-14 text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                                                            />
-                                                            <button
-                                                                onClick={editSlideWithAI}
-                                                                disabled={!coPilotMessage.trim() || isCoPilotLoading}
-                                                                className="absolute right-2 top-2 bottom-2 w-10 bg-slate-900 text-white rounded-xl flex items-center justify-center hover:bg-black transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                                            >
-                                                                <Send size={18} />
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                ) : (
-                                                    <motion.div
-                                                        key="export"
-                                                        initial={{ opacity: 0, x: 20 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        exit={{ opacity: 0, x: -20 }}
-                                                        className="flex-1 flex flex-col h-100"
-                                                    >
-                                                        <h5 className="font-bold text-slate-900 mb-6 border-bottom border-slate-100 pb-3">Final Style & Compilation</h5>
-
-                                                        <div className="mb-8">
-                                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 d-block">Presentation Theme</label>
-                                                            <div className="space-y-3">
-                                                                {[
-                                                                    { id: 'dark', name: 'Phantom Dark', bg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', text: 'white' },
-                                                                    { id: 'corporate', name: 'Cloud Light', bg: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', text: '#0f172a' },
-                                                                ].map(t => (
-                                                                    <div
-                                                                        key={t.id}
-                                                                        onClick={() => setTheme(t.id)}
-                                                                        className={`p-4 rounded-xl cursor-pointer border transition-all d-flex align-items-center justify-content-between ${theme === t.id ? 'border-slate-900 bg-slate-50 shadow-md ring-4 ring-slate-900/5' : 'border-slate-100 opacity-75 hover:opacity-100 bg-white hover:bg-slate-50'}`}
-                                                                    >
-                                                                        <div className="d-flex align-items-center gap-3">
-                                                                            <div className="rounded-circle shadow-sm" style={{ width: '20px', height: '20px', background: t.bg }} />
-                                                                            <div className="font-bold text-slate-800">{t.name}</div>
-                                                                        </div>
-                                                                        {theme === t.id && <CheckCircle size={18} className="text-slate-900" />}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="mt-auto pt-6 border-top border-slate-100">
-                                                            <div className="flex items-center justify-between mb-4">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Auto-Save Status</span>
-                                                                    <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                                                                        <CheckCircle size={10} /> Saved to drafts {lastSaved && `@ ${lastSaved}`}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <button
-                                                                onClick={handleDownload}
-                                                                disabled={isDownloading || !isGenerationComplete}
-                                                                className={`w-full py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-xl ${isDownloading || !isGenerationComplete ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 hover:bg-black text-white hover:-translate-y-1'}`}
-                                                            >
-                                                                {isDownloading ? (
-                                                                    <><Loader2 className="animate-spin" size={22} /> Compiling Deck...</>
-                                                                ) : (
-                                                                    <><Download size={22} /> DOWNLOAD .PPTX</>
-                                                                )}
-                                                            </button>
-                                                            <p className="text-[10px] text-center text-slate-400 mt-4 px-4">Coordinates are fixed to 16:9 viewport to ensure pixel-perfect export.</p>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
+                                {/* Right Panel: Sidekick / Export */}
+                                <div
+                                    ref={panelRef}
+                                    className="!bg-white !border-l !border-slate-200 !flex !flex-col !overflow-hidden !relative"
+                                    style={{
+                                        width: !isMobile ? `${panelSize}px` : '100%',
+                                        height: isMobile ? `${panelSize}px` : 'auto',
+                                        transition: isResizing ? 'none' : 'all 0.3s ease'
+                                    }}
+                                >
+                                    {/* Resize Handle */}
+                                    <div
+                                        onMouseDown={startResizing}
+                                        onTouchStart={startResizing}
+                                        className={`!absolute !z-50 !bg-slate-300 hover:!bg-blue-500 !transition-colors !cursor-move md:!cursor-col-resize
+                                            ${isMobile
+                                                ? '!top-0 !left-0 !right-0 !h-1'
+                                                : '!left-0 !top-0 !bottom-0 !w-1'}`}
+                                    />
+                                    <div className="!flex !border-b !border-slate-100">
+                                        <button
+                                            onClick={() => setActiveTab('copilot')}
+                                            className={`!flex-1 !py-3 !text-xs !font-black !uppercase !tracking-widest !transition-all ${activeTab === 'copilot' ? '!text-blue-600 !border-b-2 !border-blue-600 !bg-blue-50/50' : '!text-slate-400 hover:!text-slate-600 hover:!bg-slate-50'}`}
+                                        >
+                                            AI Co-pilot
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('export')}
+                                            className={`!flex-1 !py-3 !text-xs !font-black !uppercase !tracking-widest !transition-all ${activeTab === 'export' ? '!text-blue-600 !border-b-2 !border-blue-600 !bg-blue-50/50' : '!text-slate-400 hover:!text-slate-600 hover:!bg-slate-50'}`}
+                                        >
+                                            Export
+                                        </button>
                                     </div>
-                                </div >
-                            </motion.div >
-                        )
-                    }
 
-                </AnimatePresence >
-            </main >
-        </div >
+                                    <div className="!flex-1 !overflow-hidden !p-4 !flex !flex-col">
+                                        {activeTab === 'copilot' ? (
+                                            <div className="!flex !flex-col !h-full !gap-4">
+                                                <div className="!flex-1 !overflow-y-auto !space-y-4 !pr-1 !scrollbar-hide">
+                                                    {coPilotHistory.length === 0 ? (
+                                                        <div className="!text-center !py-8">
+                                                            <Sparkles className="!mx-auto !mb-3 !text-blue-400 !bg-blue-50 !p-3 !rounded-2xl !w-12 !h-12" />
+                                                            <p className="!text-sm !text-slate-500 !font-semibold">Your AI Creative Assistant is ready.</p>
+                                                            <p className="!text-xs !text-slate-400 !mt-1">Try: "Make the tone more professional"</p>
+                                                        </div>
+                                                    ) : (
+                                                        coPilotHistory.map((chat, i) => (
+                                                            <div key={i} className={`!flex ${chat.role === 'user' ? '!justify-end' : '!justify-start'}`}>
+                                                                <div className={`!max-w-[85%] !p-3 !rounded-2xl !text-xs !font-medium ${chat.role === 'user' ? '!bg-blue-600 !text-white' : '!bg-slate-100 !text-slate-800'}`}>
+                                                                    {chat.content}
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+
+                                                <div className="!shrink-0 !bg-slate-50 !px-3 !py-1.5 !rounded-full !border !border-slate-200 !flex !items-center !gap-2 !mb-1">
+                                                    <textarea
+                                                        value={coPilotMessage}
+                                                        onChange={(e) => setCoPilotMessage(e.target.value)}
+                                                        placeholder="Message AI..."
+                                                        className="!flex-1 !bg-transparent !border-0 !text-sm !text-slate-800 placeholder:!text-slate-400 !p-1 !resize-none !outline-none focus:!ring-0 !appearance-none !h-7 !min-h-0 !leading-snug !overflow-hidden"
+                                                        rows={1}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                                e.preventDefault();
+                                                                editSlideWithAI();
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={editSlideWithAI}
+                                                        disabled={isCoPilotLoading || !coPilotMessage.trim()}
+                                                        className="!bg-blue-600 hover:!bg-blue-700 !text-white !p-1.5 !rounded-full !transition-all disabled:!opacity-50 !shrink-0"
+                                                    >
+                                                        {isCoPilotLoading ? <Loader2 size={12} className="!animate-spin" /> : <Send size={12} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="!space-y-6">
+                                                <div className="!p-4 !bg-emerald-50 !border !border-emerald-100 !rounded-2xl">
+                                                    <h6 className="!text-emerald-900 !font-black !text-[10px] !uppercase !tracking-widest !mb-2">Native PowerPoint</h6>
+                                                    <p className="!text-xs !text-emerald-700 !mb-4">Export to editable .pptx format with your selected corporate theme.</p>
+                                                    <button
+                                                        onClick={handleDownload}
+                                                        disabled={isDownloading}
+                                                        className="!w-full !bg-emerald-600 hover:!bg-emerald-700 !text-white !py-3 !rounded-full !text-sm !font-bold !flex !items-center !justify-center !gap-2 !transition-all"
+                                                    >
+                                                        {isDownloading ? <Loader2 size={16} className="!animate-spin" /> : <Download size={16} />}
+                                                        {isDownloading ? "Compiling..." : "Download PPTX"}
+                                                    </button>
+                                                </div>
+                                                {lastSaved && (
+                                                    <div className="!text-center">
+                                                        <p className="!text-[10px] !text-slate-400 !font-bold !flex !items-center !justify-center !gap-1">
+                                                            <CheckCircle size={10} /> Auto-saved at {lastSaved}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </main>
+        </div>
     );
 };
 

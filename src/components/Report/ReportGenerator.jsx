@@ -4,6 +4,7 @@ import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAICompletion } from '../../utils/aiService';
 import { generateReportBlueprint, generateSectionContent, enhanceReportTopic } from '../../utils/reportAI';
+import MiniGameLoader from '../common/MiniGameLoader';
 
 const ReportGenerator = ({ onBack }) => {
     const [step, setStep] = useState(1); // 1: Config, 2: Blueprint, 3: Studio
@@ -408,60 +409,66 @@ const ReportGenerator = ({ onBack }) => {
                     {/* Welcome / Initial Config State */}
                     {!blueprint && (
                         <div className={`flex items-center justify-center p-4 md:p-8 ${isMobile ? 'fixed inset-0 z-[100] bg-slate-50 overflow-y-auto' : 'absolute inset-0 z-10'}`}>
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`bg-white md:bg-white/70 md:backdrop-blur-2xl border-0 md:border md:border-white shadow-2xl rounded-none md:rounded-[3rem] p-8 md:p-12 pb-safe max-w-2xl w-full text-center ${isMobile ? 'min-h-screen flex flex-col justify-center z-[20] pt-20 md:pt-0' : ''}`}
-                            >
-                                {isMobile && (
-                                    <button
-                                        onClick={onBack}
-                                        className="absolute top-6 left-6 p-2 text-slate-400 hover:text-slate-600 transition-colors"
-                                    >
-                                        <Icons.ArrowLeft size={24} />
-                                    </button>
-                                )}
-                                <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-900 rounded-[1.5rem] md:rounded-[2rem] text-white flex items-center justify-center mx-auto mb-6 md:mb-8 shadow-2xl shadow-indigo-200">
-                                    <Icons.PenTool size={isMobile ? 30 : 40} />
+                            {loading ? (
+                                <div className="w-full max-w-2xl mx-auto h-full flex flex-col items-center justify-center">
+                                    <MiniGameLoader loadingText="Architecting Document Blueprint..." subText="Analyzing academic vectors and structure..." />
                                 </div>
-                                <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter mb-4">Start Your Research</h2>
-                                <p className="text-slate-500 font-medium mb-8 md:mb-10 text-sm md:text-base">Configure your research parameters to generate a high-fidelity document blueprint.</p>
-                                <div className="h-px bg-slate-100 w-full mb-8 md:mb-10" />
+                            ) : (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`bg-white md:bg-white/70 md:backdrop-blur-2xl border-0 md:border md:border-white shadow-2xl rounded-none md:rounded-[3rem] p-8 md:p-12 pb-safe max-w-2xl w-full text-center ${isMobile ? 'min-h-screen flex flex-col justify-center z-[20] pt-20 md:pt-0' : ''}`}
+                                >
+                                    {isMobile && (
+                                        <button
+                                            onClick={onBack}
+                                            className="absolute top-6 left-6 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        >
+                                            <Icons.ArrowLeft size={24} />
+                                        </button>
+                                    )}
+                                    <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-900 rounded-[1.5rem] md:rounded-[2rem] text-white flex items-center justify-center mx-auto mb-6 md:mb-8 shadow-2xl shadow-indigo-200">
+                                        <Icons.PenTool size={isMobile ? 30 : 40} />
+                                    </div>
+                                    <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter mb-4">Start Your Research</h2>
+                                    <p className="text-slate-500 font-medium mb-8 md:mb-10 text-sm md:text-base">Configure your research parameters to generate a high-fidelity document blueprint.</p>
+                                    <div className="h-px bg-slate-100 w-full mb-8 md:mb-10" />
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left mb-8 md:mb-10">
-                                    <div className="p-4 md:p-6 bg-indigo-50/50 rounded-2xl md:rounded-3xl border border-indigo-100 flex items-center md:block gap-4 md:gap-0">
-                                        <div className="p-2 bg-indigo-600 text-white rounded-lg w-fit md:mb-4 shrink-0">
-                                            <Icons.Sparkles size={16} />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left mb-8 md:mb-10">
+                                        <div className="p-4 md:p-6 bg-indigo-50/50 rounded-2xl md:rounded-3xl border border-indigo-100 flex items-center md:block gap-4 md:gap-0">
+                                            <div className="p-2 bg-indigo-600 text-white rounded-lg w-fit md:mb-4 shrink-0">
+                                                <Icons.Sparkles size={16} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-900 text-sm">Agentic Engine</h4>
+                                                <p className="text-[10px] text-slate-500 mt-1 font-medium italic">High Intelligence Model</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-slate-900 text-sm">Agentic Engine</h4>
-                                            <p className="text-[10px] text-slate-500 mt-1 font-medium italic">High Intelligence Model</p>
+                                        <div className="p-4 md:p-6 bg-slate-50/80 rounded-2xl md:rounded-3xl border border-slate-100 flex items-center md:block gap-4 md:gap-0">
+                                            <div className="p-2 bg-slate-900 text-white rounded-lg w-fit md:mb-4 shrink-0">
+                                                <Icons.Layout size={16} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-900 text-sm">Adaptive Layout</h4>
+                                                <p className="text-[10px] text-slate-500 mt-1 font-medium italic">Mobile-First Design</p>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="p-4 md:p-6 bg-slate-50/80 rounded-2xl md:rounded-3xl border border-slate-100 flex items-center md:block gap-4 md:gap-0">
-                                        <div className="p-2 bg-slate-900 text-white rounded-lg w-fit md:mb-4 shrink-0">
-                                            <Icons.Layout size={16} />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-slate-900 text-sm">Adaptive Layout</h4>
-                                            <p className="text-[10px] text-slate-500 mt-1 font-medium italic">Mobile-First Design</p>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                {isMobile && (
-                                    <button
-                                        onClick={() => {
-                                            setShowConfigDock(true);
-                                            setActiveDockTab('config');
-                                        }}
-                                        className="w-full bg-slate-900 text-white py-5 font-black text-lg shadow-xl mt-4 min-h-[50px] mb-8"
-                                        style={{ borderRadius: '16px' }}
-                                    >
-                                        Continue to Config
-                                    </button>
-                                )}
-                            </motion.div>
+                                    {isMobile && (
+                                        <button
+                                            onClick={() => {
+                                                setShowConfigDock(true);
+                                                setActiveDockTab('config');
+                                            }}
+                                            className="w-full bg-slate-900 text-white py-5 font-black text-lg shadow-xl mt-4 min-h-[50px] mb-8"
+                                            style={{ borderRadius: '16px' }}
+                                        >
+                                            Continue to Config
+                                        </button>
+                                    )}
+                                </motion.div>
+                            )}
                         </div>
                     )}
 

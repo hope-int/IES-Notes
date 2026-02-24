@@ -11,13 +11,29 @@ import 'reactflow/dist/style.css';
 import CustomNode from './CustomNode';
 import NodeDrawer from './NodeDrawer';
 import RoadmapWizard from './RoadmapWizard';
+import MobileTimeline from './MobileTimeline';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../supabaseClient';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Menu, X } from 'lucide-react';
 
-const nodeTypes = {
-    custom: CustomNode
+
+
+// Basic hook for media queries
+const useMediaQuery = (query) => {
+    const [matches, setMatches] = useState(false);
+    useEffect(() => {
+        const media = window.matchMedia(query);
+        if (media.matches !== matches) {
+            setMatches(media.matches);
+        }
+        const listener = () => setMatches(media.matches);
+        window.addEventListener('resize', listener);
+        return () => window.removeEventListener('resize', listener);
+    }, [matches, query]);
+    return matches;
 };
+
+const nodeTypes = { custom: CustomNode };
 
 const RoadmapCanvas = () => {
     const { userProfile: profile } = useAuth();
@@ -26,6 +42,10 @@ const RoadmapCanvas = () => {
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState(null);
     const [isCheckingDB, setIsCheckingDB] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Adaptive Architecture specific hook
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
 
     // Initial Database Check
@@ -154,47 +174,94 @@ const RoadmapCanvas = () => {
     }
 
     return (
-        <div className="w-full h-screen bg-[var(--bg-page)] text-[var(--text-main)] transition-colors duration-300">
+        <div className="min-h-screen bg-slate-50 flex flex-col transition-colors duration-300 overflow-hidden relative">
             {isWizardOpen ? (
                 <RoadmapWizard onRoadmapGenerated={handleRoadmapGenerated} />
             ) : (
                 <>
-                    <div className="absolute top-4 left-4 z-10 clay-card p-4 rounded-xl border border-white/40 shadow-lg min-w-[250px]">
-                        <button onClick={() => window.history.back()} className="mb-2 flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--primary-accent)]">
-                            ← Back
-                        </button>
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-[var(--primary-accent)] to-[var(--secondary-accent)] bg-clip-text text-transparent">
-                            {profile?.full_name ? `${profile.full_name.split(' ')[0]}'s Path` : 'Your Learning Path'}
-                        </h1>
-                        <p className="text-xs text-[var(--text-muted)] mt-1">Unlock nodes to master your goal</p>
+                    {/* Sticky Header */}
+                    <header className="sticky top-0 z-40 h-16 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => {
+                                    if (isMobile) {
+                                        window.history.back();
+                                    } else {
+                                        setIsSidebarOpen(!isSidebarOpen);
+                                    }
+                                }}
+                                className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+                            >
+                                {isMobile ? <X size={20} /> : <Menu size={20} />}
+                            </button>
+                            <h1 className="text-xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent truncate max-w-[200px] md:max-w-xs">
+                                {profile?.full_name ? `${profile.full_name.split(' ')[0]}'s Path` : 'Learning Path'}
+                            </h1>
+                        </div>
+
                         <button
                             onClick={() => setIsWizardOpen(true)}
-                            className="mt-3 text-xs text-[var(--primary-accent)] hover:text-[var(--secondary-accent)] underline font-medium"
+                            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center gap-2"
                         >
-                            Generate New Roadmap
+                            <span className="hidden sm:inline">Generate New</span>
+                            <span className="sm:hidden">New</span>
                         </button>
-                    </div>
+                    </header>
 
-                    <ReactFlow
-                        nodes={nodes}
-                        edges={edges}
-                        onNodesChange={onNodesChange}
-                        onEdgesChange={onEdgesChange}
-                        nodeTypes={nodeTypes}
-                        onNodeClick={onNodeClick}
-                        fitView
-                        defaultEdgeOptions={{
-                            animated: true,
-                            style: { stroke: 'var(--text-muted)', strokeWidth: 2 },
-                        }}
-                    >
-                        <Background color="var(--text-muted)" gap={20} size={1} variant="dots" className="opacity-20" />
-                        <Controls className="bg-white border-2 border-gray-100 shadow-xl rounded-lg text-gray-600 space-y-1" />
-                    </ReactFlow>
+                    {/* Main Content Area */}
+                    <main className="flex-1 relative flex">
+
+                        {/* Desktop Sidebar */}
+                        {!isMobile && (
+                            <div className={`
+                                flex-shrink-0 flex-col bg-white border-r border-slate-200 z-30 p-6 transition-all duration-300 ease-in-out
+                                ${isSidebarOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 overflow-hidden px-0 border-r-0'}
+                            `}>
+                                <button onClick={() => window.history.back()} className="mb-6 flex w-max items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+                                    ← Back to Dashboard
+                                </button>
+
+                                <div className="flex flex-col flex-1">
+                                    <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                                        Welcome to your interactive skill tree. Unlock nodes to master your engineering goal.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Adaptive Canvas */}
+                        <div className="flex-1 h-[calc(100vh-4rem)] relative">
+                            {isMobile ? (
+                                <div className="h-full overflow-y-auto">
+                                    <MobileTimeline nodes={nodes} onSelectNode={setSelectedNode} />
+                                </div>
+                            ) : (
+                                <ReactFlow
+                                    nodes={nodes}
+                                    edges={edges}
+                                    onNodesChange={onNodesChange}
+                                    onEdgesChange={onEdgesChange}
+                                    nodeTypes={nodeTypes}
+                                    onNodeClick={onNodeClick}
+                                    fitView
+                                    fitViewOptions={{ padding: 0.5 }}
+                                    defaultEdgeOptions={{
+                                        type: 'smoothstep',
+                                        animated: true,
+                                        style: { stroke: '#cbd5e1', strokeWidth: 2 },
+                                    }}
+                                >
+                                    <Background color="#cbd5e1" gap={20} size={1} variant="dots" className="opacity-40" />
+                                    <Controls className="bg-white border border-slate-200 shadow-sm rounded-lg text-slate-600 space-y-1" />
+                                </ReactFlow>
+                            )}
+                        </div>
+                    </main>
 
                     <NodeDrawer
                         node={selectedNode}
                         isOpen={!!selectedNode}
+                        isMobile={isMobile}
                         onClose={() => setSelectedNode(null)}
                         onComplete={handleNodeCompletion}
                     />

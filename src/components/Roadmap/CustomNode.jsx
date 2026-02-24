@@ -11,12 +11,12 @@ const CustomNode = ({ data }) => {
     const getStatusStyles = () => {
         switch (status) {
             case 'completed':
-                return 'border-green-500 bg-green-100 shadow-md';
+                return 'border-emerald-200 bg-emerald-50 shadow-sm';
             case 'active':
-                return 'border-[var(--primary-accent)] bg-white shadow-lg shadow-blue-500/20 animate-pulse ring-2 ring-blue-500/20';
+                return 'border-indigo-500 bg-white shadow-xl ring-4 ring-indigo-100 scale-105 transform z-10';
             case 'locked':
             default:
-                return 'border-gray-300 bg-gray-100 opacity-80';
+                return 'border-slate-200 bg-slate-50 text-slate-400 opacity-75';
         }
     };
 
@@ -35,17 +35,17 @@ const CustomNode = ({ data }) => {
       flex flex-col items-center justify-center gap-2
       ${getStatusStyles()}
     `}>
-            <Handle type="target" position={Position.Top} className="!bg-transparent !border-none" />
+            <Handle type="target" position={Position.Top} className="!bg-transparent !border-none opacity-0" />
 
-            <div className={`p-2 rounded-full flex items-center justify-center ${status === 'locked' ? 'bg-gray-200' : 'bg-white shadow-sm border border-gray-100'}`}>
+            <div className={`p-2 rounded-full flex items-center justify-center ${status === 'locked' ? 'bg-slate-200' : 'bg-white shadow-sm border border-slate-100'}`}>
                 {getIcon()}
             </div>
 
-            <span className={`font-bold text-center ${isMain ? 'text-base' : 'text-xs'} ${status === 'locked' ? 'text-gray-500' : 'text-[var(--text-main)]'}`}>
+            <span className={`font-bold text-center ${isMain ? 'text-base' : 'text-xs'} ${status === 'locked' ? 'text-slate-500' : 'text-[var(--text-main)]'}`}>
                 {label}
             </span>
 
-            <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-none" />
+            <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-none opacity-0" />
         </div>
     );
 };

@@ -7,6 +7,7 @@ import {
     solveAssignmentStep,
     generateSmartScore
 } from '../../utils/assignmentAI';
+import MiniGameLoader from '../common/MiniGameLoader';
 
 const AssignmentGenerator = ({ onBack }) => {
     const [step, setStep] = useState(1); // 1: Config, 2: Solving, 3: Review
@@ -176,83 +177,87 @@ const AssignmentGenerator = ({ onBack }) => {
                         {/* STEP 1: CONFIG */}
                         {step === 1 && (
                             <div className="max-w-4xl mx-auto w-full">
-                                <motion.div
-                                    className={`bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white relative overflow-hidden ${isMobile ? 'p-6' : 'p-8 md:p-16'}`}
-                                    initial={{ y: 30, opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                >
-                                    <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-indigo-100 rounded-full -mr-32 md:-mr-48 -mt-32 md:-mt-48 blur-3xl opacity-30" />
+                                {loading ? (
+                                    <MiniGameLoader loadingText="Synthesizing Setup..." subText="Architecting problem solution vectors..." />
+                                ) : (
+                                    <motion.div
+                                        className={`bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white relative overflow-hidden ${isMobile ? 'p-6' : 'p-8 md:p-16'}`}
+                                        initial={{ y: 30, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                    >
+                                        <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-indigo-100 rounded-full -mr-32 md:-mr-48 -mt-32 md:-mt-48 blur-3xl opacity-30" />
 
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-4 mb-8 md:mb-12">
-                                            <div className="p-3 md:p-4 bg-indigo-600 rounded-2xl md:rounded-3xl text-white shadow-xl shadow-indigo-100 shrink-0">
-                                                <Icons.PenTool size={isMobile ? 24 : 32} />
-                                            </div>
-                                            <div>
-                                                <h3 className={`${isMobile ? 'text-2xl' : 'text-4xl'} font-black text-slate-900 tracking-tight`}>Assignment Architect</h3>
-                                                <p className={`text-slate-400 font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Let our AI synthesize a high-grade response for your problem.</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-8 md:space-y-12">
-                                            <div className="relative">
-                                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">Problem / Question</label>
-                                                <textarea
-                                                    className={`w-full bg-slate-50 border-2 border-slate-100 rounded-2xl md:rounded-3xl p-5 md:p-8 font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner ${isMobile ? 'text-lg min-h-[150px]' : 'text-2xl min-h-[200px]'}`}
-                                                    placeholder="Paste your assignment prompt or specific question here..."
-                                                    value={formData.topic}
-                                                    onChange={e => setFormData({ ...formData, topic: e.target.value })}
-                                                />
+                                        <div className="relative z-10">
+                                            <div className="flex items-center gap-4 mb-8 md:mb-12">
+                                                <div className="p-3 md:p-4 bg-indigo-600 rounded-2xl md:rounded-3xl text-white shadow-xl shadow-indigo-100 shrink-0">
+                                                    <Icons.PenTool size={isMobile ? 24 : 32} />
+                                                </div>
+                                                <div>
+                                                    <h3 className={`${isMobile ? 'text-2xl' : 'text-4xl'} font-black text-slate-900 tracking-tight`}>Assignment Architect</h3>
+                                                    <p className={`text-slate-400 font-medium ${isMobile ? 'text-xs' : 'text-sm'}`}>Let our AI synthesize a high-grade response for your problem.</p>
+                                                </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Subject Area</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-4 md:p-5 font-bold focus:border-indigo-500 outline-none text-sm md:text-base"
-                                                        placeholder="e.g. Theoretical Physics"
-                                                        value={formData.subject}
-                                                        onChange={e => setFormData({ ...formData, subject: e.target.value })}
+                                            <div className="space-y-8 md:space-y-12">
+                                                <div className="relative">
+                                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block">Problem / Question</label>
+                                                    <textarea
+                                                        className={`w-full bg-slate-50 border-2 border-slate-100 rounded-2xl md:rounded-3xl p-5 md:p-8 font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner ${isMobile ? 'text-lg min-h-[150px]' : 'text-2xl min-h-[200px]'}`}
+                                                        placeholder="Paste your assignment prompt or specific question here..."
+                                                        value={formData.topic}
+                                                        onChange={e => setFormData({ ...formData, topic: e.target.value })}
                                                     />
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Level / Audience</label>
-                                                    <select
-                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-4 md:p-5 font-bold appearance-none focus:border-indigo-500 outline-none text-sm md:text-base cursor-pointer"
-                                                        value={formData.audience}
-                                                        onChange={e => setFormData({ ...formData, audience: e.target.value })}
-                                                    >
-                                                        <option>High School</option>
-                                                        <option>Undergraduate</option>
-                                                        <option>Postgraduate</option>
-                                                        <option>Professional</option>
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Difficulty Target</label>
-                                                    <select
-                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-4 md:p-5 font-bold appearance-none focus:border-indigo-500 outline-none text-sm md:text-base cursor-pointer"
-                                                        value={formData.difficulty}
-                                                        onChange={e => setFormData({ ...formData, difficulty: e.target.value })}
-                                                    >
-                                                        <option>Concise</option>
-                                                        <option>Intermediate</option>
-                                                        <option>Exhaustive</option>
-                                                    </select>
-                                                </div>
-                                            </div>
 
-                                            <button
-                                                className={`w-full bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl md:rounded-full font-black shadow-2xl shadow-indigo-100 transition-all flex items-center justify-center gap-4 active:scale-95 group mb-6 ${isMobile ? 'py-5 text-lg' : 'py-6 text-2xl'}`}
-                                                onClick={handleGenerate}
-                                                disabled={loading || !formData.topic}
-                                            >
-                                                {loading ? <Icons.Loader2 className="animate-spin" /> : <><Icons.Cpu className="group-hover:rotate-12 transition-transform" /> Synthesize Solution</>}
-                                            </button>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Subject Area</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-4 md:p-5 font-bold focus:border-indigo-500 outline-none text-sm md:text-base"
+                                                            placeholder="e.g. Theoretical Physics"
+                                                            value={formData.subject}
+                                                            onChange={e => setFormData({ ...formData, subject: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Level / Audience</label>
+                                                        <select
+                                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-4 md:p-5 font-bold appearance-none focus:border-indigo-500 outline-none text-sm md:text-base cursor-pointer"
+                                                            value={formData.audience}
+                                                            onChange={e => setFormData({ ...formData, audience: e.target.value })}
+                                                        >
+                                                            <option>High School</option>
+                                                            <option>Undergraduate</option>
+                                                            <option>Postgraduate</option>
+                                                            <option>Professional</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Difficulty Target</label>
+                                                        <select
+                                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl md:rounded-2xl p-4 md:p-5 font-bold appearance-none focus:border-indigo-500 outline-none text-sm md:text-base cursor-pointer"
+                                                            value={formData.difficulty}
+                                                            onChange={e => setFormData({ ...formData, difficulty: e.target.value })}
+                                                        >
+                                                            <option>Concise</option>
+                                                            <option>Intermediate</option>
+                                                            <option>Exhaustive</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    className={`w-full bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl md:rounded-full font-black shadow-2xl shadow-indigo-100 transition-all flex items-center justify-center gap-4 active:scale-95 group mb-6 ${isMobile ? 'py-5 text-lg' : 'py-6 text-2xl'}`}
+                                                    onClick={handleGenerate}
+                                                    disabled={loading || !formData.topic}
+                                                >
+                                                    {loading ? <Icons.Loader2 className="animate-spin" /> : <><Icons.Cpu className="group-hover:rotate-12 transition-transform" /> Synthesize Solution</>}
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                </motion.div>
+                                    </motion.div>
+                                )}
                             </div>
                         )}
 

@@ -1,120 +1,111 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import * as LucideIcons from 'lucide-react';
 
 export default function SlideRenderer({ slideData }) {
-    // If no data, return empty
     if (!slideData) return null;
 
-    // --------------------------------------------------------
-    // LAYOUT 1: The "Apple Keynote" Title Slide
-    // --------------------------------------------------------
-    if (slideData.layout === "TITLE_SLIDE") {
-        return (
-            <div className="w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 flex flex-col items-center justify-center p-12 text-center relative overflow-hidden">
-                {/* Decorative Background Glowing Orbs */}
-                <div className="absolute -top-32 -left-32 w-96 h-96 bg-purple-500/30 rounded-full blur-[100px]"></div>
-                <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-500/30 rounded-full blur-[100px]"></div>
+    const { title, bullets, design = {} } = slideData;
+    const {
+        bgType = 'solid',
+        colors = { primary: '#3b82f6', secondary: '#eff6ff', accent: '#60a5fa' },
+        layoutHints = 'center-card',
+        decorations = [],
+        icon = 'Sparkles'
+    } = design;
 
-                <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold text-white tracking-tight mb-8 z-10 drop-shadow-lg max-w-[90%]">
-                    {slideData.title}
-                </h1>
-                <div className="w-48 h-2 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full z-10"></div>
-            </div>
-        );
-    }
+    // Resolve Icon
+    const IconComponent = LucideIcons[icon] || LucideIcons.Sparkles;
 
-    // --------------------------------------------------------
-    // LAYOUT 2: The "Premium 50/50 Split" Two Column
-    // --------------------------------------------------------
-    if (slideData.layout === "TWO_COLUMN") {
-        return (
-            <div className="w-full h-full flex bg-slate-50">
-                {/* Left Side (Dark branding block) */}
-                <div className="w-2/5 bg-slate-900 p-10 md:p-16 flex flex-col justify-center relative overflow-hidden shadow-2xl z-10">
-                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight z-10">
-                        {slideData.title}
-                    </h2>
-                    <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-indigo-900/50 to-transparent"></div>
-                </div>
+    // Background Styles
+    const getBackground = () => {
+        if (bgType === 'gradient') return `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`;
+        if (bgType === 'mesh') return `radial-gradient(at 0% 0%, ${colors.primary} 0px, transparent 50%), radial-gradient(at 100% 100%, ${colors.secondary} 0px, transparent 50%), radial-gradient(at 50% 0%, ${colors.accent} 0px, transparent 50%)`;
+        if (bgType === 'glass') return `transparent`;
+        return colors.secondary || '#ffffff';
+    };
 
-                {/* Right Side (Light content block) */}
-                <div className="w-3/5 p-10 md:p-16 flex items-center justify-center bg-white">
-                    <div className="grid grid-cols-2 gap-8 lg:gap-16 w-full">
-                        <ul className="space-y-6 lg:space-y-10">
-                            {slideData.bullets_left?.map((bullet, idx) => (
-                                <li key={idx} className="text-xl md:text-2xl lg:text-3xl text-slate-700 flex items-start leading-snug">
-                                    <span className="text-indigo-600 mr-4 font-black text-3xl md:text-4xl">•</span>
-                                    {bullet}
-                                </li>
-                            ))}
-                        </ul>
-                        <ul className="space-y-6 lg:space-y-10">
-                            {slideData.bullets_right?.map((bullet, idx) => (
-                                <li key={idx} className="text-xl md:text-2xl lg:text-3xl text-slate-700 flex items-start leading-snug">
-                                    <span className="text-purple-600 mr-4 font-black text-3xl md:text-4xl">•</span>
-                                    {bullet}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // Layout Containers
+    const containerClasses = useMemo(() => {
+        const base = "w-full h-full relative overflow-hidden flex flex-col p-12 md:p-20 transition-all duration-700";
+        if (layoutHints === 'center-card') return `${base} items-center justify-center text-center`;
+        if (layoutHints === 'split-vertical') return `${base} items-start justify-center`;
+        if (layoutHints === 'hero-stat') return `${base} items-center justify-center bg-slate-900 text-white`;
+        if (layoutHints === 'grid-3x1') return `${base} items-start`;
+        return base;
+    }, [layoutHints]);
 
-    // --------------------------------------------------------
-    // LAYOUT 3: The "Startup Pitch" Big Stat
-    // --------------------------------------------------------
-    if (slideData.layout === "BIG_STAT") {
-        return (
-            <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center p-12 text-center relative">
-                <h2 className="absolute top-12 left-12 text-3xl md:text-4xl font-bold text-slate-400">
-                    {slideData.title}
-                </h2>
-
-                {/* Glassmorphic Stat Card */}
-                <div className="bg-white/60 backdrop-blur-xl border border-white shadow-2xl rounded-3xl p-16 md:p-24 flex flex-col items-center transform transition-transform hover:scale-105">
-                    <h1 className="text-7xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 mb-6 drop-shadow-sm">
-                        {slideData.stat || (slideData.bullets ? slideData.bullets[0] : "Data Point")}
-                    </h1>
-                    <p className="text-2xl md:text-4xl font-medium text-slate-600 max-w-3xl">
-                        {slideData.bullets ? slideData.bullets[1] : "Transforming the industry standard."}
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    // --------------------------------------------------------
-    // LAYOUT 4: The "Modern Minimalist" Standard Bullets
-    // --------------------------------------------------------
     return (
-        <div className="w-full h-full bg-white flex flex-col p-12 md:p-20 relative">
-            {/* Sleek Top Header */}
-            <div className="mb-12 md:mb-20">
-                <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight">
-                    {slideData.title}
-                </h2>
-                <div className="w-32 h-2 bg-indigo-500 rounded-full mt-6"></div>
-            </div>
+        <div className={containerClasses} style={{ background: getBackground() }}>
+            {/* Dynamic Decorations */}
+            {decorations.includes('floating-orbs') && (
+                <>
+                    <motion.div
+                        animate={{ x: [0, 50, 0], y: [0, 30, 0] }}
+                        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                        className="absolute -top-20 -left-20 w-80 h-80 rounded-full blur-[100px] opacity-30"
+                        style={{ background: colors.primary }}
+                    />
+                    <motion.div
+                        animate={{ x: [0, -40, 0], y: [0, 60, 0] }}
+                        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                        className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full blur-[100px] opacity-20"
+                        style={{ background: colors.accent }}
+                    />
+                </>
+            )}
 
-            {/* Spaced Out Bullet Points */}
-            <div className="flex-1 flex flex-col justify-center max-w-5xl">
-                <ul className="space-y-8 md:space-y-12">
-                    {slideData.bullets?.map((bullet, idx) => (
-                        <li key={idx} className="text-2xl md:text-3xl lg:text-4xl text-slate-600 flex items-start leading-relaxed font-medium">
-                            {/* Custom SVG Checkmark instead of a boring dot */}
-                            <svg className="w-8 h-8 md:w-10 md:h-10 text-emerald-500 mr-6 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            {bullet}
-                        </li>
+            {decorations.includes('grid-pattern') && (
+                <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: `radial-gradient(${colors.primary} 1px, transparent 1px)`, backgroundSize: '40px 40px' }} />
+            )}
+
+            {decorations.includes('border-glow') && (
+                <div className="absolute inset-4 border-2 rounded-[2rem] opacity-20" style={{ borderColor: colors.primary, boxShadow: `0 0 40px ${colors.primary}` }} />
+            )}
+
+            {/* Slide Content */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="z-10 w-full max-w-5xl"
+            >
+                {/* Header Section */}
+                <div className={`flex flex-col ${layoutHints === 'center-card' ? 'items-center' : 'items-start'} mb-12`}>
+                    <div className="flex items-center gap-4 mb-4">
+                        <IconComponent className="w-10 h-10" style={{ color: bgType === 'hero-stat' ? '#fff' : colors.primary }} />
+                        {layoutHints === 'hero-stat' && <div className="h-1px w-12 bg-white/30" />}
+                    </div>
+                    <h1 className={`!text-4xl md:!text-6xl !font-black !tracking-tighter !leading-tight ${bgType === 'hero-stat' ? 'text-white' : 'text-slate-900'}`}>
+                        {title}
+                    </h1>
+                    <div className="w-24 h-2 rounded-full mt-6" style={{ background: colors.accent }} />
+                </div>
+
+                {/* Bullets Section */}
+                <div className={`grid gap-6 ${layoutHints === 'grid-3x1' ? 'grid-cols-3' : 'grid-cols-1'} mt-8`}>
+                    {bullets?.map((bullet, idx) => (
+                        <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.2 + (idx * 0.1), duration: 0.5 }}
+                            className={`flex items-start gap-4 !p-6 !rounded-3xl !backdrop-blur-md !border !transition-all hover:!scale-[1.02] ${bgType === 'hero-stat' ? '!bg-white/5 !border-white/10' : '!bg-white/40 !border-white/60 !shadow-sm'}`}
+                        >
+                            <span className="!flex !items-center !justify-center !w-8 !h-8 !rounded-full !bg-white/50 !text-slate-900 !font-bold !text-sm !shrink-0">
+                                {idx + 1}
+                            </span>
+                            <p className={`!text-lg md:!text-xl !font-medium !leading-relaxed ${bgType === 'hero-stat' ? 'text-white/90' : 'text-slate-700'}`}>
+                                {bullet}
+                            </p>
+                        </motion.div>
                     ))}
-                </ul>
-            </div>
+                </div>
+            </motion.div>
 
-            {/* Branding Footer */}
-            <div className="absolute bottom-8 right-12 text-slate-300 font-bold text-xl tracking-widest uppercase">
-                HOPE Studio
+            {/* Context Footer */}
+            <div className={`absolute bottom-8 left-12 !text-[10px] !font-black !uppercase !tracking-[0.3em] !opacity-30 ${bgType === 'hero-stat' ? 'text-white' : 'text-slate-900'}`}>
+                HOPE Studio • Contextual Engine v2.0
             </div>
         </div>
     );

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { generateRoadmap } from '../../utils/roadmapAI';
+import MiniGameLoader from '../common/MiniGameLoader';
 
 const RoadmapWizard = ({ onRoadmapGenerated }) => {
     const [step, setStep] = useState(1);
@@ -94,17 +95,25 @@ const RoadmapWizard = ({ onRoadmapGenerated }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white overflow-hidden">
+            {/* Top Progress Bar */}
+            <div className="fixed top-0 left-0 right-0 h-1 bg-slate-100 z-50">
+                <div
+                    className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                    style={{ width: `${(step / 5) * 100}%` }}
+                />
+            </div>
+
             {/* Global Background (Liquid Aura style) */}
-            <div className="fixed inset-0 z-[-1] bg-white overflow-hidden">
-                <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] rounded-full bg-purple-200/50 blur-[120px]" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-blue-200/50 blur-[120px]" />
+            <div className="absolute inset-0 z-0">
+                <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] rounded-full bg-indigo-50/50 blur-[120px]" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-purple-50/50 blur-[120px]" />
             </div>
 
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="w-full max-w-2xl bg-white/60 backdrop-blur-2xl border border-white/40 shadow-2xl rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full max-w-3xl h-full flex flex-col justify-center px-6 py-12 relative z-10"
             >
 
                 <div className="mb-8 text-center relative z-10">
@@ -118,26 +127,15 @@ const RoadmapWizard = ({ onRoadmapGenerated }) => {
                 </div>
 
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center relative z-10">
-                        <Loader2 className="w-16 h-16 text-purple-600 animate-spin mb-6" />
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Generating your personalized skill tree...</h3>
-                        <p className="text-gray-500 font-medium max-w-sm">
-                            Analyzing {answers.q1} pathways based on your {answers.q5} timeline...
-                        </p>
-                    </div>
+                    <MiniGameLoader
+                        loadingText="Generating your personalized skill tree..."
+                        subText={`Analyzing ${answers.q1} pathways based on your ${answers.q5} timeline...`}
+                    />
                 ) : (
                     <div className="relative z-10">
-                        {/* Step Indicator / Progress Bar */}
-                        <div className="flex items-center justify-between mb-8">
-                            <span className="text-sm font-bold text-purple-600 uppercase tracking-wider">Step {step} of 5</span>
-                            <div className="flex gap-2 w-2/3">
-                                {[1, 2, 3, 4, 5].map(i => (
-                                    <div
-                                        key={i}
-                                        className={`h-2 flex-1 rounded-full transition-all duration-500 ${i <= step ? 'bg-gradient-to-r from-purple-500 to-blue-500 shadow-sm' : 'bg-gray-200'}`}
-                                    />
-                                ))}
-                            </div>
+                        {/* Step Indicator */}
+                        <div className="text-center mb-10">
+                            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Step {step} of 5</span>
                         </div>
 
                         {/* Interactive Carousel Content */}
@@ -160,7 +158,7 @@ const RoadmapWizard = ({ onRoadmapGenerated }) => {
                                             <button
                                                 key={idx}
                                                 onClick={() => handleOptionSelect(option)}
-                                                className="bg-white/50 border-2 border-transparent hover:border-purple-500 hover:bg-purple-50 hover:shadow-lg hover:-translate-y-1 rounded-2xl p-6 cursor-pointer transition-all text-center font-bold text-gray-700 active:scale-95 flex flex-col items-center justify-center min-h-[100px]"
+                                                className="bg-white border-2 border-slate-100 hover:border-indigo-400 hover:bg-slate-50 hover:shadow-lg focus:border-indigo-500 focus:bg-indigo-50 hover:-translate-y-1 rounded-2xl py-6 px-4 cursor-pointer transition-all text-center font-bold text-slate-700 active:scale-95 active:border-indigo-600 active:bg-indigo-50 flex flex-col items-center justify-center min-h-[100px]"
                                                 style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
                                             >
                                                 {option}

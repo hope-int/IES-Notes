@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as Icons from 'lucide-react';
 import JSZip from 'jszip';
 import { generateProjectBlueprint, expandProjectTask } from '../../utils/projectAI';
+import MiniGameLoader from '../common/MiniGameLoader';
 
 const ProjectGenerator = ({ onBack, type = 'Major Project' }) => {
     const [step, setStep] = useState(1); // 1: Config, 2: Blueprint/Kanban
@@ -109,84 +110,91 @@ const ProjectGenerator = ({ onBack, type = 'Major Project' }) => {
                         {/* STEP 1: CONFIG */}
                         {step === 1 && (
                             <div className="max-w-4xl mx-auto">
-                                <motion.div
-                                    className="bg-white rounded-[3rem] p-8 md:p-16 shadow-2xl border border-slate-100 relative overflow-hidden"
-                                    initial={{ scale: 0.95, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                >
-                                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50" />
+                                {loading ? (
+                                    <MiniGameLoader
+                                        loadingText="Architecting Project Blueprint..."
+                                        subText="Analyzing dependencies and structuring milestones..."
+                                    />
+                                ) : (
+                                    <motion.div
+                                        className="bg-white rounded-[3rem] p-8 md:p-16 shadow-2xl border border-slate-100 relative overflow-hidden"
+                                        initial={{ scale: 0.95, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                    >
+                                        <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50" />
 
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-6 mb-12">
-                                            <div className="p-5 bg-slate-900 rounded-[2rem] text-white shadow-2xl shadow-slate-200">
-                                                <Icons.Box size={40} />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Project Architect</h3>
-                                                <p className="text-slate-400 font-medium">Define your vision and let AI engineer the roadmap.</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-10">
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] ml-2">Project Topic/Name</label>
-                                                <input
-                                                    type="text"
-                                                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] p-6 text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
-                                                    placeholder="e.g. AI-Powered Inventory System"
-                                                    value={formData.topic}
-                                                    onChange={e => setFormData({ ...formData, topic: e.target.value })}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Primary Objective (Optional)</label>
-                                                <textarea
-                                                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] p-6 font-bold focus:outline-none focus:border-indigo-500 transition-all min-h-[120px] shadow-inner"
-                                                    placeholder="Describe the main goal or specific requirements..."
-                                                    value={formData.objective}
-                                                    onChange={e => setFormData({ ...formData, objective: e.target.value })}
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Project Type</label>
-                                                    <select
-                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.2rem] p-5 font-bold appearance-none outline-none focus:border-indigo-500"
-                                                        value={formData.type}
-                                                        onChange={e => setFormData({ ...formData, type: e.target.value })}
-                                                    >
-                                                        <option>Mini Project</option>
-                                                        <option>Major Project</option>
-                                                        <option>Research Paper</option>
-                                                        <option>Business Plan</option>
-                                                    </select>
+                                        <div className="relative z-10">
+                                            <div className="flex items-center gap-6 mb-12">
+                                                <div className="p-5 bg-slate-900 rounded-[2rem] text-white shadow-2xl shadow-slate-200">
+                                                    <Icons.Box size={40} />
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Scope Complexity</label>
-                                                    <select
-                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.2rem] p-5 font-bold appearance-none outline-none focus:border-indigo-500"
-                                                        value={formData.complexity}
-                                                        onChange={e => setFormData({ ...formData, complexity: e.target.value })}
-                                                    >
-                                                        <option>MVP (Simple)</option>
-                                                        <option>Intermediate</option>
-                                                        <option>Advanced Enterprise</option>
-                                                    </select>
+                                                <div>
+                                                    <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Project Architect</h3>
+                                                    <p className="text-slate-400 font-medium">Define your vision and let AI engineer the roadmap.</p>
                                                 </div>
                                             </div>
 
-                                            <button
-                                                className="w-full bg-slate-900 hover:bg-indigo-600 text-white py-6 rounded-pill font-black text-2xl shadow-2xl shadow-slate-200 transition-all flex items-center justify-center gap-4 active:scale-95 group"
-                                                onClick={handleArchitect}
-                                                disabled={loading || !formData.topic}
-                                            >
-                                                {loading ? <Icons.Loader2 className="animate-spin" /> : <><Icons.Sparkles className="group-hover:rotate-12 transition-transform" /> Architect Blueprint</>}
-                                            </button>
+                                            <div className="space-y-10">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] ml-2">Project Topic/Name</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] p-6 text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                                                        placeholder="e.g. AI-Powered Inventory System"
+                                                        value={formData.topic}
+                                                        onChange={e => setFormData({ ...formData, topic: e.target.value })}
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Primary Objective (Optional)</label>
+                                                    <textarea
+                                                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] p-6 font-bold focus:outline-none focus:border-indigo-500 transition-all min-h-[120px] shadow-inner"
+                                                        placeholder="Describe the main goal or specific requirements..."
+                                                        value={formData.objective}
+                                                        onChange={e => setFormData({ ...formData, objective: e.target.value })}
+                                                    />
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Project Type</label>
+                                                        <select
+                                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.2rem] p-5 font-bold appearance-none outline-none focus:border-indigo-500"
+                                                            value={formData.type}
+                                                            onChange={e => setFormData({ ...formData, type: e.target.value })}
+                                                        >
+                                                            <option>Mini Project</option>
+                                                            <option>Major Project</option>
+                                                            <option>Research Paper</option>
+                                                            <option>Business Plan</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Scope Complexity</label>
+                                                        <select
+                                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.2rem] p-5 font-bold appearance-none outline-none focus:border-indigo-500"
+                                                            value={formData.complexity}
+                                                            onChange={e => setFormData({ ...formData, complexity: e.target.value })}
+                                                        >
+                                                            <option>MVP (Simple)</option>
+                                                            <option>Intermediate</option>
+                                                            <option>Advanced Enterprise</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    className="w-full bg-slate-900 hover:bg-indigo-600 text-white py-6 rounded-pill font-black text-2xl shadow-2xl shadow-slate-200 transition-all flex items-center justify-center gap-4 active:scale-95 group"
+                                                    onClick={handleArchitect}
+                                                    disabled={loading || !formData.topic}
+                                                >
+                                                    {loading ? <Icons.Loader2 className="animate-spin" /> : <><Icons.Sparkles className="group-hover:rotate-12 transition-transform" /> Architect Blueprint</>}
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                </motion.div>
+                                    </motion.div>
+                                )}
                             </div>
                         )}
 
@@ -383,10 +391,7 @@ const ProjectGenerator = ({ onBack, type = 'Major Project' }) => {
                                 </div>
                                 <div className="flex-1 p-10 overflow-auto custom-scrollbar bg-slate-50/50">
                                     {isExpanding ? (
-                                        <div className="flex flex-col items-center justify-center py-20 space-y-6">
-                                            <Icons.Loader2 size={48} className="text-indigo-600 animate-spin" />
-                                            <span className="font-black text-slate-400 uppercase tracking-widest text-xs">Generating Technical Specs...</span>
-                                        </div>
+                                        <MiniGameLoader loadingText="Generating Specs..." subText="Extracting AI insights for this task..." />
                                     ) : (
                                         <div className="prose prose-slate max-w-none text-slate-600 font-medium leading-relaxed" style={{ whiteSpace: 'pre-line' }}>
                                             {taskExpansion}

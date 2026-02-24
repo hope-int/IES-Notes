@@ -48,7 +48,9 @@ export default function JCompiler() {
                     explanation: result.errorExplanation,
                     fixedCode: result.fixedCode,
                     mermaidGraph: result.mermaidGraph,
-                    detectedLanguage: result.language
+                    detectedLanguage: result.language,
+                    isEmbedded: result.isEmbedded,
+                    serialMonitor: result.serialMonitor
                 });
             } else {
                 // Reverse Engineer Mode (Static)
@@ -147,6 +149,8 @@ export default function JCompiler() {
                                     <option value="c">⚙️ C</option>
                                     <option value="sql">🐬 MySQL</option>
                                     <option value="assembly">⚙️ Assembly</option>
+                                    <option value="arduino">🤖 Arduino</option>
+                                    <option value="micropython">🐍 MicroPython</option>
                                 </select>
 
                                 <button
@@ -196,7 +200,11 @@ export default function JCompiler() {
                         {/* Output Header */}
                         <div className="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center" style={{ background: '#252526' }}>
                             <span className="fw-bold text-light text-uppercase fs-7 d-flex align-items-center gap-2">
-                                <Terminal size={16} /> {mode === 'compiler' ? 'Console Output' : 'Generated Code'}
+                                {output?.isEmbedded ? (
+                                    <><Cpu size={16} className="text-success" /> Serial Monitor (COM_AUTO)</>
+                                ) : (
+                                    <><Terminal size={16} /> {mode === 'compiler' ? 'Console Output' : 'Generated Code'}</>
+                                )}
                             </span>
                             {output && (
                                 <button
@@ -228,21 +236,33 @@ export default function JCompiler() {
                                         animate={{ opacity: 1, y: 0 }}
                                         className="h-100 d-flex flex-column"
                                     >
-                                        {/* Status Badge */}
-                                        {mode === 'compiler' && (
+                                        {/* Status Badge - Hidden for Embedded */}
+                                        {mode === 'compiler' && !output.isEmbedded && (
                                             <div className={`badge mb-3 px-3 py-2 rounded-pill align-self-start ${output.status === 'error' ? 'bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25' : 'bg-success bg-opacity-25 text-success border border-success border-opacity-25'}`}>
                                                 {output.status === 'error' ? 'Compilation Failed' : 'Build Success'}
                                             </div>
                                         )}
 
-                                        {/* Main Terminal Output */}
-                                        <div className="flex-grow-1" style={{ whiteSpace: 'pre-wrap', color: output.status === 'error' ? '#ff6b6b' : '#55efc4', minHeight: '100px' }}>
-                                            {output.text}
+                                        {/* Main Terminal Output / Serial Monitor Switch */}
+                                        <div className="flex-grow-1" style={{
+                                            whiteSpace: 'pre-wrap',
+                                            color: output.isEmbedded ? '#00ff00' : (output.status === 'error' ? '#ff6b6b' : '#55efc4'),
+                                            minHeight: '100px',
+                                            fontFamily: "'Fira Code', monospace",
+                                            fontSize: output.isEmbedded ? '15px' : '14px'
+                                        }}>
+                                            {output.isEmbedded ? (
+                                                <div className="serial-output-glow">
+                                                    {output.serialMonitor || output.text}
+                                                </div>
+                                            ) : (
+                                                output.text
+                                            )}
                                             <div ref={terminalEndRef} />
                                         </div>
 
-                                        {/* Visual Data Structure Generation */}
-                                        {output.mermaidGraph && (
+                                        {/* Visual Data Structure Generation - Hidden for Embedded */}
+                                        {output.mermaidGraph && !output.isEmbedded && (
                                             <div className="mt-3 pt-3 border-top border-secondary border-opacity-25">
                                                 <h6 className="d-flex align-items-center gap-2 mb-2 text-info">
                                                     <Sparkles size={18} /> Visual Trace Execution
@@ -308,6 +328,10 @@ export default function JCompiler() {
                 .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+                .serial-output-glow {
+                    text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+                    line-height: 1.8;
+                }
                 `}
             </style>
         </div>
