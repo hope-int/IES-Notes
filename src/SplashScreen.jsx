@@ -1,47 +1,42 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Lottie from 'lottie-react';
 
-const SplashScreen = ({ onComplete, isAppReady = true }) => {
-    const [isVisible, setIsVisible] = useState(true);
-    const [animationData, setAnimationData] = useState(null);
+const SplashScreen = ({ onComplete, isAppReady = false }) => {
     const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+    const [exiting, setExiting] = useState(false);
 
     useEffect(() => {
-
-
-        // Minimum display time of 2.5s
-        const timer = setTimeout(() => {
-            setMinTimeElapsed(true);
-        }, 2500);
+        const timer = setTimeout(() => setMinTimeElapsed(true), 1200);
         return () => clearTimeout(timer);
     }, []);
 
     useEffect(() => {
-        if (minTimeElapsed && isAppReady) {
-            setIsVisible(false);
-            setTimeout(onComplete, 800); // Allow exit animation
+        if (minTimeElapsed && isAppReady && !exiting) {
+            setExiting(true);
+            // Give the framer exit animation time (0.6s), then call onComplete
+            const timer = setTimeout(onComplete, 700);
+            return () => clearTimeout(timer);
         }
-    }, [minTimeElapsed, isAppReady, onComplete]);
+    }, [minTimeElapsed, isAppReady, exiting, onComplete]);
 
     return (
         <AnimatePresence>
-            {isVisible && (
+            {!exiting && (
                 <motion.div
-                    className="fixed-top w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-white"
+                    key="splash"
+                    className="fixed-top w-100 d-flex flex-column align-items-center justify-content-center bg-white"
+                    style={{ zIndex: 9999, height: '100dvh' }}
                     initial={{ opacity: 1 }}
-                    exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
-                    transition={{ duration: 0.8 }}
-                    style={{ zIndex: 9999 }}
+                    exit={{ opacity: 0, scale: 1.05, filter: 'blur(8px)' }}
+                    transition={{ duration: 0.6, ease: 'easeInOut' }}
                 >
                     <motion.div
-                        initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                        initial={{ scale: 0.85, opacity: 0, y: 24 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        transition={{ duration: 0.7, ease: 'easeOut' }}
                         className="d-flex flex-column align-items-center justify-content-center"
                     >
-                        {/* Logo Container */}
                         <div className="mb-4 d-flex justify-content-center align-items-center" style={{ width: 180, height: 180 }}>
                             <img
                                 src="/hope-logo.png"
@@ -52,10 +47,12 @@ const SplashScreen = ({ onComplete, isAppReady = true }) => {
                         </div>
 
                         <div className="text-center" style={{ position: 'relative', zIndex: 2 }}>
-                            <h1 className="fw-bold display-4 mb-2 tracking-tight" style={{ color: '#1e293b', letterSpacing: '-1px' }}>
+                            <h1 className="fw-bold display-4 mb-2" style={{ color: '#1e293b', letterSpacing: '-1px' }}>
                                 HOPE<span style={{ color: '#3b82f6' }}>-Edu-Hub</span>
                             </h1>
-                            <p className="text-muted small text-uppercase tracking-widest fw-bold">Your Academic Superpower</p>
+                            <p className="text-muted small text-uppercase fw-bold" style={{ letterSpacing: '0.15em' }}>
+                                Your Academic Superpower
+                            </p>
                         </div>
                     </motion.div>
                 </motion.div>

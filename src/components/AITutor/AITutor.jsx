@@ -436,7 +436,7 @@ export default function AIChat({ setActiveTab }) {
             const isVision = lastUserMsg?.fileType?.startsWith('image/');
 
             const aiContent = await getAICompletion(requestMessages, {
-                model: isVision ? "nvidia/nemotron-nano-12b-v2-vl:free" : "llama-3.1-8b-instant",
+                model: isVision ? "nvidia/nemotron-nano-12b-v2-vl:free" : "arcee-ai/trinity-large-preview:free",
             });
 
             setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...currentHistory, { role: 'assistant', content: aiContent }] } : s));
@@ -522,7 +522,7 @@ export default function AIChat({ setActiveTab }) {
             }
 
             const aiContent = await getAICompletion(requestMessages, {
-                model: selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "llama-3.1-8b-instant",
+                model: selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "arcee-ai/trinity-large-preview:free",
                 onFallback: (msg) => {
                     console.log("Fallback triggered:", msg);
                 }

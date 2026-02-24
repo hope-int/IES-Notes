@@ -30,7 +30,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'llama-3.3-70b-versatile' }
+        { model: 'arcee-ai/trinity-large-preview:free' }
     );
 
     try {
@@ -71,7 +71,7 @@ OUTPUT: Return ONLY the raw plain text content for this section. No Markdown, no
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'llama-3.3-70b-versatile' }
+        { model: 'arcee-ai/trinity-large-preview:free' }
     );
 
     return content.trim();

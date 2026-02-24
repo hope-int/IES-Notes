@@ -12,6 +12,8 @@ export default function Registration({ onComplete }) {
     const [loading, setLoading] = useState(false);
     const [departments, setDepartments] = useState([]);
     const [semesters, setSemesters] = useState([]);
+    const [loginError, setLoginError] = useState(null);
+    const [initialDataError, setInitialDataError] = useState(false);
 
     // Consent states
     const [privacyAgreed, setPrivacyAgreed] = useState(false);
@@ -38,18 +40,65 @@ export default function Registration({ onComplete }) {
         fetchDepartments();
     }, []);
 
-    const fetchDepartments = async () => {
-        const { data } = await supabase.from('departments').select('*');
-        if (data) setDepartments(data);
+    const fetchDepartments = async (retryCount = 0) => {
+        setLoading(true);
+        setInitialDataError(false);
+
+        const deptPromise = (async () => {
+            try {
+                const { data, error } = await supabase.from('departments').select('*');
+                if (error) return { error };
+                return { data };
+            }
+            catch (e) { return { error: e }; }
+        })();
+
+        const timeoutPromise = new Promise((resolve) =>
+            setTimeout(() => resolve({ error: new Error("Server wake-up took too long.") }), 45000)
+        );
+
+        try {
+            const { data, error } = await Promise.race([deptPromise, timeoutPromise]);
+
+            if (error) {
+                console.warn(`Dept fetch effort ${retryCount + 1}:`, error.message);
+                if (retryCount < 5) {
+                    const msg = retryCount === 0 ? "Waking up system..." : "Routing through secure proxy...";
+                    console.log(`${msg} (${retryCount + 1}/6)`);
+                    setTimeout(() => fetchDepartments(retryCount + 1), 5000);
+                    return;
+                }
+                throw error;
+            }
+
+            if (data) {
+                setDepartments(data);
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error('Supabase Initialization Failed:', error.message);
+            setInitialDataError(true);
+            setLoading(false);
+        }
     };
 
     const fetchSemesters = async (deptId) => {
-        const { data } = await supabase
-            .from('semesters')
-            .select('*')
-            .eq('department_id', deptId)
-            .order('name');
-        if (data) setSemesters(data);
+        const semPromise = (async () => {
+            try { return await supabase.from('semesters').select('*').eq('department_id', deptId).order('name'); }
+            catch (e) { return { error: e }; }
+        })();
+
+        const timeoutPromise = new Promise((resolve) =>
+            setTimeout(() => resolve({ error: new Error("Semesters fetch timeout") }), 15000)
+        );
+
+        try {
+            const { data, error } = await Promise.race([semPromise, timeoutPromise]);
+            if (error) throw error;
+            if (data) setSemesters(data);
+        } catch (error) {
+            console.warn('Network timeout fetching semesters:', error.message);
+        }
     };
 
     const handleDeptChange = (e) => {
@@ -92,29 +141,49 @@ export default function Registration({ onComplete }) {
         });
     };
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
+    const handleLogin = async (e, retryCount = 0) => {
+        if (e) e.preventDefault();
         setLoading(true);
+        setLoginError(null);
 
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', loginUid.trim())
-                .single();
+            const loginPromise = (async () => {
+                try { return await supabase.from('profiles').select('*').eq('id', loginUid.trim()).single(); }
+                catch (err) { return { error: err }; }
+            })();
 
-            if (error || !data) {
-                alert("Invalid UID. User not found.");
+            const timeoutPromise = new Promise((resolve) =>
+                setTimeout(() => resolve({ error: new Error("Login timeout. Server might be waking up.") }), 25000)
+            );
+
+            const { data, error } = await Promise.race([loginPromise, timeoutPromise]);
+
+            if (error) {
+                // If it's a fetch error or timeout and we haven't retried too much, try again once
+                if ((error.message?.includes('fetch') || error.message?.includes('timeout')) && retryCount < 4) {
+                    console.log(`Login attempt failed, retrying... (${retryCount + 1}/5)`);
+                    setLoginError(`Waking up server... attempt ${retryCount + 1}/5`);
+                    setTimeout(() => handleLogin(null, retryCount + 1), 3000);
+                    return;
+                }
+                throw error;
+            }
+
+            if (!data) {
+                setLoginError("Account not found. Please check your UID or Register.");
                 setLoading(false);
                 return;
             }
 
             // Save and Complete
+            console.log("Login successful, saving profile...");
             localStorage.setItem('hope_student_profile', JSON.stringify(data));
             onComplete(data);
         } catch (err) {
-            console.error(err);
-            alert("Login failed.");
+            console.error("Login Error:", err);
+            setLoginError(err.message?.includes('fetch')
+                ? "Network connection unstable. Please try again."
+                : "Invalid UID or system error.");
         } finally {
             setLoading(false);
         }
@@ -142,8 +211,17 @@ export default function Registration({ onComplete }) {
                 created_at: new Date().toISOString()
             };
 
-            // 1. Insert into Supabase (Public insert allowed by our new SQL)
-            const { error } = await supabase.from('profiles').insert(profileData);
+            // 1. Insert into Supabase with timeout (Public insert allowed by our new SQL)
+            const insertPromise = (async () => {
+                try { return await supabase.from('profiles').insert(profileData); }
+                catch (e) { return { error: e }; }
+            })();
+
+            const timeoutPromise = new Promise((resolve) =>
+                setTimeout(() => resolve({ error: new Error("Registration timeout. The system might be waking up or your DNS is blocked.") }), 20000)
+            );
+
+            const { error } = await Promise.race([insertPromise, timeoutPromise]);
 
             if (error) {
                 console.error("Supabase Insert Error:", error);
@@ -196,7 +274,22 @@ export default function Registration({ onComplete }) {
                     </div>
                 </div>
 
-                {isLoginMode ? (
+                {initialDataError ? (
+                    <div className="text-center py-5">
+                        <div className="mb-4 text-warning">
+                            <X className="mx-auto" size={48} />
+                        </div>
+                        <h4 className="fw-bold mb-3">Connection Issue</h4>
+                        <p className="text-muted mb-4 small">We couldn't reach the system. Please check your internet and try again.</p>
+                        <button
+                            onClick={fetchDepartments}
+                            className="btn btn-primary rounded-pill px-5 py-3 fw-bold shadow-sm"
+                            style={{ backgroundColor: 'var(--primary-accent)' }}
+                        >
+                            Retry Connection
+                        </button>
+                    </div>
+                ) : isLoginMode ? (
                     <form onSubmit={handleLogin}>
                         <div className="mb-4">
                             <label className="fw-bold small text-muted mb-2">Secret UID</label>
@@ -210,6 +303,17 @@ export default function Registration({ onComplete }) {
                                     onChange={e => setLoginUid(e.target.value)}
                                 />
                             </div>
+
+                            {loginError && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    className="alert alert-danger border-0 small py-2 mb-4 d-flex align-items-center gap-2"
+                                    style={{ borderRadius: '12px' }}
+                                >
+                                    <X size={16} /> {loginError}
+                                </motion.div>
+                            )}
                         </div>
 
                         {/* Consent Checkboxes */}

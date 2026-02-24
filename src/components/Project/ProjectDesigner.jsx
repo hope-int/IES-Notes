@@ -66,9 +66,8 @@ const ProjectDesigner = ({ onBack }) => {
                 { role: 'user', content: prompt }
             ], {
                 jsonMode: type === 'slide',
-                model: 'llama-3.3-70b-versatile'
+                model: 'arcee-ai/trinity-large-preview:free'
             });
-
             if (type === 'slide') {
                 try {
                     const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();

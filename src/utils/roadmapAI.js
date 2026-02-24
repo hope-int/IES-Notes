@@ -72,7 +72,7 @@ Break the learning path into 3 to 5 actionable, bite-sized steps written in extr
       // Use getAICompletion explicitly asking for jsonMode and a capable model
       const jsonString = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'llama-3.3-70b-versatile' }
+        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free' }
       );
 
       const data = cleanAndParseJSON(jsonString);

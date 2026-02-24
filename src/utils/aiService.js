@@ -64,35 +64,31 @@ const getGroqModel = (requestedModel) => {
         return "llama-3.3-70b-versatile";
     }
 
-    // Default fast model
-    return "llama-3.1-8b-instant";
+    // Default model if mapping fails or not provided
+    return "arcee-ai/trinity-large-preview:free";
 };
 
 // 1. Puter.js (Free, Serverless, No Key)
 const fetchPuter = async (messages, jsonMode = false, model = "arcee-ai/trinity-large-preview:free", retries = 2) => {
     if (!window.puter) {
-        // Attempt to wait for it briefly
-        await new Promise(resolve => setTimeout(resolve, 500));
-        if (!window.puter) throw new Error("Puter.js library not loaded via CDN.");
+        await new Promise(resolve => setTimeout(resolve, 800));
+        if (!window.puter) throw new Error("Puter.js not ready.");
     }
 
-    // Ensure model is valid for Puter (it doesn't support all OpenRouter models)
-    // Puter free tier usually supports specific ones. We'll stick to the requested one if it looks generic,
-    // or default to a safe one if it's a specific provider (like Groq/OpenAI specific).
     let targetModel = model;
     if (model.includes('gpt-') || model.includes('claude-') || model.includes('llama-')) {
-        // Puter often behaves best with its default or specific free models
         targetModel = "arcee-ai/trinity-large-preview:free";
     }
 
-    // Puter expects standard messages array
     const puterMessages = [...messages];
     if (jsonMode) {
-        puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format. Do not wrap the JSON in markdown code blocks." });
+        puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format." });
     }
 
     for (let i = 0; i < retries; i++) {
         try {
+            // Check auth status - if 401 happens here it's usually inside the puter lib
+            // but we can try to call it safely
             const response = await window.puter.ai.chat(puterMessages, { model: targetModel });
 
             recordPuterSuccess();
@@ -107,7 +103,12 @@ const fetchPuter = async (messages, jsonMode = false, model = "arcee-ai/trinity-
             return response?.toString() || "";
 
         } catch (err) {
-            console.warn(`Puter attempt ${i + 1} failed:`, err);
+            // If it's a 401, it means Puter needs login, we fallback immediately
+            if (err?.message?.includes('401') || err?.status === 401) {
+                recordPuterFailure();
+                throw new Error("Puter Authentication Required");
+            }
+            console.warn(`Puter attempt ${i + 1} failed:`, err.message);
             if (i === retries - 1) throw err;
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -244,7 +245,7 @@ const fetchGroqDirectly = async (messages, jsonMode, model) => {
 export const getAICompletion = async (messages, options = {}) => {
     const {
         jsonMode = false,
-        model = "llama-3.1-8b-instant",
+        model = "arcee-ai/trinity-large-preview:free",
         onFallback = () => { },
         provider = "auto" // 'auto' | 'groq' | 'puter'
     } = options;
@@ -316,7 +317,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
       "language": "Detected language",
       "isEmbedded": true | false,
       "output": "Exact console output (or blank if error). For embedded code, show standard terminal output here (like boot sequences).",
-      "serialMonitor": "For embedded code (Arduino/ESP32), show the actual Serial Monitor output here. Otherwise null.",
+      "serialMonitor": "Produce an ULTRA-REALISTIC serial output. Include simulated timestamps (e.g., [+124ms]), hardware init messages (e.g., 'Serial started at 115200 baud', 'Initializing I2C... OK'), and consistent sensor data or loop execution traces with slight variations to simulate real hardware readings.",
       "status": "success" | "error",
       "errorExplanation": "### Strict Audit Results\\n- [Line X]: details...",
       "fixedCode": "Full corrected source (if error) or null",
@@ -342,8 +343,8 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
         // Use Groq directly with a high-intelligence model
         const responseText = await getAICompletion(messages, {
             jsonMode: true,
-            provider: 'groq',
-            model: 'llama-3.3-70b-versatile' // Explicitly use a supported high-end Groq model
+            provider: 'puter',
+            model: 'arcee-ai/trinity-large-preview:free'
         });
         return cleanAndParseJSON(responseText);
     } catch (e) {
@@ -374,8 +375,8 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
     try {
         const responseCallback = await getAICompletion(messages, {
             jsonMode: true,
-            provider: 'groq',
-            model: 'llama-3.3-70b-versatile'
+            provider: 'puter',
+            model: 'arcee-ai/trinity-large-preview:free'
         });
         return cleanAndParseJSON(responseCallback);
     } catch (e) {
