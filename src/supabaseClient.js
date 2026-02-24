@@ -14,13 +14,15 @@ const processQueue = async () => {
     isProxying = true;
     const { task, resolve, reject } = proxyQueue.shift();
     try {
+        // Give Puter a tiny moment to stabilize between calls
+        await new Promise(r => setTimeout(r, 150));
         const res = await task();
         resolve(res);
     } catch (err) {
         reject(err);
     } finally {
         isProxying = false;
-        setTimeout(processQueue, 100); // Small gap between proxy calls
+        setTimeout(processQueue, 250); // Increased gap to 250ms to prevent WASM/WebSocket congestion
     }
 };
 

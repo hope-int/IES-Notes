@@ -76,7 +76,9 @@ const fetchPuter = async (messages, jsonMode = false, model = "arcee-ai/trinity-
     }
 
     let targetModel = model;
-    if (model.includes('gpt-') || model.includes('claude-') || model.includes('llama-')) {
+    // Allow llama and gpt models to pass through to Puter now as free tier support has improved
+    // but keep trinity as a safe default for others
+    if (model.includes('claude-')) {
         targetModel = "arcee-ai/trinity-large-preview:free";
     }
 
@@ -344,7 +346,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
         const responseText = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'puter',
-            model: 'arcee-ai/trinity-large-preview:free'
+            model: 'meta-llama/llama-3.1-8b-instruct'
         });
         return cleanAndParseJSON(responseText);
     } catch (e) {
@@ -376,7 +378,7 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
         const responseCallback = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'puter',
-            model: 'arcee-ai/trinity-large-preview:free'
+            model: 'meta-llama/llama-3.1-8b-instruct'
         });
         return cleanAndParseJSON(responseCallback);
     } catch (e) {
