@@ -53,4 +53,13 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 5000,
   },
+  server: {
+    proxy: {
+      '/api/supabase': {
+        target: 'https://hope-edu-hub.vercel.app', // Or your local Vercel CLI dev URL
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
 })

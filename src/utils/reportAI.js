@@ -30,7 +30,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'arcee-ai/trinity-large-preview:free' }
+        { model: 'arcee-ai/trinity-large-preview:free', actionType: 'report' }
     );
 
     try {
@@ -71,7 +71,7 @@ OUTPUT: Return ONLY the raw plain text content for this section. No Markdown, no
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'arcee-ai/trinity-large-preview:free' }
+        { model: 'arcee-ai/trinity-large-preview:free', actionType: 'report' }
     );
 
     return content.trim();
@@ -82,6 +82,6 @@ OUTPUT: Return ONLY the raw plain text content for this section. No Markdown, no
  */
 export const enhanceReportTopic = async (topic) => {
     const prompt = `Expand the following short topic into a formal, multi-sentence academic research prompt: "${topic}"`;
-    const response = await getAICompletion([{ role: 'user', content: prompt }]);
+    const response = await getAICompletion([{ role: 'user', content: prompt }], { actionType: 'report' });
     return response.trim();
 };

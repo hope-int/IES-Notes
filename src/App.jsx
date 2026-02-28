@@ -217,7 +217,7 @@ function App() {
   const fetchDepartments = async (retryCount = 0) => {
     setLoading(true);
     const promise = supabase.from('departments').select('*');
-    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 8000));
+    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 25000));
 
     try {
       const { data, error } = await Promise.race([promise, timeout]);
@@ -236,7 +236,7 @@ function App() {
   const fetchSemesters = async (deptId, retryCount = 0) => {
     setLoading(true);
     const promise = supabase.from('semesters').select('*').eq('department_id', deptId).order('name');
-    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 8000));
+    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 25000));
 
     try {
       const { data, error } = await Promise.race([promise, timeout]);
@@ -255,7 +255,7 @@ function App() {
   const fetchSubjects = async (semId, retryCount = 0) => {
     setLoading(true);
     const promise = supabase.from('subjects').select('*').eq('semester_id', semId).order('name');
-    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 8000));
+    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 25000));
 
     try {
       const { data, error } = await Promise.race([promise, timeout]);
@@ -274,7 +274,7 @@ function App() {
   const fetchNotes = async (subjectId, retryCount = 0) => {
     setLoading(true);
     const promise = supabase.from('notes').select('*').eq('subject_id', subjectId).order('created_at', { ascending: false });
-    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 8000));
+    const timeout = new Promise(r => setTimeout(() => r({ error: 'timeout' }), 25000));
 
     try {
       const { data, error } = await Promise.race([promise, timeout]);

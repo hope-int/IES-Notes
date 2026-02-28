@@ -1,3 +1,5 @@
+import { supabase } from './../supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 const cleanAndParseJSON = (text) => {
     try {
@@ -13,6 +15,90 @@ const cleanAndParseJSON = (text) => {
         return JSON.parse(text.substring(start, end + 1));
     }
 };
+
+// --- Secure Rate Limiting System ---
+const RATE_LIMITS = {
+    chat: { count: 100, windowMs: 10 * 60 * 1000 },
+    ppt: { count: 3, windowMs: 60 * 60 * 1000 },
+    report: { count: 5, windowMs: 60 * 60 * 1000 },
+    project: { count: 5, windowMs: 60 * 60 * 1000 },
+    assignment: { count: 10, windowMs: 60 * 60 * 1000 },
+    compiler: { count: 50, windowMs: 30 * 60 * 1000 },
+    roadmap: { count: 10, windowMs: 60 * 60 * 1000 },
+    default: { count: 20, windowMs: 5 * 60 * 1000 }
+};
+
+// Get or Create anonymous Session ID
+const getSessionId = () => {
+    let sid = localStorage.getItem('anon_session_id');
+    if (!sid) {
+        sid = uuidv4();
+        localStorage.setItem('anon_session_id', sid);
+    }
+    return sid;
+};
+
+// Client-Side Fallback Limiter (if DB check fails)
+const fallbackLocalRateLimit = (actionType, limits) => {
+    const key = `rate_limit_local_${actionType}`;
+    const now = Date.now();
+    let history = [];
+    try {
+        const stored = localStorage.getItem(key);
+        if (stored) history = JSON.parse(stored);
+    } catch (e) { history = []; }
+
+    history = history.filter(t => now - t < limits.windowMs);
+    if (history.length >= limits.count) {
+        const waitMins = Math.ceil((limits.windowMs - (now - history[0])) / 60000);
+        throw new Error(`Rate limit exceeded for ${actionType}. Please wait ${waitMins} minute(s).`);
+    }
+    history.push(now);
+    localStorage.setItem(key, JSON.stringify(history));
+    return true;
+};
+
+export const checkRateLimit = async (actionType) => {
+    const limits = RATE_LIMITS[actionType] || RATE_LIMITS.default;
+    const windowMinutes = Math.max(1, Math.round(limits.windowMs / 60000));
+
+    try {
+        // Attempt Server-Side RPC
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id || null;
+        const sessionId = getSessionId();
+
+        const { data: isAllowed, error } = await supabase.rpc('check_rate_limit', {
+            p_user_id: userId,
+            p_session_id: sessionId,
+            p_action_type: actionType,
+            p_limit_count: limits.count,
+            p_window_minutes: windowMinutes
+        });
+
+        if (error) {
+            console.warn("RPC Rate Limit failed, falling back to local...", error);
+            return fallbackLocalRateLimit(actionType, limits);
+        }
+
+        if (!isAllowed) {
+            throw new Error(`Rate limit exceeded for ${actionType}. Please wait ${windowMinutes} minute(s).`);
+        }
+
+        return true;
+    } catch (err) {
+        // If it's our own error, throw it
+        if (err.message.includes('Rate limit exceeded')) throw err;
+
+        // Network/DB error fallback
+        console.warn("DB Rate Limit Check Failed:", err);
+        return fallbackLocalRateLimit(actionType, limits);
+    }
+};
+// ----------------------------
+
+
+// ----------------------------
 
 // Circuit Breaker State
 let puterFailures = 0;
@@ -76,8 +162,7 @@ const fetchPuter = async (messages, jsonMode = false, model = "arcee-ai/trinity-
     }
 
     let targetModel = model;
-    // Allow llama and gpt models to pass through to Puter now as free tier support has improved
-    // but keep trinity as a safe default for others
+    // Allow gpt-5-nano and llama models through
     if (model.includes('claude-')) {
         targetModel = "arcee-ai/trinity-large-preview:free";
     }
@@ -249,8 +334,12 @@ export const getAICompletion = async (messages, options = {}) => {
         jsonMode = false,
         model = "arcee-ai/trinity-large-preview:free",
         onFallback = () => { },
-        provider = "auto" // 'auto' | 'groq' | 'puter'
+        provider = "auto", // 'auto' | 'groq' | 'puter'
+        actionType = "chat" // Used for rate limiting
     } = options;
+
+    // Enforce Rate Limit globally for all API calling using the backend RPC
+    await checkRateLimit(actionType);
 
     // Strategy 1: Explicit Groq
     if (provider === 'groq') {
@@ -346,7 +435,8 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
         const responseText = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'puter',
-            model: 'meta-llama/llama-3.1-8b-instruct'
+            model: 'openai/gpt-5-nano',
+            actionType: 'compiler'
         });
         return cleanAndParseJSON(responseText);
     } catch (e) {
@@ -378,7 +468,8 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
         const responseCallback = await getAICompletion(messages, {
             jsonMode: true,
             provider: 'puter',
-            model: 'meta-llama/llama-3.1-8b-instruct'
+            model: 'openai/gpt-5-nano',
+            actionType: 'compiler'
         });
         return cleanAndParseJSON(responseCallback);
     } catch (e) {

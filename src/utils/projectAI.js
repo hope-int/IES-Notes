@@ -33,7 +33,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'arcee-ai/trinity-large-preview:free' }
+        { model: 'arcee-ai/trinity-large-preview:free', actionType: 'project' }
     );
 
     try {
@@ -65,7 +65,7 @@ OUTPUT: Return markdown content only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'arcee-ai/trinity-large-preview:free' }
+        { model: 'arcee-ai/trinity-large-preview:free', actionType: 'project' }
     );
 
     return response.trim();

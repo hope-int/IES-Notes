@@ -69,10 +69,9 @@ Break the learning path into 3 to 5 actionable, bite-sized steps written in extr
 
   for (let i = 0; i < maxRetries; i++) {
     try {
-      // Use getAICompletion explicitly asking for jsonMode and a capable model
       const jsonString = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free' }
+        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free', actionType: 'roadmap' }
       );
 
       const data = cleanAndParseJSON(jsonString);
