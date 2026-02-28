@@ -50,8 +50,8 @@ export default async function handler(req) {
             });
         }
 
-        // Your actual blocked Supabase URL
-        const SUPABASE_URL = 'https://baykbturtkzleeazyodr.supabase.co';
+        // Read Supabase URL from Edge environment variables
+        const SUPABASE_URL = process.env.SUPABASE_URL;
         const targetUrl = `${SUPABASE_URL}${supabasePath}`;
 
         // Create a new request object to forward
