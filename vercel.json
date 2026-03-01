@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/api/supabase/realtime/v1/:path*",
+            "destination": "https://baykbturtkzleeazyodr.supabase.co/realtime/v1/:path*"
+        },
+        {
             "source": "/api/supabase/:vercel_proxy_path*",
             "destination": "/api/supabase"
         },
