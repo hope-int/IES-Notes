@@ -48,6 +48,8 @@ export default async function handler(req) {
             supabasePath = url.pathname.substring(url.pathname.indexOf('/storage/v1'));
         } else if (supabasePath === url.pathname && url.pathname.includes('auth/v1')) {
             supabasePath = url.pathname.substring(url.pathname.indexOf('/auth/v1'));
+        } else if (supabasePath === url.pathname && url.pathname.includes('realtime/v1')) {
+            supabasePath = url.pathname.substring(url.pathname.indexOf('/realtime/v1'));
         }
 
         // Clean query parameters: Remove any query parameter that matches the requested path OR is named 'path'
@@ -65,7 +67,7 @@ export default async function handler(req) {
         const cleanedSearch = cleanSearchParams.toString();
         supabasePath += cleanedSearch ? `?${cleanedSearch}` : '';
 
-        const validPathPrefixes = ['/rest/v1/', '/storage/v1/', '/auth/v1/', '/graphql/v1/', '/rpc/check_rate_limit'];
+        const validPathPrefixes = ['/rest/v1/', '/storage/v1/', '/auth/v1/', '/graphql/v1/', '/realtime/v1/', '/rpc/check_rate_limit'];
 
         const isValidPath = validPathPrefixes.some(prefix => supabasePath.startsWith(prefix));
         if (!isValidPath) {
@@ -93,7 +95,16 @@ export default async function handler(req) {
             modifiedRequest.headers.set('x-session-id', sessionId);
         }
 
-        // Fetch from the real Supabase
+        // Check if this is a WebSocket upgrade request (for Supabase Realtime)
+        if (req.headers.get('upgrade')?.toLowerCase() === 'websocket') {
+            // We can't actually proxy websockets perfectly in standard fetch. 
+            // We need to return a Response that handles the upgrade.
+            // Vercel Edge functions can proxy WebSockets by just forwarding the request 
+            // completely untouched (since it uses the underlying stream).
+            return fetch(modifiedRequest);
+        }
+
+        // Fetch from the real Supabase (Standard HTTP requests)
         const response = await fetch(modifiedRequest);
 
         // Forward the response back to the client, combining our strict CORS
