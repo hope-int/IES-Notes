@@ -54,6 +54,8 @@ export default async function handler(req) {
         // This is necessary because Vercel Rewrites might inject the captured path into the URL's query string.
         const cleanSearchParams = new URLSearchParams(url.search);
         cleanSearchParams.delete('path'); // Remove 'path=...' inserted by Vercel if any
+        cleanSearchParams.delete('vercel_proxy_path'); // Explicitly remove our custom Vercel rewrite parameter
+
         for (const [key, value] of Array.from(cleanSearchParams.entries())) {
             if (key.includes('rest/v1') || key.includes('storage/v1') || key.includes('auth/v1') || key.endsWith(supabasePath.replace(/^\//, ''))) {
                 cleanSearchParams.delete(key);
