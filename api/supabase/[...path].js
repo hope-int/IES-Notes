@@ -49,7 +49,19 @@ export default async function handler(req) {
         } else if (supabasePath === url.pathname && url.pathname.includes('auth/v1')) {
             supabasePath = url.pathname.substring(url.pathname.indexOf('/auth/v1'));
         }
-        supabasePath += url.search;
+
+        // Clean query parameters: Remove any query parameter that matches the requested path OR is named 'path'
+        // This is necessary because Vercel Rewrites might inject the captured path into the URL's query string.
+        const cleanSearchParams = new URLSearchParams(url.search);
+        cleanSearchParams.delete('path'); // Remove 'path=...' inserted by Vercel if any
+        for (const [key, value] of Array.from(cleanSearchParams.entries())) {
+            if (key.includes('rest/v1') || key.includes('storage/v1') || key.includes('auth/v1') || key.endsWith(supabasePath.replace(/^\//, ''))) {
+                cleanSearchParams.delete(key);
+            }
+        }
+
+        const cleanedSearch = cleanSearchParams.toString();
+        supabasePath += cleanedSearch ? `?${cleanedSearch}` : '';
 
         const validPathPrefixes = ['/rest/v1/', '/storage/v1/', '/auth/v1/', '/graphql/v1/', '/rpc/check_rate_limit'];
 
