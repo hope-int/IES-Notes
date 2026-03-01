@@ -19,12 +19,22 @@ const updateSW = registerSW({
   },
 });
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </StrictMode>,
-)
+// Ensure the Puter.js script and all other assets are correctly loaded before mounting React
+const mountApp = () => {
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </StrictMode>,
+  )
+};
+
+// Check if we are already loaded or if we need to wait
+if (document.readyState === 'complete') {
+  mountApp();
+} else {
+  window.addEventListener('load', mountApp);
+}
