@@ -25,27 +25,27 @@ The platform operates on a decentralized edge architecture, heavily utilizing Ve
 
 ```mermaid
 graph TD
-    User([Student/Educator]) --> |HTTPS / React 19| App[Vite PWA Frontend]
+    User([Student/Educator]) -->|"HTTPS / React 19"| App[Vite PWA Frontend]
     
-    subgraph Client-Side Presentation Layer
+    subgraph ClientLayer [Client-Side Presentation Layer]
         App --> FeatureModules[Feature Modules]
-        FeatureModules --> |Tiptap Editor| HopeDocs[HOPE Docs Canvas]
-        FeatureModules --> |reactgrid Virtualization| HopeSheets[HOPE Sheets]
-        FeatureModules --> |Monaco API| JCompiler[J-Compiler Web IDE]
-        FeatureModules --> |jsPDF + DOM| Generators[Agentic Generators: Reports, Slides]
-        FeatureModules --> |Framer Motion| UIUX[Claymorphism Component Library]
+        FeatureModules -->|"Tiptap Editor"| HopeDocs[HOPE Docs Canvas]
+        FeatureModules -->|"reactgrid Virtualization"| HopeSheets[HOPE Sheets]
+        FeatureModules -->|"Monaco API"| JCompiler[J-Compiler Web IDE]
+        FeatureModules -->|"jsPDF + DOM"| Generators[Agentic Generators: Reports, Slides]
+        FeatureModules -->|"Framer Motion"| UIUX[Claymorphism Component Library]
     end
 
-    App --> |API Calls `vercel.json`| VercelEdge[Vercel Serverless Edge Network]
+    App -->|"API Calls vercel.json"| VercelEdge[Vercel Serverless Edge Network]
     
-    subgraph Serverless Edge Security
-        VercelEdge --> |/api/supabase| SupabaseProxy[Supabase DB / Auth Proxy]
-        VercelEdge --> |/api/ai| AIProxy[AI Inference Router]
+    subgraph ServerlessEdge [Serverless Edge Security]
+        VercelEdge -->|"/api/supabase"| SupabaseProxy[Supabase DB / Auth Proxy]
+        VercelEdge -->|"/api/ai"| AIProxy[AI Inference Router]
     end
     
-    SupabaseProxy --> |JWT Encrypted| Supabase[(Supabase PostgreSQL)]
+    SupabaseProxy -->|"JWT Encrypted"| Supabase[(Supabase PostgreSQL)]
     
-    subgraph Database Layer [Supabase Cloud]
+    subgraph DatabaseLayer [Supabase Cloud]
         Supabase --> Auth[Zero-Trust Auth]
         Supabase --> DB[(Relational Schemas)]
         Supabase --> RPC[Edge RPCs: Rate Limiting & Moderation]
@@ -55,12 +55,12 @@ graph TD
     
     AIProxy --> AIService[aiService.js Traffic Controller]
     
-    subgraph Cognitive Intelligence Layer
-        AIService --> |Low Latency API| Groq[Groq LPU Array - Llama 3]
-        AIService --> |Massive Context API| Puter[Puter.js / OpenRouter - Gemini 2.0]
+    subgraph CognitiveLayer [Cognitive Intelligence Layer]
+        AIService -->|"Low Latency API"| Groq[Groq LPU Array - Llama 3]
+        AIService -->|"Massive Context API"| Puter[Puter.js / OpenRouter - Gemini 2.0]
         
-        AIService -.-> |circuit_breaker.trigger()| FallbackMonitor[Backoff Exponential Logic]
-        AIService -.-> |DB check_rate_limit| RPC
+        AIService -.->|"Circuit Breaker"| FallbackMonitor[Backoff Exponential Logic]
+        AIService -.->|"DB check_rate_limit"| RPC
     end
 ```
 
@@ -83,22 +83,22 @@ sequenceDiagram
     participant Groq as Groq (Llama 3)
     participant Puter as Puter/OpenRouter (Gemini)
 
-    C->>AI: requestCompletion(prompt, compute_tier)
+    C->>AI: requestCompletion
     
-    rect rgb(30, 41, 59)
+    rect rgba(0, 0, 0, 0.1)
     Note over AI,S: Rate Limit Validation Layer
-    AI->>AI: checkLocalTokenBucket()
+    AI->>AI: checkLocalTokenBucket
     opt Tokens Exhausted
-        AI-->>C: Error 429: Local Limiter Hit (0ms)
+        AI-->>C: Error 429: Local Limiter Hit
     end
-    AI->>S: RPC: check_rate_limit(action_type)
+    AI->>S: RPC check_rate_limit
     S-->>AI: Limit OK
     end
     
-    alt isCircuitBreakerOpen()
+    alt isCircuitBreakerOpen
         AI-->>C: Error 503: Service Cooling Down
     else Circuit Closed
-        alt compute_tier == LOW_LATENCY (Chat/Linting)
+        alt Low Latency Task
             AI->>Groq: Fetch Llama 3 API
             alt Groq Success
                 Groq-->>AI: Streaming Response
@@ -106,7 +106,7 @@ sequenceDiagram
                 AI->>Puter: Fallback to Gemini Edge
                 Puter-->>AI: Completion Response
             end
-        else compute_tier == DEEP_CONTEXT (Vision/Docs)
+        else Deep Context Task
             AI->>Puter: Fetch Gemini 2.0 Flash
             alt Puter Success
                 Puter-->>AI: Complex JSON/Buffer
@@ -139,27 +139,29 @@ stateDiagram-v2
     
     state UserTyping {
         [*] --> UpdateTiptapDOM
-        UpdateTiptapDOM --> WriteToLocalStorage : Synchronous (0ms latency/optimistic UI)
-        WriteToLocalStorage --> StartDebounceTimer : Initialize 2000ms countdown
+        UpdateTiptapDOM --> WriteToLocalStorage : Synchronous Update
+        WriteToLocalStorage --> StartDebounceTimer : Init 2000ms
     }
     
-    UserTyping --> UserTyping : Subsequent Keystrokes (Debounce Resets)
-    UserTyping --> SyncCloud : Debounce Timer Expires
+    UserTyping --> UserTyping : Subsequent Keystrokes
+    UserTyping --> SyncCloud : Debounce Expires
     
     state SyncCloud {
         [*] --> CalculateDiff
         CalculateDiff --> HTTPPostSupabase
-        HTTPPostSupabase --> [*] : Success (Dirty Flag Cleared)
-        HTTPPostSupabase --> RetryQueue : Network Failure Detected
+        HTTPPostSupabase --> [*] : Success
+        HTTPPostSupabase --> FailedSync : Error Detected
     }
     
     SyncCloud --> DocumentIdle
+    FailedSync --> OfflineMode
     
     state OfflineMode {
-        RetryQueue --> LocalStorageBuffer
+        [*] --> BufferToLocalStorage
+        BufferToLocalStorage --> AwaitReconnect
     }
     
-    OfflineMode --> SyncCloud : Network Reconnection Hook Fired
+    OfflineMode --> SyncCloud : Network Hook Fired
 ```
 
 ### HOPE Sheets: Virtualization Algorithms
@@ -176,13 +178,13 @@ The Agentic Report Generator does not simply act as a wrapper for ChatGPT. It is
 
 ```mermaid
 graph LR
-    subgraph Pre-Flight Configuration
-        User[User Config] --> |Topic, Audience, Tone| BG[Blueprint Blueprint Node]
+    subgraph PreFlight [Pre-Flight Configuration]
+        User[User Config] -->|"Topic, Audience, Tone"| BG[Blueprint Node]
     end
     
-    BG --> |JSON Schema: Section Array| ORC[Agentic Orchestrator Queue]
+    BG -->|"JSON Schema: Section Array"| ORC[Agentic Orchestrator Queue]
     
-    subgraph Autonomous Synthesis Loop
+    subgraph AutoSynthesis [Autonomous Synthesis Loop]
         ORC --> S1[Gen: Section 01]
         S1 -->|"Section 01 Content"| C1[Context Buffer]
         
@@ -194,11 +196,11 @@ graph LR
     
     SN --> Canvas[A4 Rich Text Canvas Injection]
     
-    subgraph Post-Flight Editing
+    subgraph PostFlight [Post-Flight Editing]
         Canvas --> CP[Sidebar Co-Pilot Tool]
-        CP --> |"Make block more analytical"| ReGen[Block-Level Regeneration]
+        CP -->|"Co-Pilot Refinement"| ReGen[Block-Level Regeneration]
         ReGen --> Canvas
-        Canvas --> |jsPDF A4 Parsing| PDF[Academic PDF Export]
+        Canvas -->|"jsPDF A4 Parsing"| PDF[Academic PDF Export]
     end
 ```
 
@@ -227,24 +229,24 @@ The HOPE Community hub is a safe, peer-to-peer discussion forum. Because serverl
 
 ```mermaid
 graph TD
-    Client1[Sender Instance] --> |Create Post/Comment| UI1[Graph Optimistic UI State]
-    UI1 --> |Render Immediately| Feed1[Visible Feed]
+    Client1[Sender Instance] -->|"Create Post/Comment"| UI1[Graph Optimistic UI State]
+    UI1 -->|"Render Immediately"| Feed1[Visible Feed]
     
-    Client1 --> |POST Payload via Edge Proxy| VercelHandler[Vercel Serverless Entry]
+    Client1 -->|"POST Payload"| VercelHandler[Vercel Serverless Entry]
     VercelHandler --> ToxicityNode{AI Content Filter API}
     
-    ToxicityNode -->|Clean/Safe| DB_Insert[Supabase table.insert()]
+    ToxicityNode -->|"Clean/Safe"| DB_Insert[Supabase table.insert]
     
-    ToxicityNode -->|Policy Violation Detected| RPC_Strike[Supabase RPC: Log Policy Strike]
+    ToxicityNode -->|"Violation Detected"| RPC_Strike[Supabase RPC: Log Policy Strike]
     
     RPC_Strike --> CountNode{Current User Strike Count}
-    CountNode -->|Strikes < 3| FlagPost[Quarantine Post & Warn Identity]
-    CountNode -->|Strikes >= 3| BanUser[Shadowban Token / Restrict RLS]
+    CountNode -->|"Strikes < 3"| FlagPost[Quarantine Post & Warn Identity]
+    CountNode -->|"Strikes >= 3"| BanUser[Shadowban Token / Restrict RLS]
     
-    subgraph Edge Polling Synchronization
-        Client2[Receiver Instance] --> |useEffect Interval(5000ms)| FetchDelta[GET DB State Deltas]
+    subgraph PollingSync [Edge Polling Synchronization]
+        Client2[Receiver Instance] -->|"useEffect Interval 5000ms"| FetchDelta[GET DB State Deltas]
         DB_Insert --> FetchDelta
-        FetchDelta --> |JSON Diff| UI2[Update Receiver React Context]
+        FetchDelta -->|"JSON Diff"| UI2[Update Receiver React Context]
     end
 ```
 
@@ -308,7 +310,7 @@ All structured tables (Profiles, Spreadsheets, Docs, Timers) execute on a zero-t
 │   ├── utils/
 │   │   ├── aiService.js        # Core API router, limiter, and circuit breaker
 │   │   ├── assignmentAI.js     # Specialized prompt matrices for math
-│   │   ├── handbookGenerator.js# PDF vision parsing integrations
+│   │   ├── handbookGenerator.js # PDF vision parsing integrations
 │   │   └── reportAI.js         # The section-by-section context buffer
 │   │
 │   ├── App.jsx                 # react-router-dom tree & Context hooks
