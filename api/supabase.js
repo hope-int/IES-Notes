@@ -79,21 +79,37 @@ export default async function handler(req) {
 
         // Read Supabase URL from Edge environment variables
         const SUPABASE_URL = process.env.SUPABASE_URL;
-        const targetUrl = `${SUPABASE_URL}${supabasePath}`;
 
-        // Create a new request object to forward
-        const modifiedRequest = new Request(targetUrl, {
-            method: req.method,
-            headers: req.headers,
-            body: req.body,
-            redirect: 'manual',
-        });
+        // If it's a websocket upgrade, rewrite the target URL schema to wss://
+        let targetUrl = `${SUPABASE_URL}${supabasePath}`;
+        if (req.headers.get('upgrade')?.toLowerCase() === 'websocket') {
+            targetUrl = targetUrl.replace(/^http/, 'ws');
+        }
+
+        // Clone headers and strictly remove host so Cloudflare routes to Supabase correctly
+        const modifiedHeaders = new Headers(req.headers);
+        modifiedHeaders.delete('host');
+        modifiedHeaders.delete('referer');
 
         // Forward Client Session ID if present
         const sessionId = req.headers.get('x-session-id');
         if (sessionId) {
-            modifiedRequest.headers.set('x-session-id', sessionId);
+            modifiedHeaders.set('x-session-id', sessionId);
         }
+
+        const requestInit = {
+            method: req.method,
+            headers: modifiedHeaders,
+            redirect: 'manual',
+        };
+
+        // Standard HTTP methods like GET and HEAD cannot send a body
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            requestInit.body = req.body;
+        }
+
+        // Create a new request object to forward
+        const modifiedRequest = new Request(targetUrl, requestInit);
 
         // Check if this is a WebSocket upgrade request (for Supabase Realtime)
         if (req.headers.get('upgrade')?.toLowerCase() === 'websocket') {
