@@ -10,6 +10,17 @@ import jsPDF from 'jspdf';
 import EditorToolbar from './EditorToolbar';
 import DocumentCanvas from './DocumentCanvas';
 
+const TIPTAP_EXTENSIONS = [
+    StarterKit,
+    Underline,
+    TextAlign.configure({
+        types: ['heading', 'paragraph'],
+    }),
+    Placeholder.configure({
+        placeholder: "Start writing your masterpiece, or type '/' for commands...",
+    }),
+];
+
 const HopeDocsLayout = ({ onBack }) => {
     const [title, setTitle] = useState(localStorage.getItem('hope_doc_title') || 'Untitled Document');
     const [isSaving, setIsSaving] = useState(false);
@@ -17,16 +28,7 @@ const HopeDocsLayout = ({ onBack }) => {
     const [showShareToast, setShowShareToast] = useState(false);
 
     const editor = useEditor({
-        extensions: [
-            StarterKit,
-            Underline,
-            TextAlign.configure({
-                types: ['heading', 'paragraph'],
-            }),
-            Placeholder.configure({
-                placeholder: "Start writing your masterpiece, or type '/' for commands...",
-            }),
-        ],
+        extensions: TIPTAP_EXTENSIONS,
         content: localStorage.getItem('hope_doc_content') || '',
         onUpdate: ({ editor }) => {
             handleAutoSave(editor.getHTML());
