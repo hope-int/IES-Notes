@@ -13,7 +13,7 @@
     "@heyputer/puter.js": "^2.2.10",
     "@monaco-editor/react": "^4.7.0",
     "@silevis/reactgrid": "^4.1.17",
-    "@supabase/supabase-js": "^2.94.0",
+    "@supabase/supabase-js": "^2.98.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.0",
     "@tiptap/extension-placeholder": "^3.20.0",
