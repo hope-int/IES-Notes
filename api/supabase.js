@@ -39,7 +39,18 @@ export default async function handler(req) {
 
         // Security Check 2: Path Validation (SSRF Prevention)
         // Only allow specific Supabase public API paths
-        const supabasePath = url.pathname.replace('/api/supabase', '') + url.search;
+        let supabasePath = url.pathname.replace('/api/supabase', '');
+        // On Vercel, edge functions might receive paths without the /api prefix if rewritten incorrectly,
+        // so we make sure we accurately extract the intended Supabase path
+        if (supabasePath === url.pathname && url.pathname.includes('rest/v1')) {
+            supabasePath = url.pathname.substring(url.pathname.indexOf('/rest/v1'));
+        } else if (supabasePath === url.pathname && url.pathname.includes('storage/v1')) {
+            supabasePath = url.pathname.substring(url.pathname.indexOf('/storage/v1'));
+        } else if (supabasePath === url.pathname && url.pathname.includes('auth/v1')) {
+            supabasePath = url.pathname.substring(url.pathname.indexOf('/auth/v1'));
+        }
+        supabasePath += url.search;
+
         const validPathPrefixes = ['/rest/v1/', '/storage/v1/', '/auth/v1/', '/graphql/v1/', '/rpc/check_rate_limit'];
 
         const isValidPath = validPathPrefixes.some(prefix => supabasePath.startsWith(prefix));
