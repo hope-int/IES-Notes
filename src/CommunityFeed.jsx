@@ -62,45 +62,18 @@ export default function CommunityFeed() {
     useEffect(() => {
         fetchPosts();
 
-        // Real-time Subscription
-        const channel = supabase
-            .channel('public:community_posts')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_posts' }, payload => {
-                setPosts(currentPosts => [payload.new, ...currentPosts]);
-            })
-            // Also listen for DELETE to remove posts in real-time
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_posts' }, payload => {
-                setPosts(currentPosts => currentPosts.filter(post => post.id !== payload.old.id));
-            })
-            // Listen for UPDATE (e.g. likes)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'community_posts' }, payload => {
-                setPosts(currentPosts => currentPosts.map(post => post.id === payload.new.id ? payload.new : post));
-            })
-            .subscribe();
-
-        // Real-time Comment Counts
-        const commentChannel = supabase
-            .channel('public:community_comments_counts')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_comments' }, payload => {
-                setPosts(currentPosts => currentPosts.map(p =>
-                    p.id === payload.new.post_id ? { ...p, comment_count: (p.comment_count || 0) + 1 } : p
-                ));
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_comments' }, payload => {
-                setPosts(currentPosts => currentPosts.map(p =>
-                    p.id === payload.old.post_id ? { ...p, comment_count: Math.max(0, (p.comment_count || 0) - 1) } : p
-                ));
-            })
-            .subscribe();
+        // Fallback to HTTP Polling since Vercel Serverless doesn't support WebSocket endpoints.
+        const intervalId = setInterval(() => {
+            fetchPosts(false);
+        }, 15000); // 15 seconds polling
 
         return () => {
-            supabase.removeChannel(channel);
-            supabase.removeChannel(commentChannel);
+            clearInterval(intervalId);
         };
     }, [sortMethod, profile]); // Refetch when sort changes or profile loads
 
-    const fetchPosts = async () => {
-        setLoading(true);
+    const fetchPosts = async (showLoader = true) => {
+        if (showLoader) setLoading(true);
         try {
             let query = supabase
                 .from('community_posts')
@@ -162,7 +135,7 @@ export default function CommunityFeed() {
         } catch (error) {
             console.error("Error fetching community feed:", error);
         } finally {
-            setLoading(false);
+            if (showLoader) setLoading(false);
         }
     };
 
@@ -244,22 +217,23 @@ export default function CommunityFeed() {
         setLoadingComments(false);
     };
 
-    // Separate Effect for Comment Subscriptions
+    // Separate Effect for Comment Subscriptions (Polling Fallback)
     useEffect(() => {
         if (!activePostId) return;
 
-        const channel = supabase
-            .channel(`comments:${activePostId}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_comments', filter: `post_id=eq.${activePostId}` }, payload => {
-                setComments(currentComments => [...currentComments, payload.new]);
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'community_comments', filter: `post_id=eq.${activePostId}` }, payload => {
-                setComments(currentComments => currentComments.filter(comment => comment.id !== payload.old.id));
-            })
-            .subscribe();
+        const fetchActiveComments = async () => {
+            const { data } = await supabase
+                .from('community_comments')
+                .select('*')
+                .eq('post_id', activePostId)
+                .order('created_at', { ascending: true });
+            if (data) setComments(data);
+        };
+
+        const intervalId = setInterval(fetchActiveComments, 10000); // 10s polling
 
         return () => {
-            supabase.removeChannel(channel);
+            clearInterval(intervalId);
         };
     }, [activePostId]);
 
