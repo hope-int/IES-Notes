@@ -143,6 +143,29 @@ function App() {
     }
   }, [userProfile]);
 
+  // Trap hardware back button for folder navigation
+  useEffect(() => {
+    const handlePopState = (e) => {
+      setNavStack((prevStack) => {
+        if (prevStack.length > 1) {
+          const newStack = prevStack.slice(0, -1);
+          const prevView = newStack[newStack.length - 1];
+          if (prevView.savedFilter) {
+            setActiveFilter(prevView.savedFilter);
+          }
+          if (prevView.type === 'home') fetchDepartments();
+          else if (prevView.type === 'dept') fetchSemesters(prevView.id);
+          else if (prevView.type === 'sem') fetchSubjects(prevView.id);
+
+          return newStack;
+        }
+        return prevStack;
+      });
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Robustly check (and wait for) Puter.js to initialize
   useEffect(() => {
     let attempts = 0;
@@ -307,6 +330,8 @@ function App() {
     const updatedCurrentItem = { ...currentStackItem, savedFilter: activeFilter };
     const newStackStart = navStack.slice(0, -1);
 
+    window.history.pushState({ folderNav: true }, '', window.location.href);
+
     setNavStack([...newStackStart, updatedCurrentItem, { type: nextType, title: item.name || item.title, id: item.id, data: item }]);
 
     setSearchTerm('');
@@ -329,29 +354,15 @@ function App() {
 
   const handleBack = () => {
     if (navStack.length > 1) {
-      const prevStack = navStack.slice(0, -1);
-      setNavStack(prevStack);
-
-      const prevView = prevStack[prevStack.length - 1];
-      // Restore filter if it was saved
-      if (prevView.savedFilter) {
-        setActiveFilter(prevView.savedFilter);
-      }
-
-      if (prevView.type === 'home') fetchDepartments();
-      else if (prevView.type === 'dept') fetchSemesters(prevView.id);
-      else if (prevView.type === 'sem') fetchSubjects(prevView.id);
+      window.history.back(); // Trigger popstate which pops navStack
     }
   };
 
   const handleBreadcrumbClick = (index) => {
-    const newStack = navStack.slice(0, index + 1);
-    setNavStack(newStack);
-
-    const view = newStack[newStack.length - 1];
-    if (view.type === 'home') fetchDepartments();
-    else if (view.type === 'dept') fetchSemesters(view.id);
-    else if (view.type === 'sem') fetchSubjects(view.id);
+    const depth = navStack.length - 1 - index;
+    if (depth > 0) {
+      window.history.go(-depth); // Trigger popstate N times to go back N folders
+    }
   };
 
   const toggleFavorite = (e, item) => {
@@ -934,7 +945,7 @@ function App() {
           }
           {/* Floating Navigation Bar - Global */}
           {
-            location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && (
+            !showProfile && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && (
               <div className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" style={{ pointerEvents: 'none', zIndex: 1055 }}>
                 <motion.div
                   whileHover={{
@@ -949,8 +960,15 @@ function App() {
                   <button
                     onClick={() => {
                       navigate('/');
-                      setNavStack([{ type: 'home', title: 'Home', id: null }]);
                       setActiveTab('home');
+                      setActiveFilter('My');
+                      if (userProfile?.semester_id) {
+                        setNavStack([{ type: 'sem', id: userProfile.semester_id, title: userProfile.semester_name || 'My Semester' }]);
+                        fetchSubjects(userProfile.semester_id);
+                      } else {
+                        setNavStack([{ type: 'home', title: 'Home', id: null }]);
+                        fetchDepartments();
+                      }
                     }}
                     className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' && location.pathname === '/' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
