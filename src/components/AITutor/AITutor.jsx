@@ -79,7 +79,7 @@ const Mermaid = ({ chart }) => {
 const CodeBlock = ({ children, className }) => {
     const [copied, setCopied] = useState(false);
     const match = /language-(\w+)/.exec(className || '');
-    const language = match ? match[1] : 'code';
+    const language = match ? match[1] : 'source';
 
     const handleCopy = () => {
         navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
@@ -88,72 +88,63 @@ const CodeBlock = ({ children, className }) => {
     };
 
     return (
-        <div className="position-relative chat-code-container rounded-4 my-3 overflow-hidden shadow-sm"
+        <div className="position-relative chat-code-container rounded-3 my-3 overflow-hidden shadow-sm border"
             style={{
                 background: '#f8fafc',
-                backgroundColor: '#f8fafc',
-                border: '1px solid rgba(0,0,0,0.08)'
+                borderColor: 'rgba(0,0,0,0.08)'
             }}>
-            {/* Global Override for this component to beat .prose */}
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .chat-code-container pre, 
                 .chat-code-container code {
-                    background-color: transparent !important;
                     background: transparent !important;
-                    color: #1e293b !important;
+                    background-color: transparent !important;
+                    color: #334155 !important;
                     padding: 0 !important;
                     margin: 0 !important;
                     border: none !important;
-                    box-shadow: none !important;
+                    white-space: pre-wrap !important;
+                    word-break: break-all !important;
+                    font-size: 13px !important;
+                    line-height: 1.6 !important;
                 }
-                .chat-code-container pre::before,
-                .chat-code-container pre::after,
-                .chat-code-container code::before,
-                .chat-code-container code::after {
-                    display: none !important;
+                .chat-code-container pre::before, .chat-code-container code::before,
+                .chat-code-container pre::after, .chat-code-container code::after {
                     content: none !important;
                 }
+                /* Ensure syntax colors (like for comments) are legible on light bg */
+                .chat-code-container .comment, .chat-code-container .quote { color: #64748b !important; font-style: italic; }
+                .chat-code-container .keyword { color: #020617 !important; font-weight: 600; }
+                .chat-code-container .string { color: #0891b2 !important; }
             `}} />
 
-            <div className="d-flex justify-content-between align-items-center px-4 py-2 border-bottom"
-                style={{
-                    background: 'rgba(0,0,0,0.02)',
-                    borderBottom: '1px solid rgba(0,0,0,0.05)'
-                }}>
-                <span className="small fw-bold text-uppercase tracking-widest"
-                    style={{ fontSize: '10px', color: '#64748b', opacity: 0.8 }}>
+            <div className="d-flex justify-content-between align-items-center px-3 py-1-5 border-bottom bg-white bg-opacity-50">
+                <span className="fw-bold text-uppercase tracking-tighter opacity-50"
+                    style={{ fontSize: '9px', color: '#64748b' }}>
                     {language}
                 </span>
                 <button
                     onClick={handleCopy}
-                    className="btn btn-link p-0 d-flex align-items-center gap-2 text-decoration-none shadow-none"
-                    style={{ color: '#64748b' }}
+                    className="btn btn-link p-0 d-flex align-items-center gap-1 shadow-none text-decoration-none"
+                    style={{ color: '#94a3b8' }}
                 >
                     {copied ? (
-                        <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="d-flex align-items-center gap-1">
-                            <Check size={12} style={{ color: '#10b981' }} />
-                            <span style={{ fontSize: '11px', color: '#10b981' }}>Copied</span>
-                        </motion.div>
-                    ) : (
                         <div className="d-flex align-items-center gap-1">
-                            <Copy size={12} />
-                            <span style={{ fontSize: '11px' }}>Copy Code</span>
+                            <Check size={10} style={{ color: '#10b981' }} />
+                            <span style={{ fontSize: '10px', color: '#10b981' }}>Copied</span>
+                        </div>
+                    ) : (
+                        <div className="d-flex align-items-center gap-1 opacity-75 hover-opacity-100">
+                            <Copy size={10} />
+                            <span style={{ fontSize: '10px' }}>Copy</span>
                         </div>
                     )}
                 </button>
             </div>
-            <div className="p-4 overflow-auto custom-scrollbar"
-                style={{
-                    maxHeight: '500px',
-                    background: '#f8fafc'
-                }}>
+            <div className="p-3 overflow-auto custom-scrollbar"
+                style={{ maxHeight: '400px', background: '#f8fafc' }}>
                 <pre className="m-0">
-                    <code className="small" style={{
-                        fontFamily: "'Fira Code', monospace",
-                        fontSize: '13px',
-                        lineHeight: '1.7'
-                    }}>
+                    <code className="source-code" style={{ fontFamily: "'Fira Code', monospace" }}>
                         {children}
                     </code>
                 </pre>
