@@ -4,380 +4,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HEH-V4-EXHAUSTIVE-BLUEPRINT | HOPE-Edu-Hub Master Specification</title>
-    <!-- Professional Typography -->
-    <link
-        href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap"
-        rel="stylesheet">
+    <title>HOPE-Edu-Hub | Technical Specification & Research Abstract</title>
     <style>
-        :root {
-            --primary: #1e40af;
-            --primary-glow: rgba(30, 64, 175, 0.05);
-            --secondary: #4338ca;
-            --accent: #0e7490;
-            --danger: #be123c;
-            --success: #15803d;
-            --text-main: #0f172a;
-            --text-body: #334155;
-            --text-muted: #64748b;
-            --bg-page: #f8fafc;
-            --bg-doc: #ffffff;
-            --border: #e2e8f0;
-        }
-
-        * {
-            box-sizing: border-box;
-            -webkit-print-color-adjust: exact;
-        }
-
         body {
-            font-family: 'Inter', sans-serif;
-            color: var(--text-body);
-            background: var(--bg-page);
-            margin: 0;
-            padding: 40px 20px;
-            line-height: 1.6;
-        }
-
-        .blueprint-canvas {
-            max-width: 1050px;
-            margin: 0 auto;
-            background: var(--bg-doc);
-            padding: 3.5cm;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
-            border: 1px solid var(--border);
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Diagonal Watermark */
-        .blueprint-canvas::after {
-            content: "CONFIDENTIAL RESEARCH MODEL V4.2";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-30deg);
-            font-size: 6rem;
-            font-weight: 900;
-            color: rgba(0, 0, 0, 0.015);
-            pointer-events: none;
-            white-space: nowrap;
-            z-index: 0;
-        }
-
-        /* Header Architecture */
-        .doc-header {
-            text-align: center;
-            border-bottom: 4px solid var(--text-main);
-            padding-bottom: 2.5rem;
-            margin-bottom: 4rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        .doc-header .identifier {
-            font-weight: 900;
-            letter-spacing: 0.4em;
-            color: var(--primary);
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        .doc-header h1 {
-            font-family: 'Crimson Pro', serif;
-            font-size: 4rem;
-            font-weight: 900;
-            margin: 0;
-            line-height: 0.9;
-            color: var(--text-main);
-        }
-
-        .doc-header .version-pills {
-            margin-top: 1.5rem;
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-        }
-
-        .pill {
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-        }
-
-        /* Abstract Box */
-        .abstract-callout {
-            background: #f1f5f9;
-            padding: 2.5rem;
-            border-radius: 12px;
-            margin: 3rem 0;
-            font-family: 'Crimson Pro', serif;
-            font-size: 1.35rem;
+            font-family: serif;
             line-height: 1.5;
-            position: relative;
-            z-index: 1;
-            text-align: justify;
-            border: 1px solid var(--border);
+            color: #333;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: white;
         }
 
-        .abstract-callout b {
-            display: block;
-            font-size: 1.6rem;
-            margin-bottom: 0.8rem;
-            color: var(--primary);
-            text-transform: uppercase;
+        header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
         }
 
-        /* Sectioning */
+        h1 {
+            margin: 10px 0;
+            font-size: 24pt;
+        }
+
         h2 {
-            font-family: 'Crimson Pro', serif;
-            font-size: 2.8rem;
-            color: var(--text-main);
-            border-bottom: 2px solid var(--text-main);
-            margin-top: 5rem;
-            padding-bottom: 0.5rem;
-            display: flex;
-            align-items: baseline;
-            gap: 1.5rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        h2 .ordinal {
-            font-family: 'Inter', sans-serif;
-            font-size: 1.4rem;
-            color: var(--primary);
-            font-weight: 900;
+            border-bottom: 1px solid #ccc;
+            margin-top: 40px;
+            font-size: 18pt;
         }
 
         h3 {
-            font-size: 1.6rem;
-            color: var(--secondary);
-            margin-top: 3.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            margin-top: 25px;
+            font-size: 14pt;
         }
 
-        h3::before {
-            content: "";
-            width: 8px;
-            height: 24px;
-            background: var(--secondary);
-            display: inline-block;
-            border-radius: 2px;
+        .abstract {
+            font-style: italic;
+            background: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #ddd;
+            margin: 20px 0;
         }
 
-        /* Workflow Blocks */
-        .workflow-card {
-            border: 1px solid var(--border);
-            background: white;
-            padding: 2rem;
-            border-radius: 16px;
-            margin: 2rem 0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-            position: relative;
-            z-index: 1;
+        .section-box {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #eee;
         }
 
-        .workflow-card h4 {
-            margin: 0 0 1.5rem 0;
-            font-size: 1.4rem;
-            color: var(--text-main);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .workflow-card .tag {
-            font-size: 0.7rem;
-            background: var(--primary-glow);
-            color: var(--primary);
-            padding: 4px 10px;
-            border-radius: 20px;
-            border: 1px solid rgba(30, 64, 175, 0.1);
-        }
-
-        .step-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .step-item {
-            display: flex;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px dashed var(--border);
-        }
-
-        .step-item:last-child {
-            border: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-
-        .step-num {
-            width: 28px;
-            height: 28px;
-            background: var(--text-main);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            font-weight: 800;
-            flex-shrink: 0;
-        }
-
-        .step-body b {
-            display: block;
-            color: var(--text-main);
-            margin-bottom: 0.2rem;
-            font-size: 1.1rem;
-        }
-
-        .step-body p {
-            margin: 0;
-            color: var(--text-body);
-            font-size: 0.95rem;
-        }
-
-        /* Technical Data Grids */
-        .specs-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem;
-            margin: 2rem 0;
-        }
-
-        .spec-box {
-            background: #fbfcfe;
-            border: 1px solid var(--border);
-            padding: 1.5rem;
-            border-radius: 8px;
-        }
-
-        .spec-box h5 {
-            margin: 0 0 0.8rem 0;
-            color: var(--accent);
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 1px;
-        }
-
-        /* Large Code Displays */
-        pre {
-            background: #0f172a;
-            color: #f8fafc;
-            padding: 2.5rem;
-            border-radius: 12px;
-            font-family: 'Fira Code', monospace;
-            font-size: 12px;
-            line-height: 1.8;
-            margin: 3rem 0;
-            border-left: 10px solid var(--primary);
-            position: relative;
-        }
-
-        pre::before {
-            content: "HEH_CORE_SYSTEM_LOG";
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            font-size: 0.6rem;
-            color: rgba(255, 255, 255, 0.3);
-            letter-spacing: 2px;
-        }
-
-        /* Tables */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 3rem 0;
-            background: white;
+            margin: 20px 0;
         }
 
-        table th {
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
             text-align: left;
-            padding: 1.2rem;
-            background: var(--text-main);
-            color: white;
-            font-weight: 700;
-            font-size: 0.9rem;
         }
 
-        table td {
-            padding: 1.2rem;
-            border-bottom: 1px solid var(--border);
-            vertical-align: top;
-            font-size: 0.95rem;
+        th {
+            background: #f2f2f2;
         }
 
-        /* Footer */
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-left: 5px solid #333;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 10pt;
+        }
+
+        .workflow {
+            margin-left: 20px;
+            border-left: 2px solid #000;
+            padding-left: 20px;
+        }
+
         footer {
-            margin-top: 10rem;
-            border-top: 2px solid var(--text-main);
-            padding-top: 3rem;
+            margin-top: 50px;
             text-align: center;
-            font-size: 0.85rem;
-            color: var(--text-muted);
+            font-size: 10pt;
+            border-top: 1px solid #000;
+            padding-top: 20px;
         }
 
-        .cert-stamp {
-            display: inline-block;
-            border: 2px solid var(--danger);
-            color: var(--danger);
-            padding: 10px 20px;
-            font-weight: 900;
-            transform: rotate(-10deg);
-            margin: 2rem 0;
-            border-radius: 4px;
-            font-size: 1.2rem;
-            opacity: 0.6;
-        }
-
-        /* Print Hardening */
         @media print {
             body {
-                padding: 0;
-                background: white;
-            }
-
-            .blueprint-canvas {
-                box-shadow: none;
-                border: none;
                 margin: 0;
-                max-width: 100%;
-                padding: 1.5cm;
-            }
-
-            h2,
-            h3,
-            .workflow-card,
-            table {
-                page-break-inside: avoid;
-            }
-
-            pre {
-                background: #f1f5f9 !important;
-                color: #0f172a !important;
-                border: 1px solid #ddd !important;
-                white-space: pre-wrap !important;
-            }
-
-            .cert-stamp {
-                opacity: 1;
-                color: black;
-                border-color: black;
+                padding: 0;
+                width: 100%;
             }
         }
     </style>
@@ -385,336 +105,123 @@
 
 <body>
 
-    <div class="blueprint-canvas">
-        <header class="doc-header">
-            <span class="identifier">FORMAL TECHNICAL SPECIFICATION | HEH-MAR-2026</span>
-            <h1>HOPE-EDU-HUB</h1>
-            <div class="version-pills">
-                <span class="pill">Architecture: Edge-Infused PWA</span>
-                <span class="pill">AI Engine: Arcee-Trinity v2</span>
-                <span class="pill">Hardening Status: Level 5</span>
-            </div>
-        </header>
+    <header>
+        <div>HOPE INT. COGNITIVE RESEARCH DISCLOSURE</div>
+        <h1>HOPE-EDU-HUB</h1>
+        <h3>Technical Specification & Research Abstract (V4.2)</h3>
+        <p>Date: March 2026 | Prepared by: HOPE Systems Engineering</p>
+    </header>
 
-        <section class="abstract-callout">
-            <b>1.0 Project Postulate</b>
-            The HOPE-Edu-Hub ecosystem is a deterministic execution environment designed to bridge the structural gap in
-            academic engineering. Traditional educational platforms remain information-heavy but cognition-light. HOPE
-            reverses this by implementing an <b>Autonomous Reasoning Pipeline</b>. This blueprint serves as the
-            exhaustive record of the system's cognitive neurons, virtual sandbox mechanics, and localized security
-            manifests that enable a fail-safe learning experience for high-stakes academic environments.
-        </section>
+    <div class="abstract">
+        <strong>Abstract:</strong>
+        HOPE-Edu-Hub is an autonomous cognitive ecosystem designed for higher education. It bridges the gap between
+        static information and active reasoning using a multi-provider AI routing array, virtual hardware emulation
+        (VHE), and agentic document synthesis. This document provides an exhaustive technical record of the system's
+        architecture, security protocols, and generative workflows.
+    </div>
 
-        <h2><span class="ordinal">01.</span> AI ARCHITECTURE: THE COGNITIVE KERNEL</h2>
-        <p>The core intelligence logic resides in <code>aiService.js</code>, functioning as a high-frequency router with
-            deterministic fallback protocols.</p>
+    <h2>1. AI Architecture & Routing Logic</h2>
+    <p>The system utilizes a fault-tolerant routing kernel in <code>aiService.js</code> to manage inference tasks across
+        multiple LLM providers.</p>
 
-        <h3>1.1 Multimodal Provider Stack</h3>
-        <p>Unlike standard AI implementations, HOPE utilizes a <i>Heterogeneous Model Array</i> to match task complexity
-            with inference efficiency.</p>
-
-        <div class="specs-grid">
-            <div class="spec-box">
-                <h5>Cognitive Leader (Tier-1)</h5>
-                <b>Arcee-ai Trinity Large Preview</b>
-                <p>Leveraged for Socratic tutoring, deep architectural deconstruction, and complex code debugging. High
-                    context-retention capability.</p>
-            </div>
-            <div class="spec-box">
-                <h5>Vision Specialist</h5>
-                <b>NVidia Nemotron-Nano 12B-V2-VL</b>
-                <p>Dedicated vision node. Analyzes handwritten diagrams, lecture screenshots, and physical textbook
-                    pages for OCR-to-Logic conversion.</p>
-            </div>
-            <div class="spec-box">
-                <h5>Inference Acceleration (Groq)</h5>
-                <b>Llama-3.3-70B-Versatile</b>
-                <p>Utilized as the sub-second recovery node. Handles mathematical solves and quick lookups when primary
-                    providers are rate-limited.</p>
-            </div>
-            <div class="spec-box">
-                <h5>The Circuit Breaker</h5>
-                <b>Exponential Backoff Logic</b>
-                <p>Monitors provider health in real-time. If Puter.js drops 3 packets, the system locks the provider for
-                    300s to protect UI responsiveness.</p>
-            </div>
-        </div>
-
-        <h3>1.2 Workflow: The Completion Lifecycle</h3>
-        <div class="workflow-card">
-            <h4>AI completion request lifecycle <span class="tag">Deterministic Routine</span></h4>
-            <div class="step-list">
-                <div class="step-item">
-                    <div class="step-num">1</div>
-                    <div class="step-body">
-                        <b>Token Bucket Validation</b>
-                        <p>System checks localized storage for request frequency. Prevents client-side spamming before
-                            hitting network layers.</p>
-                    </div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">2</div>
-                    <div class="step-body">
-                        <b>RPC Rate Limit Check</b>
-                        <p>Calls <code>check_rate_limit(auth.uid())</code> in Supabase. Ensures fair resource
-                            distribution across the student body.</p>
-                    </div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">3</div>
-                    <div class="step-body">
-                        <b>Inference Routing</b>
-                        <p>Primary node (Arcee) is polled. If status !== 200, the <code>fallbackMonitor</code> initiates
-                            a silent hop to secondary clusters.</p>
-                    </div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">4</div>
-                    <div class="step-body">
-                        <b>Telemetry Injection</b>
-                        <p>Metadata (RTT, Model-ID, Provider) is stripped from the response headers and buffered for UI
-                            display.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <h2><span class="ordinal">02.</span> J-COMPILER: VIRTUAL SYSTEMS ENGINEERING</h2>
-        <p>The J-Compiler module functions as a low-level systems simulator, translating abstract code into
-            deterministic hardware states.</p>
-
-        <h3>2.1 Virtual Hardware Emulation (VHE)</h3>
-        <p>Specialized for C++/Arduino environments, the simulation loop captures side-effects that standard
-            web-compilers ignore.</p>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Simulation Component</th>
-                    <th>Underlying Logic</th>
-                    <th>Resultant UI State</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><b>GPIO State Engine</b></td>
-                    <td>AI-pursed logic mapping of <code>digitalWrite</code> and <code>pinMode</code> calls.</td>
-                    <td>Real-time terminal logs reporting virtual pin transitions (Pulse Width Modulation).</td>
-                </tr>
-                <tr>
-                    <td><b>Serial Clock Emulation</b></td>
-                    <td>Simulates baud-rate standard timing (e.g., 115200) for UART communications.</td>
-                    <td>Virtual Terminal rendering with simulated bootloader sequences and heap-dumps.</td>
-                </tr>
-                <tr>
-                    <td><b>Visual Trace (VTE)</b></td>
-                    <td>Converts raw source AST into hardened Mermaid.js flowchart definitions.</td>
-                    <td>Interactive logic diagrams representing <code>if-else</code> branching and <code>for-loop</code>
-                        recursion.</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <h3>2.2 Workflow: The Simulation Loop</h3>
-        <div class="workflow-card">
-            <h4>Hardware simulation routine <span class="tag">Asynchronous Engine</span></h4>
-            <div class="step-list">
-                <div class="step-item">
-                    <div class="step-num">1</div>
-                    <div class="step-body">
-                        <b>Source Parsing:</b> The Editor captures Monaco content and identifies the specific dialect
-                        (C++ / Python / JS).
-                    </div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">2</div>
-                    <div class="step-body">
-                        <b>Virtual Boot:</b> AI simulates the <code>setup()</code> routine, initializing memory buffers
-                        and hardware pins.
-                    </div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">3</div>
-                    <div class="step-body">
-                        <b>Recursive Loop:</b> System executes exactly two cycles of <code>loop()</code> to capture
-                        state changes over time.
-                    </div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">4</div>
-                    <div class="step-body">
-                        <b>Artifact Generation:</b> Returns raw terminal text + VTE Mermaid code + Telemetry Stats.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <h2><span class="ordinal">03.</span> AGENTIC PIPELINES: RECURSIVE SYNTHESIS</h2>
-        <p>HOPE leverages four specialized Generative Agents that use human-in-the-loop recursion for high-fidelity
-            academic production.</p>
-
-        <h3>3.1 Report & Research Orchestrator</h3>
-        <p>The <b>Report Generator</b> utilizes a "Depth-First" recursive loop. It does not generate a whole document at
-            once; it builds it block by block.</p>
-
-        <div class="workflow-card">
-            <h4>Recursive Section Synthesis <span class="tag">Autonomous Loop</span></h4>
-            <div class="step-list">
-                <div class="step-item">
-                    <div class="step-num">1</div>
-                    <div class="step-body"><b>Blueprint Phase:</b> User objective -> AI generates a detailed JSON
-                        outline (Table of Contents).</div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">2</div>
-                    <div class="step-body"><b>Active Buffer:</b> Each section generation holds the content of
-                        <i>previous</i> sections in its context window to ensure thematic cohesion.
-                    </div>
-                </div>
-                <div class="step-item">
-                    <div class="step-num">3</div>
-                    <div class="step-body"><b>A4 Canvas Injection:</b> Content is rendered into a physical A4 DOM
-                        representation (HOPE Docs) for real-time editing.</div>
-                </div>
-            </div>
-        </div>
-
-        <h3>3.2 Agentic Slide Engineering</h3>
-        <p>Uses <b>HTML Component Injection</b>. The AI acting as a UI architect generates slide decks using responsive
-            flexbox/grid layouts rather than static templates.</p>
+    <div class="section-box">
+        <strong>1.1 AI Fallback Hierarchy:</strong>
         <ul>
-            <li><b>Glassmorphism Support:</b> Dynamic calculation of gradients and blur-backdrops based on theme
-                context.</li>
-            <li><b>IFrame Sandboxing:</b> Every slide is rendered in an isolated <code>&lt;iframe&gt;</code> to prevent
-                global CSS leaks between the app and the presentation.</li>
+            <li><strong>Primary:</strong> Puter.js (Arcee-Trinity Large) - Optimized for deep reasoning and tutoring.
+            </li>
+            <li><strong>Secondary:</strong> OpenRouter (Llama-3.1-70B) - Activated on primary service failure.</li>
+            <li><strong>Tertiary:</strong> Groq (Llama-3.3) - High-speed recovery node for low-latency tasks.</li>
         </ul>
+    </div>
 
-        <h2><span class="ordinal">05.</span> PRODUCTIVITY ARCHITECTONICS: HOPE DOCS & SHEETS</h2>
-        <p>The productivity suite is engineered to replace proprietary word processors and spreadsheets with
-            browser-native, high-performance tools.</p>
+    <div class="workflow">
+        <strong>Execution Workflow:</strong>
+        <ol>
+            <li>User triggers task (Chat, Compiler, or Agent).</li>
+            <li>System validates local token limits.</li>
+            <li>Supabase RPC <code>check_rate_limit</code> verifies user quota.</li>
+            <li>Router attempts Puter Cloud completion.</li>
+            <li>On failure (429/500), system initiates hot-swap to fallback providers.</li>
+            <li>Telemetry data (RTT, Model ID) is recorded and displayed.</li>
+        </ol>
+    </div>
 
-        <h3>5.1 HOPE Docs: Dual-Phase Persistence</h3>
-        <p>Utilizes a headless <b>Tiptap Core</b> with forced A4 viewport simulation. To eliminate data loss, the system
-            implements an <i>Optimistic Sync Engine</i>.</p>
+    <h2>2. J-Compiler: Virtual Engineering Sandbox</h2>
+    <p>The compiler simulates hardware environments for C++, Python, and Arduino codebases without requiring physical
+        devices.</p>
 
-        <div class="workflow-card">
-            <h4>Data Persistence Workflow <span class="tag">Atomic State</span></h4>
-            <div class="step-list">
-                <div class="step-item">
-                    <div class="step-num">1</div>
-                    <div class="step-body"><b>Local-First:</b> Every keystroke is immediately committed to
-                        <code>localStorage</code> (latency < 1ms).</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">2</div>
-                        <div class="step-body"><b>Debounced Logic:</b> A 1500ms timer waits for user idle before
-                            initiating network traffic.</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">3</div>
-                        <div class="step-body"><b>Edge Sync:</b> Payload is pushed to Supabase via a serverless proxy.
-                            If the network is down, the system enters <i>Buffer Mode</i>.</div>
-                    </div>
-                </div>
-            </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Simulation Type</th>
+                <th>Features</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Virtual Hardware Emulation (VHE)</td>
+                <td>GPIO state tracking, Serial Monitor simulation, Pin management.</td>
+            </tr>
+            <tr>
+                <td>Visual Trace Execution (VTE)</td>
+                <td>Logic transpilation to Mermaid.js flowcharts for algorithmic visualization.</td>
+            </tr>
+            <tr>
+                <td>State Monitoring</td>
+                <td>Tracks variable changes across two recursive <code>loop()</code> cycles in Arduino.</td>
+            </tr>
+        </tbody>
+    </table>
 
-            <h3>5.2 HOPE Sheets: Grid Virtualization</h3>
-            <p>To handle datasets exceeding 5,000 cells without DOM degradation, HOPE Sheets uses <b>Viewport
-                    Culling</b>.</p>
-            <ul>
-                <li><b>Coordinate Matrix:</b> Only cells in the immediate FOV (Field of View) are rendered as DOM nodes.
-                </li>
-                <li><b>Formula Engine:</b> AI-assisted formula generation that parses natural language into valid
-                    <code>=SUM()</code> or <code>=VLOOKUP()</code> syntax.</li>
-            </ul>
+    <h2>3. Agentic Generative Pipelines</h2>
+    <p>HOPE leverages recursive state machines for high-fidelity academic content generation.</p>
 
-            <h2><span class="ordinal">06.</span> SOCIAL & PEER INTELLIGENCE: COMMUNITY ENGINE</h2>
-            <p>The community feed is a decentralized peer-to-peer communication node with automated safety protocols.
-            </p>
+    <div class="section-box">
+        <strong>3.1 Report & Research Agent:</strong>
+        <p>Generates documents block-by-block using an "Active Context Buffer" to ensure coherence across long
+            manuscripts. Final output is rendered to A4-simulated canvases.</p>
+    </div>
 
-            <div class="ai-feature-deep-dive">
-                <b class="label">Moderation Logic</b>
-                <h4>Autonomous Content Sanitization (ACS)</h4>
-                <p>Every post and comment undergoes a three-stage toxicity analysis before becoming globally visible.
-                </p>
+    <div class="section-box">
+        <strong>3.2 Slides & Presentation Agent:</strong>
+        <p>Constructs responsive HTML/CSS layouts inside isolated IFrame sandboxes, preventing style leakage while
+            supporting modern aesthetics like glassmorphism.</p>
+    </div>
 
-                <div class="workflow-visual">
-                    <div class="step">
-                        <div class="step-id">MOD</div>
-                        <div class="step-content">
-                            <b>Vector Analysis</b>
-                            <small>Text is scanned for harassment, plagiarism, or non-academic content via the AI
-                                toxicity node.</small>
-                        </div>
-                    </div>
-                    <div class="step">
-                        <div class="step-id">LOG</div>
-                        <div class="step-content">
-                            <b>Strike Accounting</b>
-                            <small>Violations trigger a Supabase RPC: <code>log_policy_strike()</code>. At 3 strikes,
-                                the account is shadow-banned automatically.</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <h2>4. Productivity & Social Infrastructure</h2>
+    <div class="section-box">
+        <strong>4.1 HOPE Docs & Sheets:</strong>
+        <p>Uses debounced dual-persistence (LocalFirst + Cloud Sync) to prevent data loss. Sheets utilizes viewport
+            virtualization to handle large datasets natively.</p>
+    </div>
 
-            <h3>6.1 Gamification: HOPE Coin Economy</h3>
-            <p>Peer-reviewed helpfulness is rewarded through a cryptographic token system. <b>HOPE Coins</b> are earned
-                via verified upvotes and study-streak achievements, calculated immutably at the database level to
-                prevent client-side spoofing.</p>
+    <div class="section-box">
+        <strong>4.2 Community Feed & Security:</strong>
+        <p>Automated moderation scans posts for toxicity via AI toxicity nodes. User strikes are tracked in Supabase
+            RPCs. Data is isolated using PostgreSQL Row Level Security (RLS).</p>
+    </div>
 
-            <h2><span class="ordinal">07.</span> STRATEGIC PEDAGOGICAL ENGINES</h2>
-            <p>HOPE manages the student's cognitive load through algorithmic scheduling and visualization.</p>
+    <h3>Example Security Policy (RLS):</h3>
+    <pre>
+CREATE POLICY "Student Private Access" 
+ON academic_data 
+FOR ALL 
+TO authenticated 
+USING (auth.uid() = user_id);
+</pre>
 
-            <h3>7.1 Roadmap Canvas: Deadline Scheduling</h3>
-            <p>The Roadmap engine maps the entire academic semester into an interactive Gantt-like canvas. It utilizes
-                <b>D3-inspired layouts</b> to show dependencies between subjects and final project milestones.</p>
+    <h2>5. Strategic Learning Engines</h2>
+    <ul>
+        <li><strong>Roadmap Canvas:</strong> Visualizes semester milestones and subject dependencies using D3-inspired
+            layouts.</li>
+        <li><strong>SRS Flashcards:</strong> Implements the SuperMemo-2 (SM2) Spaced Repetition algorithm for optimized
+            memory retention.</li>
+    </ul>
 
-            <h3>7.2 Flashcards: Spaced Repetition (SRS)</h3>
-            <p>Implements a variation of the <b>SuperMemo-2 (SM2) Algorithm</b>. Flashcards are served based on an "Ease
-                Factor" that updates dynamically with every student response, ensuring maximum memory retention with
-                minimum review time.</p>
-
-            <h2><span class="ordinal">08.</span> DESIGN ENGINEERING: THE FLUID UI SYSTEM</h2>
-            <p>The visual identity of HOPE-Edu-Hub is defined by its "Claymorphic" physics and fluid motion system.</p>
-
-            <div class="specs-grid">
-                <div class="spec-box">
-                    <h5>Interface Physics</h5>
-                    <b>Framer Motion Hooks</b>
-                    <p>Utilizes spring-based physics for all UI transitions, ensuring that the app feels "alive" and
-                        responsive to user touch/click events.</p>
-                </div>
-                <div class="spec-box">
-                    <h5>Visual Language</h5>
-                    <b>Claymorphism Architecture</b>
-                    <p>A soft-3D aesthetic using multiple inset shadows and backdrop-filters to create a friendly yet
-                        professional engineering environment.</p>
-                </div>
-            </div>
-
-            <h3>8.1 Responsive Viewport Adaptation</h3>
-            <p>The platform uses a <b>Device-Agnostic Layout Engine</b>. Whether on a mobile phone in a lecture hall or
-                a dual-monitor setup in a lab, the UI state machine dynamically resizes sidebars, co-pilot panels, and
-                document canvases without state resets.</p>
-
-            <div class="cert-stamp">VERIFIED FOR ACADEMIC PROD</div>
-
-            <div class="cert-stamp"
-                style="border-color: var(--secondary); color: var(--secondary); transform: rotate(5deg); margin-top: -60px; margin-left: 200px;">
-                FULL SYSTEM DISCLOSURE</div>
-
-
-            <footer>
-                <p><b>HOPE INT. SYSTEMS ARCHITECTURE UNIT</b></p>
-                <p>Lead Engineer: Justin | Date: 04-03-2026<br>
-                    <i>This document is a living artifact of the HOPE research program.</i>
-                </p>
-                <p style="font-size: 0.6rem; opacity: 0.5; margin-top: 3rem;">- - End of Formal Specification
-                    HEH-L5-V4.2 -
-                    -</p>
-            </footer>
-        </div>
+    <footer>
+        <p><strong>BUILT FOR DEPTH. ENGINEERED FOR SCALE.</strong></p>
+        <p>&copy; 2026 HOPE INT. Research Program | Full System Disclosure Reserved.</p>
+    </footer>
 
 </body>
 
