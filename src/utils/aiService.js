@@ -125,48 +125,51 @@ const recordPuterSuccess = () => {
 };
 
 // Helper: Map abstract/OpenRouter models to valid Groq models
-const getGroqModel = (requestedModel) => {
-    // If it's already a known Groq model, return it
-    const validGroqModels = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-70b-versatile",
-        "llama-3.1-8b-instant",
-        "llama3-70b-8192",
-        "llama3-8b-8192",
-        "mixtral-8x7b-32768",
-        "gemma2-9b-it",
-        "llama-3.2-11b-vision-preview",
-        "llama-3.2-90b-vision-preview"
-    ];
-    if (validGroqModels.includes(requestedModel)) return requestedModel;
-
-    // Map Vision models
-    if (requestedModel.includes('vision') || requestedModel.includes('vl') || requestedModel.includes('gpt-4o')) {
-        return "llama-3.2-11b-vision-preview"; // Best fallback for vision on Groq
+const getProviderModel = (model, provider) => {
+    if (provider === 'puter') {
+        // Map common aliases to official Puter slugs
+        if (model.includes('grok-4.1-non-reasoning')) return "grok-4-1-fast-non-reasoning";
+        if (model.includes('grok-4.1')) return "grok-4-1-fast";
+        if (model.includes('gpt-5-nano')) return "gpt-5-nano";
+        if (model.includes('arcee')) return "arcee-ai/trinity-large-preview:free";
+        return model.replace(/\./g, '-'); // Puter prefers hyphens over dots
     }
-
-    // Map High Intelligence / Large models
-    if (requestedModel.includes('gpt-4') || requestedModel.includes('claude-3-5') || requestedModel.includes('gpt-oss-20b') || requestedModel.includes('70b')) {
-        return "llama-3.3-70b-versatile";
+    if (provider === 'openrouter') {
+        if (model.includes('grok-4.1-non-reasoning')) return "x-ai/grok-4.1-fast";
+        if (model.includes('grok') && !model.includes('/')) return `x-ai/${model}`;
+        if (model.includes('gpt-') && !model.includes('/')) return `openai/${model}`;
+        if (model.includes('claude-') && !model.includes('/')) return `anthropic/${model}`;
+        return model;
     }
-
-    // Default model if mapping fails or not provided
-    return "arcee-ai/trinity-large-preview:free";
+    if (provider === 'groq') {
+        const validGroqModels = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-70b-versatile",
+            "llama-3.1-8b-instant",
+            "llama3-70b-8192",
+            "llama3-8b-8192",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it",
+            "llama-3.2-11b-vision-preview",
+            "llama-3.2-90b-vision-preview"
+        ];
+        if (validGroqModels.includes(model)) return model;
+        if (model.includes('grok') || model.includes('gpt-4') || model.includes('claude-3-5')) return "llama-3.3-70b-versatile";
+        if (model.includes('vision') || model.includes('vl') || model.includes('gpt-4o')) return "llama-3.2-11b-vision-preview";
+        return "llama-3.1-8b-instant";
+    }
+    return model;
 };
 
 // 1. Puter.js (Free, Serverless, No Key)
-const fetchPuter = async (messages, jsonMode = false, model = "arcee-ai/trinity-large-preview:free", retries = 2) => {
+const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
+    const { model = "arcee-ai/trinity-large-preview:free", jsonMode = false, ...params } = modelOptions;
     if (!window.puter) {
         await new Promise(resolve => setTimeout(resolve, 800));
         if (!window.puter) throw new Error("Puter.js not ready.");
     }
 
-    let targetModel = model;
-    // Allow gpt-5-nano and llama models through
-    if (model.includes('claude-')) {
-        targetModel = "arcee-ai/trinity-large-preview:free";
-    }
-
+    const targetModel = getProviderModel(model, 'puter');
     const puterMessages = [...messages];
     if (jsonMode) {
         puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format." });
@@ -174,306 +177,230 @@ const fetchPuter = async (messages, jsonMode = false, model = "arcee-ai/trinity-
 
     for (let i = 0; i < retries; i++) {
         try {
-            // Check auth status - if 401 happens here it's usually inside the puter lib
-            // but we can try to call it safely
-            const response = await window.puter.ai.chat(puterMessages, { model: targetModel });
-
-            recordPuterSuccess();
+            const response = await window.puter.ai.chat(puterMessages, {
+                model: targetModel,
+                stream: false,
+                ...params
+            });
 
             if (response?.message?.content) {
                 let content = response.message.content;
-                if (Array.isArray(content)) {
-                    return content.map(p => p.text || JSON.stringify(p)).join('');
-                }
-                return typeof content === 'string' ? content : JSON.stringify(content);
+                return Array.isArray(content) ? content.map(p => p.text || JSON.stringify(p)).join('') : (typeof content === 'string' ? content : JSON.stringify(content));
             }
             return response?.toString() || "";
-
         } catch (err) {
-            // If it's a 401, it means Puter needs login, we fallback immediately
-            if (err?.message?.includes('401') || err?.status === 401) {
-                recordPuterFailure();
-                throw new Error("Puter Authentication Required");
+            const errorMsg = err?.message || err?.toString() || "";
+            // Authentication (401) or Rate Limit (429) errors should trigger a silent fallback
+            if (errorMsg.includes('401') || errorMsg.includes('429') || err?.status === 401 || err?.status === 429) {
+                throw new Error("Puter Limitation");
             }
-            console.warn(`Puter attempt ${i + 1} failed:`, err.message);
-            if (i === retries - 1) throw err;
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.warn(`Puter attempt ${i + 1} failed:`, errorMsg);
+            if (i === retries - 1) {
+                recordPuterFailure();
+                throw err;
+            }
+            await new Promise(resolve => setTimeout(resolve, 800));
         }
     }
 };
 
 // Client-Side Fallback (Direct to API)
-const fetchClientSideFallback = async (messages, model, jsonMode) => {
-    // 1. Try OpenRouter First (Broadest Model Support)
+const fetchClientSideFallback = async (messages, modelOptions) => {
+    const { model = "grok-4.1-non-reasoning", jsonMode, ...params } = modelOptions;
+
+    // Fallback 1: OpenRouter
     try {
         const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
         if (apiKey) {
+            const targetModel = getProviderModel(model, 'openrouter');
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${apiKey}`,
                     "Content-Type": "application/json",
                     "HTTP-Referer": window.location.origin,
+                    "X-Title": "HOPE Edu Hub"
                 },
                 body: JSON.stringify({
-                    model: model, // Use requested model for OpenRouter
+                    model: targetModel,
                     messages,
-                    response_format: jsonMode ? { type: "json_object" } : undefined
+                    response_format: jsonMode ? { type: "json_object" } : undefined,
+                    ...params
                 })
             });
-
             if (response.ok) {
                 const data = await response.json();
-                return data.choices[0].message.content;
+                return { content: data.choices?.[0]?.message?.content || "", provider: "OpenRouter" };
             } else {
-                console.warn(`OpenRouter Client Error: ${response.status}`);
+                console.warn(`OpenRouter Fail Status: ${response.status}`);
             }
-        } else {
-            console.warn("Client-Side OpenRouter Key Missing");
         }
-    } catch (orErr) {
-        console.warn("Client-Side OpenRouter failed, trying Groq...", orErr);
+    } catch (e) { console.warn("OpenRouter fallback attempt failed."); }
+
+    // Fallback 2: Groq
+    try {
+        const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+        if (groqKey) {
+            const groqModel = getProviderModel(model, 'groq');
+            const gResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: groqModel,
+                    messages,
+                    response_format: jsonMode ? { type: "json_object" } : undefined,
+                    ...params
+                })
+            });
+            if (gResponse.ok) {
+                const gData = await gResponse.json();
+                return { content: gData.choices?.[0]?.message?.content || "", provider: "Groq" };
+            }
+        }
+    } catch (e) {
+        console.error("Groq fallback completely failed.");
     }
 
-    // 2. Try Groq (Fast, Reliable Fallback)
-    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!groqKey) throw new Error("Client-Side Groq Key Missing");
-
-    // Map to a valid Groq model
-    const groqModel = getGroqModel(model);
-
-    const gResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${groqKey}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            model: groqModel,
-            messages,
-            response_format: jsonMode ? { type: "json_object" } : undefined
-        })
-    });
-
-    if (!gResponse.ok) throw new Error(`Groq Client Error: ${gResponse.status}`);
-    const gData = await gResponse.json();
-    return gData.choices[0].message.content;
+    throw new Error("All AI Fallbacks Exhausted");
 };
 
-// Secure Backend Fallback (with Local Dev Bypass)
-const fetchBackendFallback = async (messages, model, jsonMode) => {
+const fetchBackendFallback = async (messages, modelOptions) => {
     try {
         const response = await fetch('/api/ai-completion', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages, model, jsonMode })
+            body: JSON.stringify(modelOptions)
         });
-
         if (!response.ok) {
-            // Local Dev or 404 -> Client Side Keys
-            if ((response.status === 404 && import.meta.env.DEV) || response.status === 500) {
-                console.warn(`Backend API ${response.status}. Falling back to Client-Side Keys.`);
-                return await fetchClientSideFallback(messages, model, jsonMode);
-            }
-            const errorText = await response.text();
-            throw new Error(`Backend Error (${response.status}): ${errorText}`);
+            if (import.meta.env.DEV || response.status === 500) return await fetchClientSideFallback(messages, modelOptions);
+            throw new Error(`Backend Error ${response.status}`);
         }
-
         const data = await response.json();
-        return data.content;
+        return { content: data.content, provider: "Backend API" };
     } catch (error) {
-        console.error("Secure Backend Call Failed:", error);
-        if (import.meta.env.DEV) {
-            return await fetchClientSideFallback(messages, model, jsonMode);
-        }
+        if (import.meta.env.DEV) return await fetchClientSideFallback(messages, modelOptions);
         throw error;
     }
 };
 
-// Dedicated Groq Fetch (Direct)
-const fetchGroqDirectly = async (messages, jsonMode, model) => {
-    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
-    if (!groqKey) throw new Error("Groq API Key Missing");
-
-    // IMPORTANT: Ensure model is valid for Groq
-    const validModel = getGroqModel(model);
-
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${groqKey}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            model: validModel,
-            messages,
-            response_format: jsonMode ? { type: "json_object" } : undefined,
-            temperature: 0.1
-        })
-    });
-
-    if (!response.ok) {
-        const errText = await response.text();
-        // Try to recover content from validation error if present
-        try {
-            const errJson = JSON.parse(errText);
-            if (errJson.error?.failed_generation) {
-                return errJson.error.failed_generation;
-            }
-        } catch (e) { }
-        throw new Error(`Groq Direct Error (${response.status}): ${errText}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-};
-
-// Generic AI Completion Strategy
 export const getAICompletion = async (messages, options = {}) => {
     const {
-        jsonMode = false,
-        model = "arcee-ai/trinity-large-preview:free",
+        actionType = "chat",
+        provider = "auto",
         onFallback = () => { },
-        provider = "auto", // 'auto' | 'groq' | 'puter'
-        actionType = "chat" // Used for rate limiting
+        model = "grok-4.1-non-reasoning",
+        includeMetadata = false,
+        ...restOptions
     } = options;
 
-    // Enforce Rate Limit globally for all API calling using the backend RPC
+    const startTime = Date.now();
+    const modelOptions = { model, ...restOptions };
     await checkRateLimit(actionType);
 
-    // Strategy 1: Explicit Groq
-    if (provider === 'groq') {
+    let resultData = null;
+    const canUsePuter = isPuterHealthy() && provider !== 'backend' && !messages.some(m => Array.isArray(m.content));
+
+    if (canUsePuter) {
         try {
-            return await fetchGroqDirectly(messages, jsonMode, model);
-        } catch (groqErr) {
-            console.warn("Groq Direct failed, falling back to standard pipeline:", groqErr);
+            const content = await fetchPuter(messages, modelOptions);
+            resultData = { content, provider: "Puter Cloud", model: getProviderModel(model, 'puter') };
+        } catch (e) {
+            console.warn("Puter failed/limited, dropping to secondary fallbacks.");
+            if (onFallback) onFallback("Switching to OpenRouter...");
         }
     }
 
-    // Strategy 2: Puter
-    // Only use Puter if not disabled and no multimodal content (images) which Puter might not handle well via simple API
-    // (Assuming Puter is text-focused for the free tier usually)
-    let usePuter = isPuterHealthy() && provider !== 'backend';
-
-    // Check for images in messages - Puter API might fail with complex array content
-    const hasImages = messages.some(m => Array.isArray(m.content));
-    if (hasImages) usePuter = false;
-
-    if (usePuter) {
+    if (!resultData) {
         try {
-            return await fetchPuter(messages, jsonMode, model);
-        } catch (puterErr) {
-            recordPuterFailure();
-            console.warn("Puter.js failed. Switching to Backend/fallback:", puterErr);
-            if (onFallback) onFallback(`Puter Error. Switching to Fallback...`);
+            if (provider !== 'client' && !import.meta.env.DEV) {
+                resultData = await fetchBackendFallback(messages, modelOptions);
+            } else {
+                resultData = await fetchClientSideFallback(messages, modelOptions);
+            }
+        } catch (e) {
+            console.error("All providers failed.");
+            throw e;
         }
     }
 
-    // Strategy 3: Backend / Fallback
-    try {
-        return await fetchBackendFallback(messages, model, jsonMode);
-    } catch (backendErr) {
-        console.warn("Backend failed. Attempting Client-Side Groq Last Resort.");
-        try {
-            return await fetchGroqDirectly(messages, jsonMode, model);
-        } catch (finalErr) {
-            throw new Error(`AI Failure: All providers exhausted.`);
-        }
+    const endTime = Date.now();
+    const duration = (endTime - startTime) / 1000;
+
+    if (includeMetadata) {
+        return { ...resultData, time: duration.toFixed(2) };
     }
+    return resultData.content;
 };
 
-// J-Compiler: Simulation & Debugging
 export const simulateCodeExecution = async (code, language = "auto", inputs = [], history = []) => {
-    const systemPrompt = `You are an elite, ultra-strict Code Auditor and Compiler Simulation Engine.
-    
-    CORE DIRECTIVE: You MUST analyze the provided code LINE-BY-LINE. Do NOT assume, hallucinate, or skip any logic. If the code is error-free, you MUST provide the EXACT, literal output as if it were running in a real-world terminal.
+    const systemPrompt = `<personality>Elite Syntax Auditor & Runtime Simulator.</personality>
+    <rules>
+    1. SYNTAX AUDIT: Before simulating, perform a BRUTAL syntax check. Look for:
+       - PYTHON: Incorrect indentation (THIS IS CRITICAL), missing colons, invalid variable names.
+       - C/C++: Missing semicolons, unmatched braces, undefined types.
+       - JS: Syntax errors, unclosed strings.
+    2. CRASH FIRST: If a syntax error is found, STOP immediately. Set status:"error" and explain exactly which line and why (e.g., "IndentationError: expected an indented block on line 2").
+    3. DETAILED LOGIC: If code is valid, provide a step-by-step execution reasoning.
+    4. RAW OUTPUT: In "output", generate EXACT terminal text.
+       - If Python/JS code is just a class/function with no calls, output should be empty or a subtle message like "# Symbols defined."
+       - If there are print statements, show their literal output.
+       - EMBEDDED/ARDUINO: If isEmbedded is true, show "Virtual Hardware Logs" in the Serial Monitor even if Serial.print is missing (e.g. "[PIN 13] -> HIGH", "Delay 1000ms"). Show the loop execution for at least 2 cycles.
+    5. INTERACTION: Simulate interactive prompts clearly.
+    6. MERMAID: If code has loops or if-statements, generate a "mermaidGraph".
+       - ALWAYS use square brackets: A["Label Text"] for ALL nodes. NEVER use A(text) or A{text}.
+       - STRIP: Remove any colons, backticks, or unquoted parentheses from inside labels.
+    </rules>
+    <response_format>JSON: { reasoning, language, isEmbedded, output, serialMonitor, status, errorExplanation, fixedCode, mermaidGraph }</response_format>`;
 
-    SYSTEM RULES:
-    1.  **STRICT LINE-BY-LINE AUDIT**: Before generating output, trace every single line of code. If a variable is undefined, syntax is malformed, or a logical error exists, immediately halt and flag as "status": "error".
-    2.  **NO ASSUMPTIONS**: Do NOT hallucinate successful output for broken code. Do NOT assume inputs that are not present. If the code would fail in reality, it MUST fail here. Do not implicitly fix code while returning "status": "success".
-    3.  **REASONING FIRST**: Your "reasoning" field must contain a rigorous step-by-step trace of the code execution. Prove you analyzed it line-by-line.
-    4.  **EXACT LITERAL OUTPUT**: If there is no error at all, you MUST simulate the exact, literal console output in the "output" field. No conversational filler, no explanations inside the output field—only what would appear on a screen.
-    5.  **REPAIR**: If an error is found, provide the corrected code in "fixedCode" and a detailed, line-referenced Markdown explanation in "errorExplanation".
-    6.  **CONTEXT**: Use the provided 'history' strictly if it contains previous variable/function definitions.
-    7.  **DBMS SIMULATION**: For SQL, strictly validate syntax before "executing". Return ASCII tables for SELECT, and exact "Rows affected" for mutations. Show strict errors for invalid SQL.
-    8.  **VISUALIZATION**: If applicable, map logic to a strict Mermaid JS diagram ("mermaidGraph" field, use \\n for line breaks, no markdown wrappers).
-    9.  **EMBEDDED CODE (Arduino, ESP32, etc.)**:
-        - Set "isEmbedded": true.
-        - "serialMonitor": Produce an ULTRA-REALISTIC serial output. Include simulated timestamps (e.g., [+124ms]), hardware init messages ("Initializing I2C... OK"), and consistent sensor data or loop execution traces.
-        - "output": Still show the "behind the scenes" boot/flash log, but the 'serialMonitor' is the primary display.
-
-    JSON FORMAT STRICT REQUIREMENT:
-    {
-      "reasoning": "Rigorous line-by-line execution trace...",
-      "language": "Detected language",
-      "isEmbedded": true | false,
-      "output": "Exact console output (or blank if error). For embedded code, show standard terminal output here (like boot sequences).",
-      "serialMonitor": "Produce an ULTRA-REALISTIC serial output. Include simulated timestamps (e.g., [+124ms]), hardware init messages (e.g., 'Serial started at 115200 baud', 'Initializing I2C... OK'), and consistent sensor data or loop execution traces with slight variations to simulate real hardware readings.",
-      "status": "success" | "error",
-      "errorExplanation": "### Strict Audit Results\\n- [Line X]: details...",
-      "fixedCode": "Full corrected source (if error) or null",
-      "mermaidGraph": "graph TD\\n... or null"
-    }`;
-
-    let contextMessage = "";
-    if (history.length > 0) {
-        contextMessage = "PREVIOUS CONTEXT (Memory):\n" + history.map((h, i) =>
-            `[Interaction ${i + 1}]\nCode:\n${h.code}\nOutput:\n${h.result.output || h.result.errorExplanation}\n---\n`
-        ).join("\n");
-    }
+    const contextMessage = history.length > 0 ? history.map((h, i) => `[Mem ${i + 1}] Code:${h.code} Out:${h.result.output || 'ERR'}`).join("\n") : "";
 
     const messages = [
         { role: "system", content: systemPrompt },
-        {
-            role: "user",
-            content: `${contextMessage}\nLanguage: ${language}\n\nCode:\n${code}`
-        }
+        { role: "user", content: `History:\n${contextMessage}\nLang: ${language}\nCode:\n${code}` }
     ];
 
     try {
-        // Use Groq directly with a high-intelligence model
-        const responseText = await getAICompletion(messages, {
+        const resultWithMeta = await getAICompletion(messages, {
             jsonMode: true,
-            provider: 'puter',
-            model: 'openai/gpt-5-nano',
-            actionType: 'compiler'
+            model: 'grok-4.1-non-reasoning',
+            temperature: 0.1,
+            max_tokens: 2048,
+            actionType: 'compiler',
+            includeMetadata: true
         });
-        return cleanAndParseJSON(responseText);
+        const parsed = cleanAndParseJSON(resultWithMeta.content);
+        return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };
     } catch (e) {
-        console.error("J-Compiler Simulation Failed:", e);
-        throw new Error("Failed to simulate code execution.");
+        throw new Error("Compiler simulation failed.");
     }
 };
 
 // J-Compiler: Reverse Engineering (Output -> Code)
 export const reverseEngineerCode = async (expectedOutput, language = "javascript") => {
-    const systemPrompt = `You are J-Compiler Architect.
-    
-    TASK: Convert output to optimized code.
-    1. ANALYZE 'Expected Output'.
-    2. WRITE most efficient, error-free code in target 'Language'.
-    
-    JSON FORMAT:
-    {
-      "code": "Source",
-      "explanation": "Logic"
-    }`;
-
+    const systemPrompt = `<personality>Reverse Engineering Engine.</personality>
+    <rules>
+    1. INPUT ANALYSIS: Analyze the provided terminal output or error text.
+    2. CODE RECOVERY: Generate the most efficient logic/code that produces this exact output.
+    3. ERROR DIAGNOSTICS: If the input is an error/crash log, explain the cause of the crash in "explanation" and provide the fix in "code".
+    </rules>
+    <response_format>JSON: { code, explanation, reasoning }</response_format>`;
     const messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Target Language: ${language}\n\nExpected Output:\n${expectedOutput}` }
+        { role: "user", content: `Lang: ${language}\nOutput:\n${expectedOutput}` }
     ];
 
     try {
-        const responseCallback = await getAICompletion(messages, {
+        const resultWithMeta = await getAICompletion(messages, {
             jsonMode: true,
-            provider: 'puter',
-            model: 'openai/gpt-5-nano',
-            actionType: 'compiler'
+            model: 'grok-4.1-non-reasoning',
+            temperature: 0.1,
+            max_tokens: 1500,
+            actionType: 'compiler',
+            includeMetadata: true
         });
-        return cleanAndParseJSON(responseCallback);
+        const parsed = cleanAndParseJSON(resultWithMeta.content);
+        return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };
     } catch (e) {
-        console.error("J-Compiler Reverse Engineering Failed:", e);
-        throw new Error("Failed to reverse engineer code.");
+        throw new Error("Reverse engineering failed.");
     }
 };

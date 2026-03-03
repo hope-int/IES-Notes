@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     MessageSquare, Send, Paperclip, X, Image as ImageIcon,
-    FileType, Sparkles, BookOpen, Clock, FileText, ChevronRight, Menu, Trash2, Bot, Plus, Code, ArrowLeft, LayoutGrid, Copy, RefreshCw
+    FileType, Sparkles, BookOpen, Clock, FileText, ChevronRight, Menu, Trash2, Bot, Plus, Code, ArrowLeft, LayoutGrid, Copy, RefreshCw, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
@@ -73,6 +73,51 @@ const Mermaid = ({ chart }) => {
             className="mermaid-container my-3 bg-white p-3 rounded-3 shadow-sm overflow-auto d-flex justify-content-center"
             dangerouslySetInnerHTML={{ __html: svgContent }}
         />
+    );
+};
+
+const CodeBlock = ({ children, className }) => {
+    const [copied, setCopied] = useState(false);
+    const match = /language-(\w+)/.exec(className || '');
+    const language = match ? match[1] : 'code';
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="position-relative bg-dark rounded-4 my-3 border border-light border-opacity-10 overflow-hidden shadow-sm hover-shadow-md transition-all">
+            <div className="d-flex justify-content-between align-items-center px-4 py-2 border-bottom border-white border-opacity-5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <span className="small text-secondary fw-bold text-uppercase tracking-widest opacity-75" style={{ fontSize: '10px' }}>
+                    {language}
+                </span>
+                <button
+                    onClick={handleCopy}
+                    className="btn btn-link p-0 text-secondary hover-text-white d-flex align-items-center gap-2 text-decoration-none transition-colors"
+                >
+                    {copied ? (
+                        <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="d-flex align-items-center gap-1">
+                            <Check size={12} className="text-success" />
+                            <span style={{ fontSize: '11px' }} className="text-success">Copied</span>
+                        </motion.div>
+                    ) : (
+                        <div className="d-flex align-items-center gap-1 opacity-75 hover-opacity-100">
+                            <Copy size={12} />
+                            <span style={{ fontSize: '11px' }}>Copy Code</span>
+                        </div>
+                    )}
+                </button>
+            </div>
+            <div className="p-4 overflow-auto custom-scrollbar" style={{ maxHeight: '500px' }}>
+                <pre className="m-0">
+                    <code className="text-light small" style={{ fontFamily: "'Fira Code', monospace", fontSize: '13px', lineHeight: '1.7' }}>
+                        {children}
+                    </code>
+                </pre>
+            </div>
+        </div>
     );
 };
 
@@ -743,7 +788,7 @@ export default function AIChat({ setActiveTab }) {
                                                             return <MermaidRenderer chart={String(children).replace(/\\n$/, '')} />;
                                                         }
                                                         if (inline) return <code className="bg-secondary bg-opacity-10 px-1 rounded text-purple" {...props}>{children}</code>;
-                                                        return <div className="bg-light p-3 rounded-3 my-2 overflow-auto border border-light"><code {...props} className="text-dark small" style={{ fontFamily: 'Fira Code, monospace' }}>{children}</code></div>
+                                                        return <CodeBlock className={className} {...props}>{children}</CodeBlock>
                                                     },
                                                     h1: ({ node, ...props }) => <h3 className="fw-bold mt-4 mb-3 h5 text-dark" {...props} />,
                                                     h2: ({ node, ...props }) => <h4 className="fw-bold mt-3 mb-2 h6 text-dark" {...props} />,

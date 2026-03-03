@@ -906,7 +906,18 @@ function App() {
                 <Route path="/roadmap" element={<RoadmapCanvas />} />
 
                 <Route path="/admin" element={session || userProfile ? <AdminPanel /> : <Navigate to="/" />} />
-                <Route path="/compiler" element={session || userProfile ? <JCompiler /> : <Navigate to="/" />} />
+                <Route path="/compiler" element={
+                  (session || userProfile) ? (
+                    isPuterSignedIn ? <JCompiler /> : (
+                      <div className="min-vh-100 d-flex align-items-center justify-content-center p-4" style={{ background: 'var(--bg-main)' }}>
+                        <PuterAuthPopup onAuthComplete={(success) => {
+                          if (success) setIsPuterSignedIn(true);
+                          else navigate(-1); // Go back if they cancel
+                        }} />
+                      </div>
+                    )
+                  ) : <Navigate to="/" />
+                } />
                 <Route path="/ai-tutor" element={<AITutorDashboard />} />
                 <Route path="/ai-chat" element={<AIChat />} />
                 <Route path="/docs" element={<HopeDocsLayout onBack={() => navigate(-1)} />} />
@@ -945,7 +956,7 @@ function App() {
           }
           {/* Floating Navigation Bar - Global */}
           {
-            !showProfile && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && (
+            !showProfile && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && (
               <div className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" style={{ pointerEvents: 'none', zIndex: 1055 }}>
                 <motion.div
                   whileHover={{

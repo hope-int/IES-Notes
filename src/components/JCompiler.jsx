@@ -18,6 +18,15 @@ export default function JCompiler() {
 
     const [history, setHistory] = useState([]); // Context memory for AI
     const terminalEndRef = useRef(null);
+    const gutterRef = useRef(null);
+    const textareaRef = useRef(null);
+
+    // Sync scroll
+    const handleScroll = (e) => {
+        if (gutterRef.current) {
+            gutterRef.current.scrollTop = e.target.scrollTop;
+        }
+    };
 
     // Auto-scroll to bottom of terminal
     useEffect(() => {
@@ -29,7 +38,12 @@ export default function JCompiler() {
     const handleRun = async () => {
         if (!input.trim() || loading) return;
         setLoading(true);
-        setOutput(null);
+        // Reset output stats when running again
+        if (output) {
+            setOutput(prev => prev ? { ...prev, _metadata: null } : null);
+        } else {
+            setOutput(null);
+        }
 
         await runSimulation();
     };
@@ -50,15 +64,17 @@ export default function JCompiler() {
                     mermaidGraph: result.mermaidGraph,
                     detectedLanguage: result.language,
                     isEmbedded: result.isEmbedded,
-                    serialMonitor: result.serialMonitor
+                    serialMonitor: result.serialMonitor,
+                    _metadata: result._metadata
                 });
             } else {
                 // Reverse Engineer Mode (Static)
                 const result = await reverseEngineerCode(input, language);
                 setOutput({
-                    text: result.code,
+                    text: result.content,
                     status: 'success',
-                    explanation: result.explanation
+                    explanation: result.explanation,
+                    _metadata: result._metadata
                 });
             }
         } catch (error) {
@@ -129,9 +145,29 @@ export default function JCompiler() {
 
                         {/* Panel Header */}
                         <div className="p-3 border-bottom d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                            <span className="fw-bold text-secondary text-uppercase fs-7 d-flex align-items-center gap-2">
-                                <Code size={16} /> {mode === 'compiler' ? 'Input Code' : 'Expected Output'}
-                            </span>
+                            <div className="d-flex align-items-center gap-3">
+                                <span className="fw-bold text-secondary text-uppercase fs-7 d-flex align-items-center gap-2">
+                                    <Code size={16} /> {mode === 'compiler' ? 'Input Code' : 'Expected Output'}
+                                </span>
+
+                                {/* Telemetry Stats */}
+                                {output?._metadata && (
+                                    <div className="d-none d-lg-flex align-items-center gap-3 px-3 py-1 rounded-pill border shadow-sm bg-white" style={{ fontSize: '10px', letterSpacing: '0.2px' }}>
+                                        <div className="d-flex align-items-center gap-1">
+                                            <span className="text-secondary opacity-75">TIME:</span>
+                                            <span className="text-primary fw-bold">{output._metadata.time}s</span>
+                                        </div>
+                                        <div className="d-flex align-items-center gap-1">
+                                            <span className="text-secondary opacity-75">ENGINE:</span>
+                                            <span className="text-info fw-bold">{output._metadata.provider}</span>
+                                        </div>
+                                        <div className="d-flex align-items-center gap-1">
+                                            <span className="text-secondary opacity-75">MODEL:</span>
+                                            <span className="text-warning fw-bold text-truncate" style={{ maxWidth: '100px' }}>{output._metadata.model}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             <div className="d-flex gap-2">
                                 <select
@@ -171,25 +207,51 @@ export default function JCompiler() {
                             </div>
                         </div>
 
-                        {/* Editor Area */}
-                        <textarea
-                            className="form-control border-0 p-3 flex-grow-1"
-                            style={{
-                                resize: 'none',
-                                fontFamily: "'Fira Code', monospace",
-                                fontSize: '14px',
-                                lineHeight: '1.6',
-                                background: mode === 'compiler' ? '#1e1e1e' : '#ffffff',
-                                color: mode === 'compiler' ? '#d4d4d4' : 'var(--text-main)',
-                                borderRadius: 0
-                            }}
-                            placeholder={mode === 'compiler' ?
-                                "// Write your code here...\n// e.g. Input handling demo\nconst name = prompt('Enter Name:');\nconsole.log('Hello ' + name);" :
-                                "Describe the desired output or logic...\nExample: Create a function that calculates the Fibonacci sequence up to N."}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            spellCheck="false"
-                        />
+                        {/* Editor Area with Line Numbers */}
+                        <div className="flex-grow-1 d-flex overflow-hidden" style={{ background: mode === 'compiler' ? '#1e1e1e' : '#ffffff' }}>
+                            {/* Line Number Gutter */}
+                            <div
+                                ref={gutterRef}
+                                className="py-3 px-2 text-end select-none border-end border-secondary border-opacity-10 d-none d-sm-block"
+                                style={{
+                                    minWidth: '40px',
+                                    fontFamily: "'Fira Code', monospace",
+                                    fontSize: '13px',
+                                    lineHeight: '1.6',
+                                    color: mode === 'compiler' ? '#5c5c5c' : '#a0aec0',
+                                    background: mode === 'compiler' ? '#1a1a1a' : '#f8fafc',
+                                    userSelect: 'none',
+                                    overflowY: 'hidden'
+                                }}
+                            >
+                                {input.split('\n').map((_, i) => (
+                                    <div key={i}>{i + 1}</div>
+                                ))}
+                            </div>
+
+                            <textarea
+                                ref={textareaRef}
+                                onScroll={handleScroll}
+                                className="form-control border-0 p-3 flex-grow-1 h-100"
+                                style={{
+                                    resize: 'none',
+                                    fontFamily: "'Fira Code', monospace",
+                                    fontSize: '14px',
+                                    lineHeight: '1.6',
+                                    background: 'transparent',
+                                    color: mode === 'compiler' ? '#d4d4d4' : 'var(--text-main)',
+                                    borderRadius: 0,
+                                    outline: 'none',
+                                    boxShadow: 'none'
+                                }}
+                                placeholder={mode === 'compiler' ?
+                                    "// Write your code here...\n// e.g. Input handling demo\nconst name = prompt('Enter Name:');\nconsole.log('Hello ' + name);" :
+                                    "Describe the desired output or logic...\nExample: Create a function that calculates the Fibonacci sequence up to N."}
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                spellCheck="false"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -236,10 +298,10 @@ export default function JCompiler() {
                                         animate={{ opacity: 1, y: 0 }}
                                         className="h-100 d-flex flex-column"
                                     >
-                                        {/* Status Badge - Hidden for Embedded */}
-                                        {mode === 'compiler' && !output.isEmbedded && (
-                                            <div className={`badge mb-3 px-3 py-2 rounded-pill align-self-start ${output.status === 'error' ? 'bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25' : 'bg-success bg-opacity-25 text-success border border-success border-opacity-25'}`}>
-                                                {output.status === 'error' ? 'Compilation Failed' : 'Build Success'}
+                                        {/* Status Badge - Error Only */}
+                                        {mode === 'compiler' && !output.isEmbedded && output.status === 'error' && (
+                                            <div className="badge mb-2 px-3 py-2 rounded-pill align-self-start bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 shadow-sm">
+                                                Compilation Failed
                                             </div>
                                         )}
 
