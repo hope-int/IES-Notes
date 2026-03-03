@@ -365,6 +365,58 @@ All structured tables (Profiles, Spreadsheets, Docs, Timers) execute on a zero-t
 
 ---
 
+## 🚀 Recent Core Infrastructure Upgrades (March 2026)
+
+The platform has recently undergone a major architectural hardening phase, introducing high-fidelity simulation and deterministic AI fallback protocols to ensure 100% uptime for safety-critical student code analysis.
+
+### 1. The "Alpha-Prime" AI Fallback & Telemetry Engine
+The routing layer in `aiService.js` has been upgraded from a simple fallback to a **Deterministic Multi-Engine Hierarchy**. This protocol ensures that complex reasoning tasks (like debugging or roadmap generation) never fail due to API rate limits.
+
+- **Hierarchy Order**: `Puter.js (Cloud Native)` → `OpenRouter (Standard Edge)` → `Groq (Low Latency Fallback)`.
+- **Telemetry Integration**: Every completion now injects a metadata object into the UI header, tracking:
+    - **`latency`**: Exact round-trip time (RTT) for inference in seconds.
+    - **`active_engine`**: Real-time identification of the provider (e.g., Puter vs. Groq).
+    - **`model_id`**: The specific model string leveraged (e.g., `arcee-ai/trinity-large-preview`).
+- **Circuit Breaker 2.0**: Implements a sliding window failure counter. If a provider returns 3 consecutive `5xx` or `429` errors, it is globally locked for 300 seconds, shifting all traffic to secondary nodes.
+
+### 2. J-Compiler Virtual Hardware Emulation (VHE)
+The J-Compiler is no longer just a syntax highlighter; it is a **Virtual Execution Sandbox** for both high-level and embedded languages.
+
+```mermaid
+graph TD
+    CodeInput[C++/Arduino Source] --> Parser[Deterministic Syntax Auditor]
+    Parser -->|"Pass"| AI_Sim[Simulation Engine]
+    Parser -->|"Fail"| ErrExp[Diagnostic Error Explainer]
+    
+    subgraph VHE [Virtual Hardware Environment]
+        AI_Sim --> Serial[Serial Monitor Simulator]
+        AI_Sim --> GPIO[Pin State Tracker]
+        AI_Sim --> Logic[Branch Trace Logger]
+    end
+    
+    Serial -->|"Baud: 115200"| Term[Virtual Terminal]
+    GPIO -->|"Pin 13: HIGH->LOW"| Telemetry[Hardware Stats]
+```
+
+- **Loop Cyclicity**: For Arduino/ESP32 code, the simulator forces a minimum of **two recursive cycles** of `void loop()` after `void setup()`, ensuring that state changes (like blinking patterns or variable increments) are captured in the telemetry log.
+- **Diagnostic Reporting**: Replaces generic "Build Success" messages with a raw terminal output simulation, providing detailed step-by-step logs of compilation, link-time assumptions, and memory heap snapshots.
+
+### 3. Hardened Visual Trace Execution (VTE)
+A proprietary logic-to-diagram transpilation layer mapping code control flow directly into Mermaid.js format.
+
+- **Label Hardening**: To prevent Mermaid syntax crashes, the system now enforces a **Strict Quoting Protocol** for node labels. All dynamic code tokens are escaped and wrapped in square brackets `[ "label" ]` to handle non-alphanumeric characters.
+- **Logical Branching**: Automatically detects `if-else` and `switch` blocks, mapping them as decision diamonds in the flow graph, providing students with a visual mental model of their algorithm.
+
+### 4. AI Tutor 2.0: Arcee-Trinity Cognitive Layer
+The AI Tutor has been upgraded with the **Arcee Trinity Large** preview model, optimized for deep reasoning and educational deconstruction.
+
+- **Forced Contrast CSS**: To overcome conflicts with Tailwind's `.prose` layer, the chat screen now utilizes a **Scoped Style Injector**. This injects high-priority `!important` CSS rules directly into the DOM during runtime to maintain high-contrast light theme containers for code blocks.
+- **Multi-Modal Brain**: Synchronized routing between Arcee (for reasoning) and Nemotron (for vision-based note analysis).
+
+---
+
+
+
 <div align="center">
   <b>Built for Depth. Engineered for Scale.</b><br/>
   Designed by the <b>HOPE Team</b><br/>
