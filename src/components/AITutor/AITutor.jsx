@@ -88,12 +88,34 @@ const CodeBlock = ({ children, className }) => {
     };
 
     return (
-        <div className="position-relative rounded-4 my-3 overflow-hidden shadow-sm"
+        <div className="position-relative chat-code-container rounded-4 my-3 overflow-hidden shadow-sm"
             style={{
                 background: '#f8fafc',
                 backgroundColor: '#f8fafc',
                 border: '1px solid rgba(0,0,0,0.08)'
             }}>
+            {/* Global Override for this component to beat .prose */}
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .chat-code-container pre, 
+                .chat-code-container code {
+                    background-color: transparent !important;
+                    background: transparent !important;
+                    color: #1e293b !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                }
+                .chat-code-container pre::before,
+                .chat-code-container pre::after,
+                .chat-code-container code::before,
+                .chat-code-container code::after {
+                    display: none !important;
+                    content: none !important;
+                }
+            `}} />
+
             <div className="d-flex justify-content-between align-items-center px-4 py-2 border-bottom"
                 style={{
                     background: 'rgba(0,0,0,0.02)',
@@ -126,20 +148,11 @@ const CodeBlock = ({ children, className }) => {
                     maxHeight: '500px',
                     background: '#f8fafc'
                 }}>
-                <pre className="m-0"
-                    style={{
-                        background: 'transparent',
-                        backgroundColor: 'transparent',
-                        padding: 0,
-                        margin: 0
-                    }}>
+                <pre className="m-0">
                     <code className="small" style={{
                         fontFamily: "'Fira Code', monospace",
                         fontSize: '13px',
-                        lineHeight: '1.7',
-                        color: '#1e293b',
-                        background: 'transparent',
-                        backgroundColor: 'transparent'
+                        lineHeight: '1.7'
                     }}>
                         {children}
                     </code>
