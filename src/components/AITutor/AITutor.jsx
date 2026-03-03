@@ -88,22 +88,22 @@ const CodeBlock = ({ children, className }) => {
     };
 
     return (
-        <div className="position-relative bg-dark rounded-4 my-3 border border-light border-opacity-10 overflow-hidden shadow-sm hover-shadow-md transition-all">
-            <div className="d-flex justify-content-between align-items-center px-4 py-2 border-bottom border-white border-opacity-5" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <span className="small text-secondary fw-bold text-uppercase tracking-widest opacity-75" style={{ fontSize: '10px' }}>
+        <div className="position-relative bg-white rounded-4 my-3 border border-secondary border-opacity-10 overflow-hidden shadow-sm hover-shadow-md transition-all" style={{ background: '#f8fafc' }}>
+            <div className="d-flex justify-content-between align-items-center px-4 py-2 border-bottom border-dark border-opacity-5" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                <span className="small text-muted fw-bold text-uppercase tracking-widest" style={{ fontSize: '10px', opacity: 0.6 }}>
                     {language}
                 </span>
                 <button
                     onClick={handleCopy}
-                    className="btn btn-link p-0 text-secondary hover-text-white d-flex align-items-center gap-2 text-decoration-none transition-colors"
+                    className="btn btn-link p-0 text-muted hover-text-dark d-flex align-items-center gap-2 text-decoration-none transition-colors"
                 >
                     {copied ? (
                         <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="d-flex align-items-center gap-1">
                             <Check size={12} className="text-success" />
-                            <span style={{ fontSize: '11px' }} className="text-success">Copied</span>
+                            <span style={{ fontSize: '11px', color: '#10b981' }}>Copied</span>
                         </motion.div>
                     ) : (
-                        <div className="d-flex align-items-center gap-1 opacity-75 hover-opacity-100">
+                        <div className="d-flex align-items-center gap-1 opacity-75">
                             <Copy size={12} />
                             <span style={{ fontSize: '11px' }}>Copy Code</span>
                         </div>
@@ -112,7 +112,7 @@ const CodeBlock = ({ children, className }) => {
             </div>
             <div className="p-4 overflow-auto custom-scrollbar" style={{ maxHeight: '500px' }}>
                 <pre className="m-0">
-                    <code className="text-light small" style={{ fontFamily: "'Fira Code', monospace", fontSize: '13px', lineHeight: '1.7' }}>
+                    <code className="text-dark small" style={{ fontFamily: "'Fira Code', monospace", fontSize: '13px', lineHeight: '1.7' }}>
                         {children}
                     </code>
                 </pre>
@@ -482,6 +482,7 @@ export default function AIChat({ setActiveTab }) {
 
             const aiContent = await getAICompletion(requestMessages, {
                 model: isVision ? "nvidia/nemotron-nano-12b-v2-vl:free" : "arcee-ai/trinity-large-preview:free",
+                actionType: 'chat'
             });
 
             setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...currentHistory, { role: 'assistant', content: aiContent }] } : s));
@@ -568,6 +569,7 @@ export default function AIChat({ setActiveTab }) {
 
             const aiContent = await getAICompletion(requestMessages, {
                 model: selectedFile?.type.startsWith('image/') ? "nvidia/nemotron-nano-12b-v2-vl:free" : "arcee-ai/trinity-large-preview:free",
+                actionType: 'chat',
                 onFallback: (msg) => {
                     console.log("Fallback triggered:", msg);
                 }
