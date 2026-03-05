@@ -53,3 +53,18 @@ export const getDeviceInfo = () => {
         screen: `${window.screen.width}x${window.screen.height}`
     };
 };
+
+/**
+ * Detects if the app is running as a standalone PWA (installed on home screen).
+ * Checks for both standard and iOS-specific properties.
+ */
+export const isStandalonePWA = () => {
+    return (window.matchMedia('(display-mode: standalone)').matches) || (window.navigator.standalone) || document.referrer.includes('android-app://');
+};
+
+/**
+ * Detects if the device is a mobile device.
+ */
+export const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};

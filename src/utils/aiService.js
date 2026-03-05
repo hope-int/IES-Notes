@@ -288,6 +288,7 @@ export const getAICompletion = async (messages, options = {}) => {
         actionType = "chat",
         provider = "auto",
         onFallback = () => { },
+        onProgress = () => { }, // New: Support UI progress updates
         model = "grok-4.1-non-reasoning",
         includeMetadata = false,
         ...restOptions
@@ -295,6 +296,8 @@ export const getAICompletion = async (messages, options = {}) => {
 
     const startTime = Date.now();
     const modelOptions = { model, ...restOptions };
+
+    onProgress({ step: 'rate-limit', message: 'Checking Rate Limits...' });
     await checkRateLimit(actionType);
 
     let resultData = null;
@@ -302,10 +305,12 @@ export const getAICompletion = async (messages, options = {}) => {
 
     if (canUsePuter) {
         try {
+            onProgress({ step: 'querying', message: 'Querying Puter.js (Primary)...', provider: 'Puter Cloud' });
             const content = await fetchPuter(messages, modelOptions);
             resultData = { content, provider: "Puter Cloud", model: getProviderModel(model, 'puter') };
         } catch (e) {
             console.warn("Puter failed/limited, dropping to secondary fallbacks.");
+            onProgress({ step: 'fallback', message: 'Switching to OpenRouter...', provider: 'OpenRouter' });
             if (onFallback) onFallback("Switching to OpenRouter...");
         }
     }
@@ -313,21 +318,26 @@ export const getAICompletion = async (messages, options = {}) => {
     if (!resultData) {
         try {
             if (provider !== 'client' && !import.meta.env.DEV) {
+                onProgress({ step: 'querying', message: 'Querying Backend API...', provider: 'Backend' });
                 resultData = await fetchBackendFallback(messages, modelOptions);
             } else {
+                onProgress({ step: 'querying', message: 'Querying OpenRouter (Fallback)...', provider: 'OpenRouter' });
                 resultData = await fetchClientSideFallback(messages, modelOptions);
             }
         } catch (e) {
             console.error("All providers failed.");
+            onProgress({ step: 'error', message: 'All AI Providers Failed' });
             throw e;
         }
     }
 
     const endTime = Date.now();
-    const duration = (endTime - startTime) / 1000;
+    const duration = (endTime - startTime);
+
+    onProgress({ step: 'completed', message: 'Response Received', duration });
 
     if (includeMetadata) {
-        return { ...resultData, time: duration.toFixed(2) };
+        return { ...resultData, time: (duration / 1000).toFixed(2) };
     }
     return resultData.content;
 };

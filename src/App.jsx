@@ -27,10 +27,10 @@ import RoadmapCanvas from './components/Roadmap/RoadmapCanvas';
 import HopeDocsLayout from './components/HopeDocs/HopeDocsLayout';
 import HopeSheetsLayout from './components/HopeSheets/HopeSheetsLayout';
 
-import CommunityFeed from './CommunityFeed';
+import CommunityFeed from './components/Community/CommunityFeed';
 import AIChat from './components/AITutor/AITutor';
 import AITutorDashboard from './components/AITutor/AITutorDashboard';
-import { getDeviceId, getClientIp } from './utils/deviceUtils';
+import { getDeviceId, getClientIp, isStandalonePWA, isMobileDevice } from './utils/deviceUtils';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useAuth } from './contexts/AuthContext';
 
@@ -56,7 +56,10 @@ function App() {
   const navigate = useNavigate();
 
   // Splash Screen State
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    // Hide splash if running as standalone webapp on mobile
+    return !(isStandalonePWA() && isMobileDevice());
+  });
 
   // Auth State
   const { session, userProfile, initializing, showAdmin, setShowAdmin, warningMessage, showWarningModal, dismissWarning, fetchProfile, handleLogout: contextLogout, handleRegistrationComplete: contextRegistrationComplete } = useAuth();
@@ -93,22 +96,33 @@ function App() {
 
   // Sync activeTab with URL changes or Navigation State
   useEffect(() => {
-    if (location.state?.tab === 'community') setActiveTab('community');
-    else if (location.pathname.includes('/community')) setActiveTab('community');
+    if (location.pathname === '/community') setActiveTab('community');
     else if (location.pathname.includes('/ai-')) setActiveTab('ai');
     else if (location.pathname === '/') setActiveTab('home');
-  }, [location.pathname, location.state]);
+  }, [location.pathname]);
 
 
 
 
   // Route Handling: Check if we are on a special route (e.g. /compiler, /admin)
-  const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes', '/handbook', '/presentation', '/report', '/assignment', '/mini-project', '/final-project', '/roadmap', '/ai-chat', '/ai-tutor', '/docs', '/sheets'].includes(location.pathname);
+  const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes', '/handbook', '/presentation', '/report', '/assignment', '/mini-project', '/final-project', '/roadmap', '/ai-chat', '/ai-tutor', '/docs', '/sheets', '/community'].includes(location.pathname);
 
   // Warning State
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Navigation State
   const [navStack, setNavStack] = useState([{ type: 'home', title: 'Home', id: null }]);
@@ -190,6 +204,7 @@ function App() {
     // Check immediately
     if (!checkPuterAuth()) {
       const interval = setInterval(() => {
+        if (!navigator.onLine) return; // Don't retry while offline
         attempts++;
         if (checkPuterAuth() || attempts >= maxAttempts) {
           clearInterval(interval);
@@ -423,10 +438,25 @@ function App() {
 
   return (
     <>
-      {/* SplashScreen renders as a fixed overlay on top — no white gap */}
+      {/* Splash Screen */}
       {showSplash && (
         <SplashScreen onComplete={handleSplashComplete} isAppReady={!initializing} />
       )}
+
+      {/* Offline Banner */}
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className="position-fixed top-0 start-0 w-100 py-2 text-center text-white fw-bold z-3"
+            style={{ background: '#ef4444', fontSize: '0.85rem' }}
+          >
+            Internet Disconnected • Limited Functionality
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Registration renders when not logged in */}
       {showRegistration && <Registration onComplete={handleRegistrationComplete} />}
@@ -847,8 +877,7 @@ function App() {
                     )}
                   </section>
 
-                  {/* Community Tab */}
-                  {activeTab === 'community' && <CommunityFeed />}
+                  {/* Community Tab removed (now a Route) */}
 
                   {/* AI Tutor Tab */}
                   {/* AI Tutor Tab removed (now a Route) */}
@@ -918,6 +947,7 @@ function App() {
                     )
                   ) : <Navigate to="/" />
                 } />
+                <Route path="/community" element={<CommunityFeed />} />
                 <Route path="/ai-tutor" element={<AITutorDashboard />} />
                 <Route path="/ai-chat" element={<AIChat />} />
                 <Route path="/docs" element={<HopeDocsLayout onBack={() => navigate(-1)} />} />
@@ -956,7 +986,7 @@ function App() {
           }
           {/* Floating Navigation Bar - Global */}
           {
-            !showProfile && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && (
+            !showProfile && location.pathname !== '/community' && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && (
               <div className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" style={{ pointerEvents: 'none', zIndex: 1055 }}>
                 <motion.div
                   whileHover={{
@@ -986,10 +1016,10 @@ function App() {
                     <Home size={20} /> <span className={activeTab === 'home' && location.pathname === '/' ? 'd-inline' : 'd-none d-sm-inline'}>Home</span>
                   </button>
                   <button
-                    onClick={() => navigate('/', { state: { tab: 'community' } })}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'community' && location.pathname === '/' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+                    onClick={() => navigate('/community')}
+                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/community' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
-                    <MessageCircle size={20} /> <span className={activeTab === 'community' && location.pathname === '/' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
+                    <MessageCircle size={20} /> <span className={location.pathname === '/community' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
                   </button>
 
                   <button
