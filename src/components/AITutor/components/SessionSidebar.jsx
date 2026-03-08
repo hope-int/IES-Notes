@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     X, Plus, Trash2, FileText, Code, Image as ImageIcon,
@@ -17,6 +17,8 @@ const SessionSidebar = ({
     onRenameSession,
     onExportSession
 }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+
     const getSessionIcon = (session) => {
         if (session.hasCode) return <Code size={16} className="text-primary" />;
         if (session.hasPDF) return <FileText size={16} className="text-success" />;
@@ -41,8 +43,8 @@ const SessionSidebar = ({
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="position-fixed top-0 start-0 h-100 bg-white shadow-lg d-flex flex-column"
-                        style={{ zIndex: 1070, width: '320px' }}
+                        className="position-fixed top-0 start-0 h-100 bg-white shadow-lg d-flex flex-column sidebar-mobile-full"
+                        style={{ zIndex: 1070, width: '320px', maxWidth: '100%' }}
                     >
                         {/* Sidebar Header */}
                         <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-light bg-opacity-50">
@@ -62,6 +64,8 @@ const SessionSidebar = ({
                                     className="form-control form-control-sm ps-5 bg-light border-0 rounded-pill"
                                     placeholder="Search engineering logs..."
                                     style={{ fontSize: '13px', height: '36px' }}
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
                             <button
@@ -81,37 +85,39 @@ const SessionSidebar = ({
                                 </div>
                             )}
 
-                            {sessions.map(s => (
-                                <motion.div
-                                    key={s.id}
-                                    whileHover={{ x: 4 }}
-                                    onClick={() => onSelectSession(s.id)}
-                                    className={`p-3 rounded-4 cursor-pointer mb-2 d-flex align-items-center gap-3 border transition-all ${activeSessionId === s.id ? 'bg-primary bg-opacity-5 border-primary shadow-sm' : 'bg-white border-light hover-bg-light'}`}
-                                >
-                                    <div className={`p-2 rounded-3 ${activeSessionId === s.id ? 'bg-primary bg-opacity-10' : 'bg-light'}`}>
-                                        {getSessionIcon(s)}
-                                    </div>
-                                    <div className="flex-grow-1 overflow-hidden">
-                                        <div className={`text-truncate small fw-bold ${activeSessionId === s.id ? 'text-primary' : 'text-dark'}`}>
-                                            {s.title || 'Untitled Session'}
+                            {sessions
+                                .filter(s => (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()))
+                                .map(s => (
+                                    <motion.div
+                                        key={s.id}
+                                        whileHover={{ x: 4 }}
+                                        onClick={() => onSelectSession(s.id)}
+                                        className={`p-3 rounded-4 cursor-pointer mb-2 d-flex align-items-center gap-3 border transition-all ${activeSessionId === s.id ? 'bg-primary bg-opacity-5 border-primary shadow-sm' : 'bg-white border-light hover-bg-light'}`}
+                                    >
+                                        <div className={`p-2 rounded-3 ${activeSessionId === s.id ? 'bg-primary bg-opacity-10' : 'bg-light'}`}>
+                                            {getSessionIcon(s)}
                                         </div>
-                                        <div className="text-muted x-small mt-0.5" style={{ fontSize: '9px' }}>
-                                            {new Date(s.timestamp).toLocaleDateString()} • {s.messageCount || 0} messages
+                                        <div className="flex-grow-1 overflow-hidden">
+                                            <div className={`text-truncate small fw-bold ${activeSessionId === s.id ? 'text-primary' : 'text-dark'}`}>
+                                                {s.title || 'Untitled Session'}
+                                            </div>
+                                            <div className="text-muted x-small mt-0.5" style={{ fontSize: '9px' }}>
+                                                {new Date(s.timestamp).toLocaleDateString()} • {s.messageCount || 0} messages
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="dropdown" onClick={(e) => e.stopPropagation()}>
-                                        <button className="btn btn-link p-1 text-muted opacity-50 hover-opacity-100" data-bs-toggle="dropdown">
-                                            <MoreVertical size={14} />
-                                        </button>
-                                        <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2" style={{ fontSize: '13px' }}>
-                                            <li><button className="dropdown-item rounded-3 d-flex align-items-center gap-2 py-2" onClick={() => onRenameSession(s.id)}><Edit2 size={14} /> Rename</button></li>
-                                            <li><button className="dropdown-item rounded-3 d-flex align-items-center gap-2 py-2" onClick={() => onExportSession(s.id)}><Download size={14} /> Export Log</button></li>
-                                            <li><hr className="dropdown-divider opacity-50" /></li>
-                                            <li><button className="dropdown-item rounded-3 d-flex align-items-center gap-2 py-2 text-danger" onClick={() => onDeleteSession(s.id)}><Trash2 size={14} /> Delete</button></li>
-                                        </ul>
-                                    </div>
-                                </motion.div>
-                            ))}
+                                        <div className="dropdown" onClick={(e) => e.stopPropagation()}>
+                                            <button className="btn btn-link p-1 text-muted opacity-50 hover-opacity-100" data-bs-toggle="dropdown">
+                                                <MoreVertical size={14} />
+                                            </button>
+                                            <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2" style={{ fontSize: '13px' }}>
+                                                <li><button className="dropdown-item rounded-3 d-flex align-items-center gap-2 py-2" onClick={() => onRenameSession(s.id)}><Edit2 size={14} /> Rename</button></li>
+                                                <li><button className="dropdown-item rounded-3 d-flex align-items-center gap-2 py-2" onClick={() => onExportSession(s.id)}><Download size={14} /> Export Log</button></li>
+                                                <li><hr className="dropdown-divider opacity-50" /></li>
+                                                <li><button className="dropdown-item rounded-3 d-flex align-items-center gap-2 py-2 text-danger" onClick={() => onDeleteSession(s.id)}><Trash2 size={14} /> Delete</button></li>
+                                            </ul>
+                                        </div>
+                                    </motion.div>
+                                ))}
                         </div>
 
                         {/* Footer Info */}

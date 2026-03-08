@@ -11,6 +11,7 @@ const StatusBar = ({
     rateLimit,
     onBack,
     onToggleSidebar,
+    onNewSession,
     isNavActive = true
 }) => {
     const getStatusColor = () => {
@@ -42,14 +43,14 @@ const StatusBar = ({
 
             {/* Center: Branding */}
             <div className="d-flex align-items-center justify-content-center" style={{ flex: 1 }}>
-                <div className="d-flex align-items-center px-4 py-1-5 rounded-pill border bg-light bg-opacity-50">
-                    <span className="fw-bold small tracking-tighter text-dark" style={{ fontSize: '12px', letterSpacing: '1px' }}>HOPE AI WORKBENCH</span>
+                <div className="d-flex align-items-center px-3 py-1-5 rounded-pill border bg-light bg-opacity-50">
+                    <span className="fw-bold small tracking-tighter text-dark" style={{ fontSize: '11px', letterSpacing: '1px' }}>HOPE AI <span className="d-none d-md-inline">WORKBENCH</span></span>
                 </div>
             </div>
 
             {/* Right: Engine Status & Action */}
-            <div className="d-flex align-items-center justify-content-end gap-3" style={{ flex: 1 }}>
-                <div className="d-flex align-items-center gap-2 border-end pe-3 border-opacity-10">
+            <div className="d-flex align-items-center justify-content-end gap-2 gap-md-3" style={{ flex: 1 }}>
+                <div className="d-none d-lg-flex align-items-center gap-2 border-end pe-3 border-opacity-10">
                     <motion.div
                         animate={{ opacity: [1, 0.4, 1] }}
                         transition={{ duration: 2, repeat: Infinity }}
@@ -61,7 +62,7 @@ const StatusBar = ({
                 <button
                     className="btn btn-primary rounded-pill px-4 py-1-5 small fw-bold shadow-sm d-flex align-items-center gap-2"
                     style={{ fontSize: '13px', backgroundColor: '#003366', borderColor: '#003366' }}
-                    onClick={() => window.location.reload()}
+                    onClick={onNewSession}
                 >
                     <Plus size={16} /> <span className="d-none d-sm-inline">New Chat</span>
                 </button>

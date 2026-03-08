@@ -98,7 +98,10 @@ export default function AITutor() {
 
     // Scroll to bottom on messages change
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const timer = setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100); // 100ms delay
+        return () => clearTimeout(timer);
     }, [messages, loading]);
 
     // --- Session Actions ---
@@ -151,7 +154,7 @@ export default function AITutor() {
     const handleFileChange = (e) => {
         const file = e.target.files[0] || e.dataTransfer?.files[0];
         if (file) {
-            if (file.size > 10 * 1024 * 1024) return showToast("File exceeds 10MB limit.", "warning");
+            if (file.size > 2 * 1024 * 1024) return showToast("File exceeds 2MB limit for direct AI injection.", "warning");
             setSelectedFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -208,7 +211,10 @@ export default function AITutor() {
         try {
             const systemPrompt = `You are Justin, a Lead Engineering Tutor at HOPE Studio. 
             Resilience: Strict engineering context. 
-            PDF_MODE: If user asks for a document/pdf, generate content and append [[PDF_ATTACHMENT]] at the end.`;
+
+            PDF_MODE: If generating a document, START immediately with the Title/Header (# Title). 
+            DO NOT add intros ("Sure, here is the doc") or outros ("Hope this helps"). 
+            End the message immediately after the content. Append [[PDF_ATTACHMENT]] at the very end.`;
 
             const history = messages.map(m => ({ role: m.role, content: m.content }));
             const requestMessages = [{ role: 'system', content: systemPrompt }, ...history];
@@ -219,6 +225,9 @@ export default function AITutor() {
                 const pdfText = await extractTextFromPDF(currentFile);
                 requestMessages.push({ role: 'user', content: `${currentInput}\n\n[PDF Context]: ${pdfText.substring(0, 8000)}` });
             } else if (currentFile?.type.startsWith('image/')) {
+                if (!currentFilePreview?.startsWith('data:image/')) {
+                    throw new Error("Invalid image format. Ensure full data URL scheme.");
+                }
                 requestMessages.push({
                     role: 'user',
                     content: [
@@ -307,6 +316,34 @@ export default function AITutor() {
         }
     };
 
+    const handleRegenerate = async (msgIndex) => {
+        // Find the user message preceding the assistant message at msgIndex
+        let userMsg = null;
+        for (let i = msgIndex - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+                userMsg = messages[i];
+                break;
+            }
+        }
+
+        if (!userMsg) return showToast("No user message found to regenerate.", "warning");
+
+        // Remove everything from msgIndex onwards
+        const newMessages = messages.slice(0, msgIndex);
+        setMessages(newMessages);
+
+        // Restore input and re-send
+        setInput(userMsg.content);
+        if (userMsg.fileType?.startsWith('image/')) {
+            setFilePreview(userMsg.filePreview);
+            // Simulate file object (at least basic props needed for handleSend if any)
+            setSelectedFile({ name: userMsg.fileName, type: userMsg.fileType });
+        }
+
+        // Wait for state updates then trigger send
+        setTimeout(() => handleSend(), 100);
+    };
+
     const handleRenameSession = async (id) => {
         const session = sessions.find(s => s.id === id);
         const newTitle = window.prompt("Enter new session title:", session?.title);
@@ -333,11 +370,34 @@ export default function AITutor() {
     };
 
     const handleOpenViewer = (content) => {
-        const cleanContent = content.replace('[[PDF_ATTACHMENT]]', '');
+        // 1. Remove the trigger tag
+        let cleanContent = content.replace('[[PDF_ATTACHMENT]]', '');
+
+        // 2. Find the start of the actual document (Look for the first Header)
+        // This strips out intros like "Thanks for the details!..."
+        const firstHeaderIndex = cleanContent.search(/^#\s.+/m);
+        if (firstHeaderIndex > -1) {
+            cleanContent = cleanContent.substring(firstHeaderIndex);
+        }
+
+        // 3. Strip trailing conversational filler (outros)
+        // We look for common phrases the AI uses to end messages
+        const outroPhrases = ["There you go", "Hope this helps", "Let me know if you need", "ready to copy"];
+        outroPhrases.forEach(phrase => {
+            const index = cleanContent.toLowerCase().indexOf(phrase.toLowerCase());
+            if (index > -1) {
+                // Cut the content at the point where the outro starts
+                cleanContent = cleanContent.substring(0, index);
+            }
+        });
+
+        // 4. Extract Title
         const titleMatch = cleanContent.match(/^#+\s*(.+)$/m);
+
+        // 5. Set State
         setDocViewer({
             isOpen: true,
-            content: cleanContent,
+            content: cleanContent.trim(), // Trim whitespace
             title: titleMatch ? titleMatch[1].trim() : 'Document Preview'
         });
     };
@@ -389,6 +449,47 @@ export default function AITutor() {
         printWindow.document.close();
     };
 
+    const handleDocumentRefinement = async (currentContent, instruction, history = []) => {
+        setLoading(true);
+        try {
+            const systemPrompt = `You are a specialized document editor. 
+            The user provides a document and an instruction. 
+            Rewrite the document following the instruction. 
+            DO NOT add any conversational text, headers, or footers. 
+            ONLY return the full updated markdown content.`;
+
+            const studioHistory = history.map(m => ({ role: m.role, content: m.content }));
+            const requestMessages = [
+                { role: 'system', content: systemPrompt },
+                ...studioHistory,
+                { role: 'user', content: `CURRENT DOCUMENT:\n${currentContent}\n\nUSER INSTRUCTION: ${instruction}` }
+            ];
+
+            const result = await getAICompletion(requestMessages);
+            return result;
+        } catch (e) {
+            console.error(e);
+            showToast("Document refinement failed.", "error");
+            throw e;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExportToMain = async (content) => {
+        if (!content) return;
+        const msg = {
+            sessionId: activeSessionId,
+            role: 'user',
+            content: `Here is the finalized document:\n\n${content}`,
+            timestamp: Date.now()
+        };
+        setMessages(prev => [...prev, msg]);
+        await saveMessage(msg);
+        showToast("Exported to main thread.", "success");
+        setDocViewer({ ...docViewer, isOpen: false });
+    };
+
     return (
         <div className="d-flex flex-column vh-100 bg-white overflow-hidden"
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -403,6 +504,7 @@ export default function AITutor() {
                 rateLimit={rateLimit}
                 onBack={() => navigate('/ai-tutor')}
                 onToggleSidebar={() => setIsSidebarOpen(true)}
+                onNewSession={handleNewSession}
             />
 
             <SessionSidebar
@@ -424,10 +526,12 @@ export default function AITutor() {
                 onStarterClick={handleStarterClick}
                 loading={loading}
                 simulatingIndex={simulatingIndex}
+                onRegenerate={handleRegenerate}
+                className="p-2 p-md-4"
             />
 
             {/* 3. The Cockpit (Floating Composer) */}
-            <div className="p-4 bg-white border-top shadow-lg" style={{ zIndex: 100 }}>
+            <div className="p-3 p-md-4 bg-white border-top shadow-lg sticky-bottom" style={{ zIndex: 100 }}>
                 <div className="container mx-auto" style={{ maxWidth: '850px' }}>
 
                     {/* Active Context Chip */}
@@ -535,14 +639,15 @@ export default function AITutor() {
                                     }
                                 }}
                                 placeholder="Ask deep questions, or type '/' for commands..."
-                                className={`form-control border-light shadow-sm py-3 px-4 rounded-4 custom-scrollbar ${isCodeInput(input) ? 'font-monospace' : ''}`}
+                                className={`form-control border-light shadow-sm py-3 px-4 rounded-5 custom-scrollbar ${isCodeInput(input) ? 'font-monospace' : ''}`}
                                 style={{
                                     resize: 'none',
-                                    minHeight: '66px',
+                                    minHeight: '56px',
                                     maxHeight: '150px',
                                     paddingRight: '64px',
                                     fontSize: '15px',
-                                    backgroundColor: isCodeInput(input) ? '#f8fafc' : 'white'
+                                    backgroundColor: isCodeInput(input) ? '#f8fafc' : 'white',
+                                    borderRadius: '24px'
                                 }}
                             />
                             <div className="position-absolute end-0 top-50 translate-middle-y me-3">
@@ -694,6 +799,8 @@ export default function AITutor() {
                 title={docViewer.title}
                 onPrint={() => handlePrint(docViewer.content)}
                 onDownload={() => { /* Implement PDF download if needed or just reuse print */ }}
+                onRefine={handleDocumentRefinement}
+                onExportToMain={handleExportToMain}
             />
         </div>
     );

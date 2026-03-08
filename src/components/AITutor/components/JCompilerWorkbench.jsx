@@ -43,7 +43,7 @@ const JCompilerWorkbench = ({ code, language, onSimulate, simulationResult, isSi
                         className="btn btn-sm btn-light border-0 rounded-pill px-3 py-1-5 d-flex align-items-center gap-2"
                     >
                         {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
-                        <span style={{ fontSize: '11px' }}>{copied ? 'Copied' : 'Copy'}</span>
+                        <span className="d-none d-md-inline" style={{ fontSize: '11px' }}>{copied ? 'Copied' : 'Copy'}</span>
                     </button>
                     <button
                         onClick={onSimulate}
@@ -56,7 +56,7 @@ const JCompilerWorkbench = ({ code, language, onSimulate, simulationResult, isSi
                         ) : (
                             <Play size={14} />
                         )}
-                        <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{isSimulating ? 'Simulating...' : 'Simulate'}</span>
+                        <span className="d-none d-md-inline" style={{ fontSize: '11px', fontWeight: 'bold' }}>{isSimulating ? 'Simulating...' : 'Simulate'}</span>
                     </button>
                 </div>
             </div>
@@ -71,9 +71,9 @@ const JCompilerWorkbench = ({ code, language, onSimulate, simulationResult, isSi
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className="btn border-0 rounded-0 px-4 py-3 d-flex align-items-center gap-2 transition-all position-relative"
+                        className="btn border-0 rounded-0 px-3 px-md-4 py-3 d-flex align-items-center gap-2 transition-all position-relative flex-grow-1 flex-md-grow-0 justify-content-center"
                         style={{
-                            fontSize: '12px',
+                            fontSize: '11px',
                             fontWeight: 'bold',
                             color: activeTab === tab.id ? '#003366' : '#94a3b8',
                             backgroundColor: activeTab === tab.id ? '#f0f5fa' : 'transparent'
