@@ -22,18 +22,18 @@ const StatusBar = ({
     };
 
     return (
-        <nav className="d-flex align-items-center justify-content-between px-4 py-3 sticky-top bg-white border-bottom shadow-sm" style={{ zIndex: 1040, height: '64px' }}>
+        <nav className="flex items-center justify-between px-2 md:px-4 h-14 md:h-16 sticky top-0 bg-white border-b shadow-sm z-[1040]">
             {/* Left: Project Controls */}
-            <div className="d-flex align-items-center gap-2" style={{ flex: 1 }}>
+            <div className="flex items-center gap-1 md:gap-2 flex-1">
                 <button
-                    className="btn btn-link text-dark p-2 hover-bg-light rounded-circle transition-all"
+                    className="p-2 rounded-full hover:bg-gray-100 transition-all text-gray-600 flex items-center justify-center"
                     onClick={onBack}
                     title="Back to Dashboard"
                 >
                     <ArrowLeft size={20} />
                 </button>
                 <button
-                    className="btn btn-link text-dark p-2 hover-bg-light rounded-circle transition-all"
+                    className="p-2 rounded-full hover:bg-gray-100 transition-all text-gray-600 flex items-center justify-center"
                     onClick={onToggleSidebar}
                     title="Project History"
                 >
@@ -42,29 +42,34 @@ const StatusBar = ({
             </div>
 
             {/* Center: Branding */}
-            <div className="d-flex align-items-center justify-content-center" style={{ flex: 1 }}>
-                <div className="d-flex align-items-center px-3 py-1-5 rounded-pill border bg-light bg-opacity-50">
-                    <span className="fw-bold small tracking-tighter text-dark" style={{ fontSize: '11px', letterSpacing: '1px' }}>HOPE AI <span className="d-none d-md-inline">WORKBENCH</span></span>
+            <div className="hidden md:flex items-center justify-center flex-1">
+                <div className="flex items-center px-3 py-1.5 rounded-full border bg-gray-50 bg-opacity-50">
+                    <span className="font-bold text-[11px] tracking-widest text-gray-800">HOPE AI WORKBENCH</span>
                 </div>
             </div>
 
+            {/* Mobile Branding - Dot Indicator if workbench is hidden */}
+            <div className="flex md:hidden items-center justify-center flex-1">
+                <span className="font-bold text-[11px] tracking-widest text-gray-800">HOPE AI</span>
+            </div>
+
             {/* Right: Engine Status & Action */}
-            <div className="d-flex align-items-center justify-content-end gap-2 gap-md-3" style={{ flex: 1 }}>
-                <div className="d-none d-lg-flex align-items-center gap-2 border-end pe-3 border-opacity-10">
+            <div className="flex items-center justify-end gap-1 md:gap-3 flex-1">
+                <div className="flex items-center gap-2 md:border-r md:pr-3 border-gray-200">
                     <motion.div
                         animate={{ opacity: [1, 0.4, 1] }}
                         transition={{ duration: 2, repeat: Infinity }}
-                        style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: getStatusColor() }}
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: getStatusColor() }}
                     />
-                    <span className="fw-bold text-muted font-monospace" style={{ fontSize: '11px' }}>{activeModel || 'System Ready'}</span>
+                    <span className="hidden lg:flex font-bold text-gray-500 font-mono text-[11px]">{activeModel || 'System Ready'}</span>
                 </div>
 
                 <button
-                    className="btn btn-primary rounded-pill px-4 py-1-5 small fw-bold shadow-sm d-flex align-items-center gap-2"
-                    style={{ fontSize: '13px', backgroundColor: '#003366', borderColor: '#003366' }}
+                    className="bg-[#003366] hover:bg-[#004080] text-white rounded-xl px-2 md:px-4 py-1.5 text-[13px] font-bold shadow-sm transition-all flex items-center justify-center gap-1 md:gap-2 active:scale-95"
                     onClick={onNewSession}
                 >
-                    <Plus size={16} /> <span className="d-none d-sm-inline">New Chat</span>
+                    <Plus size={16} /> <span className="hidden sm:inline">New Chat</span>
                 </button>
             </div>
         </nav>

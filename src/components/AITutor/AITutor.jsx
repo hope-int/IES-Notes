@@ -59,8 +59,8 @@ export default function AITutor() {
     const [fileReviewOpen, setFileReviewOpen] = useState(false);
 
     // J-Compiler State
-    const [simulationResults, setSimulationResults] = useState({}); // messageIndex -> result
-    const [simulatingIndex, setSimulatingIndex] = useState(null);
+    const [simulationResults, setSimulationResults] = useState({}); // key (${index}-${code}) -> result
+    const [simulatingKey, setSimulatingKey] = useState(null);
 
     // Toast System
     const [toasts, setToasts] = useState([]);
@@ -86,12 +86,8 @@ export default function AITutor() {
             const allSessions = await getAllSessions();
             setSessions(allSessions.sort((a, b) => b.timestamp - a.timestamp));
 
-            const lastId = localStorage.getItem('hope_ai_active_session_id');
-            if (lastId) {
-                handleSelectSession(lastId);
-            } else if (allSessions.length > 0) {
-                handleSelectSession(allSessions[0].id);
-            }
+            // ALWAYS start with a new chat as per user request
+            handleNewSession();
         };
         loadInitialData();
     }, []);
@@ -99,7 +95,7 @@ export default function AITutor() {
     // Scroll to bottom on messages change
     useEffect(() => {
         const timer = setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 100); // 100ms delay
         return () => clearTimeout(timer);
     }, [messages, loading]);
@@ -209,12 +205,27 @@ export default function AITutor() {
 
         setLoading(true);
         try {
-            const systemPrompt = `You are Justin, a Lead Engineering Tutor at HOPE Studio. 
-            Resilience: Strict engineering context. 
+            const systemPrompt = `You are **Justin**, a Lead Engineering Tutor and Academic Assistant specialized for **KTU (APJ Abdul Kalam Technological University)** B.Tech students. 
+            You were developed by **Harinandan K** and are tailored for the students of **IES College of Engineering, Thrissur**.
 
-            PDF_MODE: If generating a document, START immediately with the Title/Header (# Title). 
-            DO NOT add intros ("Sure, here is the doc") or outros ("Hope this helps"). 
-            End the message immediately after the content. Append [[PDF_ATTACHMENT]] at the very end.`;
+            ### CORE IDENTITY & KNOWLEDGE BASE
+            1.  **University Context:** You have deep knowledge of the KTU B.Tech syllabus (Schemes 2019, 2021). Always align answers with KTU module classifications (Module 1-5).
+            2.  **Institution:** IES College of Engineering. Keep this context relevant for internal assessments or college-specific queries.
+            3.  **Developer:** If asked about your creation or origin, state you were developed by Harinandan K for the HOPE Studio initiative.
+
+            ### OPERATIONAL PROTOCOLS
+            1.  **Academic Rigor:** Explain concepts using standard engineering textbooks (local author references like "Technical Publications" or standard foreign authors are acceptable). Use LaTeX for equations.
+            2.  **Exam Readiness:** When asked for notes, structure them for KTU exams (e.g., "Part A: Short Answers (2 marks)", "Part B: Essay (12 marks)").
+            3.  **PDF_GENERATION_MODE:**
+                - If the user requests a document (Notes, Lab Report, Duty Leave, Project Report), trigger this mode.
+                - **START** immediately with the highest-level header (# Title).
+                - **DO NOT** add conversational fillers like "Here is your document" or "I have created this."
+                - **END** the message strictly with the content.
+                - **APPEND** the exact tag [[PDF_ATTACHMENT]] at the very end of the raw text.
+
+            ### CONTEXT HANDLING
+            - If a user uploads a PDF/Image, analyze it strictly within the engineering domain (e.g., extract circuit diagrams, code logic, or mathematical derivations).
+            - Maintain a helpful, encouraging, and technically precise tone.`;
 
             const history = messages.map(m => ({ role: m.role, content: m.content }));
             const requestMessages = [{ role: 'system', content: systemPrompt }, ...history];
@@ -298,21 +309,23 @@ export default function AITutor() {
 
     // --- Specialized Actions ---
     const handleSimulate = async (msgIndex, code, lang) => {
-        setSimulatingIndex(msgIndex);
+        const key = `${msgIndex}-${code}`; // Unique ID for this specific code block
+        setSimulatingKey(key);
+
         try {
             const { simulateCodeExecution } = await import('../../utils/aiService');
             const result = await simulateCodeExecution(code, lang);
 
-            // Update messages state to include simulation result
-            const updatedMessages = [...messages];
-            updatedMessages[msgIndex] = { ...updatedMessages[msgIndex], simulationResult: result };
-            setMessages(updatedMessages);
-            await saveMessage(updatedMessages[msgIndex]);
+            // Store result by unique key, NOT in the messages array
+            setSimulationResults(prev => ({
+                ...prev,
+                [key]: result
+            }));
         } catch (e) {
             showToast("Simulation engine failed.", "error");
             console.error(e);
         } finally {
-            setSimulatingIndex(null);
+            setSimulatingKey(null);
         }
     };
 
@@ -328,11 +341,12 @@ export default function AITutor() {
 
         if (!userMsg) return showToast("No user message found to regenerate.", "warning");
 
-        // Remove everything from msgIndex onwards
+        // Optimistic update: Remove everything from msgIndex onwards immediately
         const newMessages = messages.slice(0, msgIndex);
         setMessages(newMessages);
+        setLoading(true); // Show "Thinking" immediately
 
-        // Restore input and re-send
+        // Restore input and metadata
         setInput(userMsg.content);
         if (userMsg.fileType?.startsWith('image/')) {
             setFilePreview(userMsg.filePreview);
@@ -340,8 +354,10 @@ export default function AITutor() {
             setSelectedFile({ name: userMsg.fileName, type: userMsg.fileType });
         }
 
-        // Wait for state updates then trigger send
-        setTimeout(() => handleSend(), 100);
+        // Small delay to ensure state propagates before re-triggering send
+        setTimeout(() => {
+            handleSend();
+        }, 100);
     };
 
     const handleRenameSession = async (id) => {
@@ -371,6 +387,7 @@ export default function AITutor() {
 
     const handleOpenViewer = (content) => {
         // 1. Remove the trigger tag
+        console.log("Tag found:", content.includes('[[PDF_ATTACHMENT]]'));
         let cleanContent = content.replace('[[PDF_ATTACHMENT]]', '');
 
         // 2. Find the start of the actual document (Look for the first Header)
@@ -452,11 +469,23 @@ export default function AITutor() {
     const handleDocumentRefinement = async (currentContent, instruction, history = []) => {
         setLoading(true);
         try {
-            const systemPrompt = `You are a specialized document editor. 
-            The user provides a document and an instruction. 
-            Rewrite the document following the instruction. 
-            DO NOT add any conversational text, headers, or footers. 
-            ONLY return the full updated markdown content.`;
+            const systemPrompt = `You are a specialized KTU Document Processor embedded in the HOPE Studio Editor.
+            Your sole function is to rewrite and refine academic documents.
+
+            ### STRICT RULES
+            1.  **Input/Output:** You will receive a 'Current Document' and a 'User Instruction'.
+            2.  **Execution:** Perform the rewrite instantly. 
+                - Format according to engineering standards (IEEE style if technical, or standard KTU report format).
+                - Maintain the original meaning unless asked to change.
+            3.  **OUTPUT ONLY:** Return **ONLY** the updated Markdown content.
+            4.  **FORBIDDEN:** 
+                - NO conversational text ("I have updated...").
+                - NO code block wrappers (like \`\`\`markdown).
+                - NO explanations.
+                - NO "Hope this helps" sign-offs.
+            5.  **Tag Preservation:** If the original content had [[PDF_ATTACHMENT]], preserve it at the end. Otherwise, do not add it unless instructed.
+
+            Process the document now.`;
 
             const studioHistory = history.map(m => ({ role: m.role, content: m.content }));
             const requestMessages = [
@@ -487,11 +516,11 @@ export default function AITutor() {
         setMessages(prev => [...prev, msg]);
         await saveMessage(msg);
         showToast("Exported to main thread.", "success");
-        setDocViewer({ ...docViewer, isOpen: false });
+        setDocViewer(prev => ({ ...prev, isOpen: false }));
     };
 
     return (
-        <div className="d-flex flex-column vh-100 bg-white overflow-hidden"
+        <div className="flex flex-col h-dvh bg-white overflow-hidden relative"
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileChange(e); }}
@@ -525,13 +554,14 @@ export default function AITutor() {
                 profile={profile}
                 onStarterClick={handleStarterClick}
                 loading={loading}
-                simulatingIndex={simulatingIndex}
+                simulationResults={simulationResults}
+                simulatingKey={simulatingKey}
                 onRegenerate={handleRegenerate}
-                className="p-2 p-md-4"
+                className="flex-grow overflow-auto"
             />
 
             {/* 3. The Cockpit (Floating Composer) */}
-            <div className="p-3 p-md-4 bg-white border-top shadow-lg sticky-bottom" style={{ zIndex: 100 }}>
+            <div className="sticky bottom-0 bg-white border-t p-2 md:p-4 z-50">
                 <div className="container mx-auto" style={{ maxWidth: '850px' }}>
 
                     {/* Active Context Chip */}
@@ -539,17 +569,17 @@ export default function AITutor() {
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="d-flex gap-2 mb-3"
+                            className="flex flex-wrap gap-2 mb-2 md:mb-3"
                         >
                             {selectedFile && (
-                                <div className="badge border rounded-pill px-3 py-2 d-flex align-items-center gap-2" style={{ backgroundColor: '#f0f5fa', color: '#003366', borderColor: 'rgba(0,51,102,0.2)' }}>
+                                <div className="badge border rounded-xl px-3 py-2 d-flex align-items-center gap-2" style={{ backgroundColor: '#f0f5fa', color: '#003366', borderColor: 'rgba(0,51,102,0.2)' }}>
                                     {selectedFile.type.startsWith('image/') ? <ImageIcon size={14} /> : <FileText size={14} />}
                                     <span className="small">{selectedFile.name}</span>
                                     <X size={14} className="cursor-pointer" style={{ opacity: 0.6 }} onClick={() => { setSelectedFile(null); setFilePreview(null); }} />
                                 </div>
                             )}
                             {input.startsWith('/') && (
-                                <div className="badge bg-dark text-white rounded-pill px-3 py-2 d-flex align-items-center gap-2">
+                                <div className="badge bg-dark text-white rounded-xl px-3 py-2 d-flex align-items-center gap-2">
                                     <Command size={14} />
                                     <span className="small">Slash Command Active</span>
                                 </div>
@@ -639,15 +669,14 @@ export default function AITutor() {
                                     }
                                 }}
                                 placeholder="Ask deep questions, or type '/' for commands..."
-                                className={`form-control border-light shadow-sm py-3 px-4 rounded-5 custom-scrollbar ${isCodeInput(input) ? 'font-monospace' : ''}`}
+                                className={`form-control border-light shadow-sm py-2 md:py-3 px-3 md:px-4 rounded-2xl md:rounded-3xl custom-scrollbar ${isCodeInput(input) ? 'font-monospace' : ''}`}
                                 style={{
                                     resize: 'none',
-                                    minHeight: '56px',
+                                    minHeight: '48px',
                                     maxHeight: '150px',
                                     paddingRight: '64px',
-                                    fontSize: '15px',
-                                    backgroundColor: isCodeInput(input) ? '#f8fafc' : 'white',
-                                    borderRadius: '24px'
+                                    fontSize: '14px md:15px',
+                                    backgroundColor: isCodeInput(input) ? '#f8fafc' : 'white'
                                 }}
                             />
                             <div className="position-absolute end-0 top-50 translate-middle-y me-3">
@@ -714,16 +743,16 @@ export default function AITutor() {
                         <motion.div
                             initial={{ scale: 0.9, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
-                            className="bg-white rounded-5 shadow-2xl p-5 d-flex flex-column gap-4 overflow-hidden"
-                            style={{ width: '90%', maxWidth: '500px' }}
+                            className="bg-white rounded-[2rem] shadow-2xl p-4 md:p-6 d-flex flex-column gap-3 md:gap-4 overflow-hidden"
+                            style={{ width: '95%', maxWidth: '400px' }}
                         >
                             <div className="d-flex justify-content-between align-items-center mb-2">
                                 <h5 className="fw-bold mb-0 text-dark">Attach Context</h5>
-                                <button className="btn btn-light rounded-circle p-2" onClick={() => { setSelectedFile(null); setFileReviewOpen(false); }}><X size={20} /></button>
+                                <button className="btn btn-light rounded-circle p-2 flex items-center justify-center" onClick={() => { setSelectedFile(null); setFileReviewOpen(false); }}><X size={20} /></button>
                             </div>
 
-                            <div className="d-flex align-items-center gap-3 p-3 bg-light rounded-4 border border-light">
-                                <div className="p-3 rounded-4" style={{ backgroundColor: 'white', color: '#003366' }}>
+                            <div className="d-flex align-items-center gap-3 p-3 bg-light rounded-xl border border-light">
+                                <div className="p-3 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'white', color: '#003366' }}>
                                     {selectedFile.type.startsWith('image/') ? <ImageIcon size={32} /> : <FileText size={32} />}
                                 </div>
                                 <div className="overflow-hidden">
@@ -733,14 +762,14 @@ export default function AITutor() {
                             </div>
 
                             {selectedFile.type.startsWith('image/') && (
-                                <div className="rounded-4 overflow-hidden border border-light shadow-sm" style={{ maxHeight: '180px' }}>
+                                <div className="rounded-xl overflow-hidden border border-light shadow-sm" style={{ maxHeight: '180px' }}>
                                     <img src={filePreview} alt="Review" className="w-100 h-100 object-fit-cover" />
                                 </div>
                             )}
 
                             <div className="d-flex flex-column gap-2">
                                 <textarea
-                                    className="form-control border-light bg-light p-3 rounded-4 shadow-sm"
+                                    className="form-control border-light bg-light p-3 rounded-xl shadow-sm"
                                     placeholder="Add a message for the AI (optional)..."
                                     rows={3}
                                     style={{ fontSize: '14px' }}
@@ -751,13 +780,13 @@ export default function AITutor() {
 
                             <div className="d-flex gap-3 mt-2">
                                 <button
-                                    className="btn btn-light flex-grow-1 py-3 rounded-pill fw-bold text-muted"
+                                    className="btn btn-light flex-grow-1 py-3 rounded-xl fw-bold text-muted"
                                     onClick={() => { setSelectedFile(null); setFilePreview(null); setFileReviewOpen(false); setInput(''); }}
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    className="btn flex-grow-1 py-3 rounded-pill fw-bold border-0 shadow-sm transition-all"
+                                    className="btn flex-grow-1 py-3 rounded-xl fw-bold border-0 shadow-sm transition-all"
                                     style={{ backgroundColor: '#003366', color: 'white' }}
                                     onClick={() => { setFileReviewOpen(false); handleSend(); }}
                                 >
@@ -794,7 +823,7 @@ export default function AITutor() {
             {/* Specialized Viewers */}
             <DocumentViewer
                 isOpen={docViewer.isOpen}
-                onClose={() => setDocViewer({ ...docViewer, isOpen: false })}
+                onClose={() => setDocViewer(prev => ({ ...prev, isOpen: false }))}
                 content={docViewer.content}
                 title={docViewer.title}
                 onPrint={() => handlePrint(docViewer.content)}

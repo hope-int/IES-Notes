@@ -9,7 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 const DocumentViewer = ({ isOpen, onClose, content, title, onPrint, onDownload, onRefine, onExportToMain }) => {
-    const [viewMode, setViewMode] = useState('split'); // 'edit', 'preview', 'split'
+    const [viewMode, setViewMode] = useState('edit'); // 'edit', 'preview'
     const [editableContent, setEditableContent] = useState('');
     const [studioMessages, setStudioMessages] = useState([]);
     const [studioInput, setStudioInput] = useState('');
@@ -63,41 +63,35 @@ const DocumentViewer = ({ isOpen, onClose, content, title, onPrint, onDownload, 
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: "spring", stiffness: 200, damping: 25 }}
-                        className="position-relative bg-white h-100 shadow-2xl d-flex flex-column"
-                        style={{ width: '90%', maxWidth: '1200px' }}
+                        className="relative bg-white h-full w-full md:w-[90%] md:max-w-[1200px] shadow-2xl flex flex-col"
                     >
 
                         {/* Header */}
-                        <div className="px-5 py-4 border-bottom d-flex align-items-center justify-content-between bg-white sticky-top">
-                            <div className="d-flex align-items-center gap-3">
-                                <div className="p-2-5 rounded-circle bg-white shadow-sm">
+                        <div className="px-3 md:px-5 py-3 md:py-4 border-b flex items-center justify-between bg-white sticky top-0 z-10">
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <div className="p-2 md:p-2.5 rounded-full bg-white shadow-sm">
                                     <Bot size={20} className="text-primary" />
                                 </div>
                                 <div>
-                                    <h5 className="fw-bold mb-0 text-dark">HOPE Document Studio</h5>
-                                    <span className="x-small fw-bold text-muted uppercase tracking-wider" style={{ fontSize: '10px' }}>AI Research Analysis</span>
+                                    <h5 className="font-bold mb-0 text-gray-900 text-sm md:text-base">HOPE Studio</h5>
+                                    <span className="hidden md:inline text-[10px] font-bold text-gray-400 uppercase tracking-widest">AI Research Analysis</span>
                                 </div>
                             </div>
 
-                            <div className="d-flex align-items-center gap-3">
-                                <div className="bg-light p-1 rounded-pill d-flex">
+                            <div className="flex items-center gap-1 md:gap-3">
+                                <div className="bg-gray-100 p-1 rounded-full flex">
                                     {[
                                         { id: 'edit', icon: Edit3, label: 'Editor' },
-                                        { id: 'split', icon: Layout, label: 'Split' },
                                         { id: 'preview', icon: Eye, label: 'Review' }
                                     ].map((mode) => (
                                         <button
                                             key={mode.id}
                                             onClick={() => setViewMode(mode.id)}
-                                            className={`btn border-0 rounded-pill px-3 py-1-5 d-flex align-items-center gap-2 transition-all ${viewMode === mode.id ? 'bg-white shadow-sm' : 'text-muted'}`}
-                                            style={{
-                                                fontSize: '12px',
-                                                fontWeight: 'bold',
-                                                color: viewMode === mode.id ? '#003366' : '#94a3b8'
-                                            }}
+                                            className={`border-0 rounded-xl px-2 md:px-3 py-1.5 flex items-center gap-1 md:gap-2 transition-all ${viewMode === mode.id ? 'bg-white shadow-sm' : 'text-gray-400'} text-xs font-bold`}
+                                            style={{ color: viewMode === mode.id ? '#003366' : undefined }}
                                         >
                                             <mode.icon size={14} />
-                                            <span className="d-none d-md-inline">{mode.label}</span>
+                                            <span className="hidden md:inline">{mode.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -106,105 +100,115 @@ const DocumentViewer = ({ isOpen, onClose, content, title, onPrint, onDownload, 
 
                                 <button
                                     onClick={() => onExportToMain(editableContent)}
-                                    className="btn btn-outline-primary rounded-pill px-3 py-2 fw-bold d-flex align-items-center gap-2 border-opacity-25"
+                                    className="btn btn-outline-primary rounded-xl px-2 md:px-3 py-2 font-bold flex items-center justify-center gap-1 md:gap-2 border-opacity-25"
                                     style={{ fontSize: '11px' }}
                                     title="Push to Main Chat"
                                 >
-                                    <Share2 size={14} /> Export to Chat
+                                    <Share2 size={14} /> <span className="hidden md:inline">Export</span>
                                 </button>
 
-                                <button onClick={onDownload} className="btn btn-outline-secondary rounded-circle p-0 d-flex align-items-center justify-content-center border-opacity-25" style={{ width: 40, height: 40 }}><Download size={18} /></button>
                                 <button
                                     onClick={onPrint}
-                                    className="btn rounded-pill px-4 py-2 fw-bold d-flex align-items-center gap-2 shadow-sm border-0"
+                                    className="btn rounded-xl px-3 md:px-4 py-2 font-bold flex items-center justify-center gap-1 md:gap-2 shadow-sm border-0"
                                     style={{ backgroundColor: '#003366', color: 'white' }}
                                 >
-                                    <Printer size={18} /> <span className="d-none d-md-inline">Print PDF</span>
+                                    <Printer size={18} /> <span className="hidden md:inline">Print PDF</span>
                                 </button>
-                                <button onClick={onClose} className="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center ms-2" style={{ width: 40, height: 40 }}><X size={20} /></button>
+                                <button
+                                    onClick={onClose}
+                                    className="bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full flex items-center justify-center ms-1 md:ms-2 w-9 h-9 md:w-10 md:h-10 transition-colors shadow-sm"
+                                    aria-label="Close Studio"
+                                >
+                                    <X size={20} />
+                                </button>
                             </div>
                         </div>
 
                         {/* Document Content Area */}
-                        <div className="flex-grow-1 overflow-auto bg-light bg-opacity-30 d-flex">
-                            {/* Editor Panel */}
-                            {(viewMode === 'edit' || viewMode === 'split') && (
-                                <div className={`h-100 p-5 ${viewMode === 'split' ? 'w-50 border-end' : 'w-100'} bg-white position-relative`}>
-                                    {isRefining && (
-                                        <div className="position-absolute top-0 start-0 w-100 h-100 bg-white bg-opacity-50 d-flex align-items-center justify-content-center" style={{ zIndex: 10 }}>
-                                            <div className="spinner-border text-primary" role="status"></div>
-                                        </div>
-                                    )}
-                                    <textarea
-                                        className="w-100 h-100 border-0 outline-none p-0 bg-transparent custom-scrollbar"
-                                        style={{
-                                            resize: 'none',
-                                            fontFamily: "'Fira Code', monospace",
-                                            fontSize: '14px',
-                                            lineHeight: '1.8',
-                                            color: '#334155'
-                                        }}
-                                        value={editableContent}
-                                        onChange={(e) => setEditableContent(e.target.value)}
-                                        placeholder="Start drafting your engineering document..."
-                                    />
-                                </div>
-                            )}
-
-                            {/* Studio Mode - Right Pane (Chat) */}
-                            {viewMode === 'split' && (
-                                <div className="w-50 h-100 d-flex flex-column bg-light bg-opacity-50">
-                                    <div className="flex-grow-1 overflow-auto p-4 d-flex flex-column gap-3">
-                                        <div className="p-3 bg-white rounded-4 border shadow-sm small">
-                                            <div className="fw-bold mb-1 text-primary">Studio Assistant</div>
-                                            <p className="mb-0 opacity-75">I can help you refine this document. Try commands like "Summarize", "Make it more technical", or "Add a table of contents".</p>
-                                        </div>
-                                        {studioMessages.map((msg, i) => (
-                                            <div key={i} className={`p-3 rounded-4 shadow-sm max-w-85 ${msg.role === 'user' ? 'bg-primary text-white align-self-end' : 'bg-white border align-self-start'}`} style={{ fontSize: '13px' }}>
-                                                {msg.content}
-                                            </div>
-                                        ))}
+                        <div className="flex-grow overflow-hidden bg-gray-50 flex flex-col">
+                            {/* EDITOR MODE: Vertical Split (Editor on top, Assistant on bottom) */}
+                            {viewMode === 'edit' && (
+                                <div className="flex flex-col h-full overflow-hidden">
+                                    {/* Top: Editor (80%) */}
+                                    <div className="h-[75%] md:h-[80%] p-4 md:p-8 bg-white relative overflow-auto custom-scrollbar">
                                         {isRefining && (
-                                            <div className="p-3 bg-white border rounded-4 align-self-start shadow-sm d-flex gap-2">
-                                                <div className="spinner-grow spinner-grow-sm text-primary"></div>
-                                                <span className="small fw-bold text-muted">Refining Architecture...</span>
+                                            <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] flex items-center justify-center z-10">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="spinner-border text-primary" role="status"></div>
+                                                    <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Refining Document...</span>
+                                                </div>
                                             </div>
                                         )}
+                                        <textarea
+                                            className="w-full h-full border-0 outline-none p-0 bg-transparent custom-scrollbar"
+                                            style={{
+                                                resize: 'none',
+                                                fontFamily: "'Fira Code', monospace",
+                                                fontSize: '14px',
+                                                lineHeight: '1.8',
+                                                color: '#334155'
+                                            }}
+                                            value={editableContent}
+                                            onChange={(e) => setEditableContent(e.target.value)}
+                                            placeholder="Start drafting your engineering document..."
+                                        />
                                     </div>
-                                    <div className="p-4 border-top bg-white">
-                                        <div className="input-group">
-                                            <input
-                                                type="text"
-                                                className="form-control border-light bg-light rounded-pill px-4 py-2 small"
-                                                placeholder="Ask Studio to refine..."
-                                                value={studioInput}
-                                                onChange={(e) => setStudioInput(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleStudioSend()}
-                                            />
-                                            <button
-                                                className="btn btn-primary rounded-pill px-4 ms-2 d-flex align-items-center justify-content-center"
-                                                onClick={handleStudioSend}
-                                                disabled={isRefining || !studioInput.trim()}
-                                            >
-                                                <Send size={16} />
-                                            </button>
+
+                                    {/* Bottom: Studio Assistant (20%) */}
+                                    <div className="h-[25%] md:h-[20%] border-t bg-white flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+                                        <div className="flex-grow overflow-auto p-4 flex flex-col gap-3 custom-scrollbar">
+                                            {studioMessages.length === 0 && (
+                                                <div className="p-3 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-[11px] text-gray-500">
+                                                    <span className="font-bold text-primary mr-1">TIPS:</span>
+                                                    Try "Format this as a technical specification" or "Summarize the key findings".
+                                                </div>
+                                            )}
+                                            {studioMessages.map((msg, i) => (
+                                                <div key={i}
+                                                    className={`p-3 rounded-xl shadow-sm max-w-[85%] text-[12.5px] ${msg.role === 'user'
+                                                        ? 'bg-primary text-white self-end rounded-tr-none'
+                                                        : 'bg-gray-50 border border-gray-100 self-start rounded-tl-none'
+                                                        }`}
+                                                >
+                                                    {msg.content}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Bottom Sticky Input */}
+                                        <div className="p-3 px-4 border-t bg-white">
+                                            <div className="flex items-center gap-2 max-w-[800px] mx-auto">
+                                                <input
+                                                    type="text"
+                                                    className="form-control border-gray-100 bg-gray-50 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary/10 transition-all"
+                                                    placeholder="Instruct Studio Assistant..."
+                                                    value={studioInput}
+                                                    onChange={(e) => setStudioInput(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && !isRefining && handleStudioSend()}
+                                                />
+                                                <button
+                                                    className="btn btn-primary rounded-xl px-4 h-10 flex items-center justify-center transition-all disabled:opacity-50"
+                                                    onClick={handleStudioSend}
+                                                    disabled={isRefining || !studioInput.trim()}
+                                                >
+                                                    <Send size={16} />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Preview Panel (A4 Style) - Full view only */}
+                            {/* REVIEW MODE: Clean A4 Container */}
                             {viewMode === 'preview' && (
-                                <div className="h-100 overflow-auto p-5 w-100">
+                                <div className="h-full overflow-auto p-4 md:p-8 w-full flex justify-center bg-gray-100/50 custom-scrollbar">
                                     <div
-                                        className="bg-white shadow-xl p-5 mb-5 mx-auto"
+                                        className="bg-white shadow-2xl p-8 md:p-16 mb-8 mx-auto hover:shadow-3xl transition-shadow duration-500 rounded-sm"
                                         style={{
-                                            width: '210mm',
-                                            minHeight: '297mm',
+                                            maxWidth: '210mm',
+                                            width: '100%',
+                                            minHeight: 'fit-content',
                                             height: 'auto',
-                                            backgroundColor: 'white',
-                                            position: 'relative',
-                                            display: 'block'
                                         }}
                                     >
                                         <div className="document-render">
@@ -212,13 +216,13 @@ const DocumentViewer = ({ isOpen, onClose, content, title, onPrint, onDownload, 
                                                 {editableContent}
                                             </ReactMarkdown>
                                         </div>
-                                        {/* Preview Watermark - Flow naturally after content */}
-                                        <div className="mt-5 pt-5 border-top text-center opacity-50">
-                                            <div className="d-flex align-items-center justify-content-center gap-2 mb-1">
-                                                <div className="bg-primary rounded-circle" style={{ width: 4, height: 4 }}></div>
-                                                <span className="x-small fw-bold text-muted uppercase tracking-widest" style={{ fontSize: '8px' }}>Security Verified Log</span>
+
+                                        <div className="mt-16 pt-8 border-t border-gray-100 text-center opacity-40">
+                                            <div className="flex items-center justify-center gap-2 mb-2">
+                                                <div className="bg-primary rounded-full w-1 h-1"></div>
+                                                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">Security Verified Document</span>
                                             </div>
-                                            <p className="text-muted x-small mb-0">Generated by HOPE AI Tutor • Engineering Workbench</p>
+                                            <p className="text-gray-400 text-[9px]">Generated & Validated by HOPE AI Tutor Environment • Engineering Standard</p>
                                         </div>
                                     </div>
                                 </div>

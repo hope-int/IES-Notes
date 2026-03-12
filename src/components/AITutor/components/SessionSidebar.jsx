@@ -43,8 +43,8 @@ const SessionSidebar = ({
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="position-fixed top-0 start-0 h-100 bg-white shadow-lg d-flex flex-column sidebar-mobile-full"
-                        style={{ zIndex: 1070, width: '320px', maxWidth: '100%' }}
+                        className="fixed top-0 left-0 h-full bg-white shadow-xl flex flex-col z-[1070]"
+                        style={{ width: '280px', mdWidth: '320px', maxWidth: '100%' }}
                     >
                         {/* Sidebar Header */}
                         <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-light bg-opacity-50">
@@ -52,7 +52,7 @@ const SessionSidebar = ({
                                 <h5 className="fw-bold mb-0 text-dark">Project History</h5>
                                 <p className="text-muted x-small mb-0 mt-1 uppercase fw-bold tracking-wider">HOPE AI Workbench</p>
                             </div>
-                            <button className="btn btn-sm btn-outline-secondary border-0 rounded-circle" onClick={onClose}><X size={18} /></button>
+                            <button className="btn btn-sm btn-outline-secondary border-0 rounded-circle flex items-center justify-center" onClick={onClose}><X size={18} /></button>
                         </div>
 
                         {/* Search & New Chat */}
@@ -106,7 +106,7 @@ const SessionSidebar = ({
                                             </div>
                                         </div>
                                         <div className="dropdown" onClick={(e) => e.stopPropagation()}>
-                                            <button className="btn btn-link p-1 text-muted opacity-50 hover-opacity-100" data-bs-toggle="dropdown">
+                                            <button className="btn btn-link p-1 text-muted opacity-50 hover-opacity-100 flex items-center justify-center" data-bs-toggle="dropdown">
                                                 <MoreVertical size={14} />
                                             </button>
                                             <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2" style={{ fontSize: '13px' }}>
@@ -126,7 +126,10 @@ const SessionSidebar = ({
                                 <div className="bg-success rounded-circle" style={{ width: 6, height: 6 }}></div>
                                 <span className="x-small fw-bold text-muted uppercase" style={{ fontSize: '9px' }}>Systems Online</span>
                             </div>
-                            <p className="text-muted x-small mb-0 opacity-50">HOPE Studio AI Engineering Environment</p>
+                            <p className="text-muted x-small mb-0 opacity-50">
+                                Developed by Harinandan K<br />
+                                IES College of Engineering | KTU
+                            </p>
                         </div>
                     </motion.div>
                 </>

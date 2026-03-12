@@ -11,9 +11,9 @@ import 'katex/dist/katex.min.css';
 
 import JCompilerWorkbench from './JCompilerWorkbench';
 
-const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingIndex, onRegenerate }) => {
+const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulationResults, simulatingKey, onRegenerate }) => {
     return (
-        <div className="flex-grow-1 overflow-auto custom-scrollbar position-relative" style={{ background: '#fcfdfe' }}>
+        <div className="flex-grow-1 overflow-auto custom-scrollbar relative" style={{ background: '#fcfdfe' }}>
             {/* Engineering Grid Background */}
             <div className="position-absolute top-0 start-0 w-100 h-100 pointer-events-none"
                 style={{
@@ -24,7 +24,7 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
                 }}
             />
 
-            <div className="container mx-auto px-3 px-md-4 py-4 py-md-5" style={{ maxWidth: '850px', position: 'relative', zIndex: 1 }}>
+            <div className="container mx-auto px-2 py-4 md:px-4 md:py-5" style={{ maxWidth: '850px', position: 'relative', zIndex: 1 }}>
                 <AnimatePresence mode="popLayout">
                     {messages.length === 0 ? (
                         <motion.div
@@ -54,7 +54,7 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
                                             onClick={() => onStarterClick(starter.prompt)}
                                             className="p-4 h-100 d-flex flex-column align-items-center gap-3 cursor-pointer text-center bg-white border border-light shadow-sm rounded-4"
                                         >
-                                            <div className="p-3 rounded-circle" style={{ backgroundColor: '#f0f5fa', color: '#003366' }}>
+                                            <div className="p-3 rounded-circle flex items-center justify-center" style={{ backgroundColor: '#f0f5fa', color: '#003366' }}>
                                                 <starter.icon size={24} />
                                             </div>
                                             <div>
@@ -73,13 +73,13 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
                                 key={idx}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="mb-5"
+                                className="mb-8 last:mb-0 max-w-full overflow-hidden"
                             >
                                 <div className={`d-flex flex-column ${msg.role === 'user' ? 'align-items-end' : 'align-items-start'} w-100`}>
                                     {/* Role Indicator */}
                                     <div className="d-flex align-items-center gap-2 mb-2 px-1">
                                         {msg.role === 'assistant' && (
-                                            <div className="p-1 rounded-circle bg-light border shadow-sm">
+                                            <div className="p-1 rounded-full bg-gray-50 border shadow-sm flex items-center justify-center">
                                                 <Bot size={12} className="text-primary" />
                                             </div>
                                         )}
@@ -90,16 +90,15 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
 
                                     {/* Message Bubble */}
                                     <div
-                                        className={`p-4 rounded-4 shadow-sm ${msg.role === 'user'
-                                            ? 'text-white'
-                                            : 'bg-white border'
+                                        className={`p-0 md:p-3 ${msg.role === 'user'
+                                            ? 'p-4 rounded-xl shadow-sm text-white'
+                                            : 'w-full max-w-full bg-transparent border-0 shadow-none'
                                             }`}
                                         style={{
-                                            maxWidth: '85%',
-                                            backgroundColor: msg.role === 'user' ? '#003366' : 'white',
-                                            lineHeight: '1.7',
-                                            fontSize: '15px',
-                                            border: msg.role === 'user' ? 'none' : '1px solid #e2e8f0'
+                                            maxWidth: msg.role === 'user' ? '85%' : '100%',
+                                            backgroundColor: msg.role === 'user' ? 'rgba(0, 51, 102, 0.9)' : 'transparent',
+                                            lineHeight: '1.8',
+                                            paddingRight: msg.role === 'assistant' ? '2rem' : undefined
                                         }}
                                     >
                                         {(() => {
@@ -119,14 +118,19 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
                                                                 const language = match ? match[1] : '';
 
                                                                 if (!inline && language) {
+                                                                    const codeContent = String(children).replace(/\n$/, '');
+                                                                    const key = `${idx}-${codeContent}`;
+
                                                                     return (
-                                                                        <JCompilerWorkbench
-                                                                            code={String(children).replace(/\n$/, '')}
-                                                                            language={language}
-                                                                            simulationResult={msg.simulationResult}
-                                                                            isSimulating={idx === simulatingIndex}
-                                                                            onSimulate={() => onStarterClick('SIMULATE_CODE', { index: idx, code: String(children), language })}
-                                                                        />
+                                                                        <div className="overflow-x-auto my-4 rounded-xl">
+                                                                            <JCompilerWorkbench
+                                                                                code={codeContent}
+                                                                                language={language}
+                                                                                simulationResult={simulationResults[key]}
+                                                                                isSimulating={key === simulatingKey}
+                                                                                onSimulate={() => onStarterClick('SIMULATE_CODE', { index: idx, code: codeContent, language })}
+                                                                            />
+                                                                        </div>
                                                                     );
                                                                 }
                                                                 return (
@@ -151,7 +155,7 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
                                                     {hasAttachment && (
                                                         <div className="my-4 p-4 border rounded-4 d-flex align-items-center justify-content-between shadow-sm bg-light bg-opacity-50">
                                                             <div className="d-flex align-items-center gap-3">
-                                                                <div className="p-2 rounded-3 text-white" style={{ backgroundColor: '#FF6600' }}>
+                                                                <div className="p-2 rounded-3 text-white flex items-center justify-center" style={{ backgroundColor: '#FF6600' }}>
                                                                     <FileText size={20} />
                                                                 </div>
                                                                 <div>
@@ -161,7 +165,7 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
                                                             </div>
                                                             <button
                                                                 onClick={() => onStarterClick('OPEN_DOC_VIEWER', msg.content)}
-                                                                className="btn btn-sm rounded-pill px-4 fw-bold shadow-sm"
+                                                                className="btn btn-sm rounded-xl px-4 fw-bold shadow-sm"
                                                                 style={{ fontSize: '11px', backgroundColor: '#003366', color: 'white' }}
                                                             >
                                                                 Open Studio
@@ -175,7 +179,7 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulatingInde
 
                                     {/* Actions Bar */}
                                     {msg.role === 'assistant' && (
-                                        <div className="d-flex align-items-center gap-3 mt-2 px-1 opacity-0 hover-opacity-100 transition-all">
+                                        <div className="flex items-center gap-3 mt-2 px-1 opacity-100 md:opacity-0 md:hover:opacity-100 transition-all">
                                             <button
                                                 className="btn btn-link p-0 text-muted d-flex align-items-center gap-1 text-decoration-none"
                                                 onClick={() => {
