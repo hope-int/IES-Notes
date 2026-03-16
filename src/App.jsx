@@ -986,7 +986,7 @@ function App() {
           }
           {/* Floating Navigation Bar - Global */}
           {
-            !showProfile && location.pathname !== '/community' && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && (
+            !showProfile && location.pathname !== '/community' && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && location.pathname !== '/assignment' && (
               <div className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" style={{ pointerEvents: 'none', zIndex: 1055 }}>
                 <motion.div
                   whileHover={{

@@ -108,3 +108,40 @@ OUTPUT FORMAT: Strict JSON only.
         return null; // Graceful failure for scoring
     }
 };
+
+/**
+ * Generates a structured solution (Algorithm, Code, Output) for a specific question.
+ */
+export const generateCodeSolution = async (questionText, formData) => {
+    const prompt = `
+You are an Academic Specialist and Coding Expert. Solve the following question:
+QUESTION: "${questionText}"
+SUBJECT: "${formData.subject || 'General'}"
+AUDIENCE: ${formData.audience}
+
+REQUIREMENTS:
+1. Provide a step-by-step ALGORITHM explaining how to solve the problem.
+2. Provide the CODE solution.
+3. Provide the expected OUTPUT of the code.
+
+OUTPUT FORMAT: Strict JSON only.
+{
+  "algorithm": ["Step 1 description", "Step 2 description"],
+  "code": "const result = 42;\\nconsole.log(result);",
+  "output": "42"
+}
+`;
+
+    const response = await getAICompletion(
+        [{ role: 'user', content: prompt }],
+        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free', actionType: 'assignment' }
+    );
+
+    try {
+        const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleaned);
+    } catch (e) {
+        console.error("Code Solution Parse Error:", e);
+        throw new Error("Failed to generate code solution.");
+    }
+};
