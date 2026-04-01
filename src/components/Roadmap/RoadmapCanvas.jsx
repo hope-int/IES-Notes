@@ -14,7 +14,7 @@ import RoadmapWizard from './RoadmapWizard';
 import MobileTimeline from './MobileTimeline';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../supabaseClient';
-import { Loader2, Menu, X } from 'lucide-react';
+import { Loader2, Menu, X, BrainCircuit, Target, Zap } from 'lucide-react';
 
 
 
@@ -34,18 +34,27 @@ const useMediaQuery = (query) => {
 };
 
 const nodeTypes = { custom: CustomNode };
+const edgeTypes = {}; 
 
 const RoadmapCanvas = () => {
     const { userProfile: profile } = useAuth();
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
+
+
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState(null);
     const [isCheckingDB, setIsCheckingDB] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [metadata, setMetadata] = useState(null);
 
     // Adaptive Architecture specific hook
     const isMobile = useMediaQuery('(max-width: 768px)');
+
+    // Calculate Global Mastery Progress
+    const completedCount = nodes.filter(n => n.data.status === 'completed').length;
+    const totalCount = nodes.length;
+    const globalProgress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
 
     // Initial Database Check
@@ -67,6 +76,7 @@ const RoadmapCanvas = () => {
                 if (data && data.nodes && data.nodes.length > 0) {
                     setNodes(data.nodes);
                     setEdges(data.edges);
+                    if (data.metadata) setMetadata(data.metadata);
                     setIsWizardOpen(false);
                 } else {
                     // No roadmap found, open wizard
@@ -84,7 +94,7 @@ const RoadmapCanvas = () => {
     }, [profile, setNodes, setEdges]);
 
     // DB Sync Helper
-    const saveRoadmapToDB = async (currentNodes, currentEdges) => {
+    const saveRoadmapToDB = async (currentNodes, currentEdges, currentMetadata = null) => {
         if (!profile?.id) return;
         try {
             const { error } = await supabase
@@ -93,6 +103,7 @@ const RoadmapCanvas = () => {
                     user_id: profile.id,
                     nodes: currentNodes,
                     edges: currentEdges,
+                    metadata: currentMetadata || metadata,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'user_id' });
 
@@ -107,11 +118,13 @@ const RoadmapCanvas = () => {
         // Trust the AI's provided x/y coordinates directly
         setNodes(data.nodes);
         setEdges(data.edges);
+        setMetadata(data._metadata);
         setIsWizardOpen(false);
 
         // Persist to DB immediately
-        await saveRoadmapToDB(data.nodes, data.edges);
+        await saveRoadmapToDB(data.nodes, data.edges, data._metadata);
     }, [profile, setNodes, setEdges]);
+
 
     // Handle Node Click
     const onNodeClick = useCallback((event, node) => {
@@ -179,33 +192,60 @@ const RoadmapCanvas = () => {
                 <RoadmapWizard onRoadmapGenerated={handleRoadmapGenerated} />
             ) : (
                 <>
-                    {/* Sticky Header */}
-                    <header className="sticky top-0 z-40 h-16 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-4 md:px-6 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => {
-                                    if (isMobile) {
-                                        window.history.back();
-                                    } else {
-                                        setIsSidebarOpen(!isSidebarOpen);
-                                    }
-                                }}
-                                className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
-                            >
-                                {isMobile ? <X size={20} /> : <Menu size={20} />}
-                            </button>
-                            <h1 className="text-xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent truncate max-w-[200px] md:max-w-xs">
-                                {profile?.full_name ? `${profile.full_name.split(' ')[0]}'s Path` : 'Learning Path'}
-                            </h1>
+
+                    {/* Sticky Header with Progress */}
+                    <header className="sticky top-0 z-40 h-20 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex flex-col shadow-sm">
+                        <div className="flex-1 flex items-center justify-between px-4 md:px-6">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => {
+                                        if (isMobile) {
+                                            window.history.back();
+                                        } else {
+                                            setIsSidebarOpen(!isSidebarOpen);
+                                        }
+                                    }}
+                                    className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+                                >
+                                    {isMobile ? <X size={20} /> : <Menu size={20} />}
+                                </button>
+                                <div className="flex flex-col">
+                                    <h1 className="text-lg font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent truncate max-w-[200px] md:max-w-xs flex items-center gap-2">
+                                        <BrainCircuit className="w-5 h-5 text-indigo-600" />
+                                        Neuro-Link Curriculum
+                                    </h1>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest -mt-1 hidden md:block">
+                                        {profile?.full_name ? `${profile.full_name}'s Adaptive Path` : 'Active Session'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <div className="hidden md:flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Mastery Level</span>
+                                        <span className="text-sm font-black text-indigo-600">{globalProgress}%</span>
+                                    </div>
+                                    <Target className="w-4 h-4 text-indigo-400" />
+                                </div>
+                                <button
+                                    onClick={() => setIsWizardOpen(true)}
+                                    className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center gap-2"
+                                >
+                                    <Zap className="w-4 h-4 text-yellow-400 fill-current" />
+                                    <span className="hidden sm:inline">Re-Calibrate</span>
+                                    <span className="sm:hidden">Reset</span>
+                                </button>
+                            </div>
                         </div>
 
-                        <button
-                            onClick={() => setIsWizardOpen(true)}
-                            className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 flex items-center gap-2"
-                        >
-                            <span className="hidden sm:inline">Generate New</span>
-                            <span className="sm:hidden">New</span>
-                        </button>
+                        {/* Header Progress Bar */}
+                        <div className="h-1 w-full bg-slate-100 overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-1000 ease-out"
+                                style={{ width: `${globalProgress}%` }}
+                            />
+                        </div>
                     </header>
 
                     {/* Main Content Area */}
@@ -225,9 +265,40 @@ const RoadmapCanvas = () => {
                                     <p className="text-sm text-slate-500 mt-2 leading-relaxed">
                                         Welcome to your interactive skill tree. Unlock nodes to master your engineering goal.
                                     </p>
+
+                                    {/* Diagnostic Info Section */}
+                                    {metadata && (
+                                        <div className="mt-auto pt-6 border-t border-slate-100">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">System Diagnostics</span>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">AI Engine</span>
+                                                    <span className="text-xs font-bold text-slate-700">{metadata.provider}</span>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">Model</span>
+                                                    <span className="text-xs font-mono text-slate-600 truncate">{metadata.model || 'Standard'}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] text-slate-400 uppercase font-bold">Latency</span>
+                                                        <span className="text-xs font-bold text-indigo-600">{metadata.latency?.toFixed(2)}s</span>
+                                                    </div>
+                                                    <div className="flex flex-col text-right">
+                                                        <span className="text-[9px] text-slate-400 uppercase font-bold">Nodes</span>
+                                                        <span className="text-xs font-bold text-purple-600">{metadata.nodeCount}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
+
 
                         {/* Adaptive Canvas */}
                         <div className="flex-1 h-[calc(100vh-4rem)] relative">
@@ -242,6 +313,8 @@ const RoadmapCanvas = () => {
                                     onNodesChange={onNodesChange}
                                     onEdgesChange={onEdgesChange}
                                     nodeTypes={nodeTypes}
+                                    edgeTypes={edgeTypes}
+
                                     onNodeClick={onNodeClick}
                                     fitView
                                     fitViewOptions={{ padding: 0.5 }}
@@ -259,6 +332,7 @@ const RoadmapCanvas = () => {
                     </main>
 
                     <NodeDrawer
+
                         node={selectedNode}
                         isOpen={!!selectedNode}
                         isMobile={isMobile}

@@ -92,21 +92,23 @@ const SessionSidebar = ({
                                         key={s.id}
                                         whileHover={{ x: 4 }}
                                         onClick={() => onSelectSession(s.id)}
-                                        className={`p-3 rounded-4 cursor-pointer mb-2 d-flex align-items-center gap-3 border transition-all ${activeSessionId === s.id ? 'bg-primary bg-opacity-5 border-primary shadow-sm' : 'bg-white border-light hover-bg-light'}`}
+                                        className={`p-3 rounded-4 cursor-pointer mb-2 d-flex align-items-center gap-3 border transition-all ${activeSessionId === s.id ? 'bg-primary border-primary shadow-sm text-white' : 'bg-white border-light hover-bg-light'}`}
                                     >
-                                        <div className={`p-2 rounded-3 ${activeSessionId === s.id ? 'bg-primary bg-opacity-10' : 'bg-light'}`}>
-                                            {getSessionIcon(s)}
+                                        <div className={`p-2 rounded-3 ${activeSessionId === s.id ? 'bg-white bg-opacity-20' : 'bg-light'}`}>
+                                            {React.cloneElement(getSessionIcon(s), { 
+                                                className: activeSessionId === s.id ? 'text-white' : getSessionIcon(s).props.className 
+                                            })}
                                         </div>
                                         <div className="flex-grow-1 overflow-hidden">
-                                            <div className={`text-truncate small fw-bold ${activeSessionId === s.id ? 'text-primary' : 'text-dark'}`}>
+                                            <div className={`text-truncate small fw-bold ${activeSessionId === s.id ? 'text-white' : 'text-dark'}`}>
                                                 {s.title || 'Untitled Session'}
                                             </div>
-                                            <div className="text-muted x-small mt-0.5" style={{ fontSize: '9px' }}>
+                                            <div className={`x-small mt-0.5 ${activeSessionId === s.id ? 'text-white opacity-75' : 'text-muted'}`} style={{ fontSize: '9px' }}>
                                                 {new Date(s.timestamp).toLocaleDateString()} • {s.messageCount || 0} messages
                                             </div>
                                         </div>
                                         <div className="dropdown" onClick={(e) => e.stopPropagation()}>
-                                            <button className="btn btn-link p-1 text-muted opacity-50 hover-opacity-100 flex items-center justify-center" data-bs-toggle="dropdown">
+                                            <button className={`btn btn-link p-1 flex items-center justify-center ${activeSessionId === s.id ? 'text-white' : 'text-muted opacity-50 hover-opacity-100'}`} data-bs-toggle="dropdown">
                                                 <MoreVertical size={14} />
                                             </button>
                                             <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2" style={{ fontSize: '13px' }}>

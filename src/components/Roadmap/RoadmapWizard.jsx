@@ -7,6 +7,7 @@ import MiniGameLoader from '../common/MiniGameLoader';
 const RoadmapWizard = ({ onRoadmapGenerated }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [loadingStep, setLoadingStep] = useState({ step: 'init', message: 'Preparing AI Engine...' });
     const [answers, setAnswers] = useState({
         q1: '',
         q2: '',
@@ -82,11 +83,13 @@ const RoadmapWizard = ({ onRoadmapGenerated }) => {
             // Final step reached
             setLoading(true);
             try {
-                const data = await generateRoadmap(newAnswers);
+                const data = await generateRoadmap(newAnswers, (progress) => {
+                    setLoadingStep(progress);
+                });
                 onRoadmapGenerated(data);
             } catch (error) {
                 console.error("Roadmap generation failed:", error);
-                alert("Failed to generate roadmap. Please try again.");
+                alert(`Failed to generate roadmap: ${error.message}`);
                 setStep(1); // Reset on failure
             } finally {
                 setLoading(false);
@@ -128,9 +131,10 @@ const RoadmapWizard = ({ onRoadmapGenerated }) => {
 
                 {loading ? (
                     <MiniGameLoader
-                        loadingText="Generating your personalized skill tree..."
-                        subText={`Analyzing ${answers.q1} pathways based on your ${answers.q5} timeline...`}
+                        loadingText={loadingStep?.message || 'Connecting to Brain...'}
+                        subText={`Source: ${loadingStep?.provider || 'Primary Engine'} | Status: ${loadingStep?.step?.toUpperCase() || 'QUERYING'}`}
                     />
+
                 ) : (
                     <div className="relative z-10">
                         {/* Step Indicator */}

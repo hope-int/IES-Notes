@@ -100,28 +100,34 @@ export const checkRateLimit = async (actionType) => {
 
 // ----------------------------
 
-// Circuit Breaker State
-let puterFailures = 0;
-let puterDisabledUntil = 0;
-const PUTER_FAILURE_THRESHOLD = 5; // Disable after 5 consecutive failures
-const PUTER_COOLDOWN_MS = 60 * 1000; // 1 minute cooldown
+// Circuit Breaker State (Persistent)
+let puterFailures = Number(localStorage.getItem('puter_failures')) || 0;
+let puterDisabledUntil = Number(localStorage.getItem('puter_disabled_until')) || 0;
+const PUTER_FAILURE_THRESHOLD = 3; // Lower threshold (faster skip)
+const PUTER_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour cooldown if persistent failure
 
 const isPuterHealthy = () => {
     if (Date.now() < puterDisabledUntil) return false;
     return true;
 };
 
-const recordPuterFailure = () => {
+const recordPuterFailure = (isConnectionError = false) => {
     puterFailures++;
-    if (puterFailures >= PUTER_FAILURE_THRESHOLD) {
+    localStorage.setItem('puter_failures', puterFailures);
+    
+    // If it's a confirmed socket/connection error, disable for longer immediately
+    if (isConnectionError || puterFailures >= PUTER_FAILURE_THRESHOLD) {
         puterDisabledUntil = Date.now() + PUTER_COOLDOWN_MS;
-        console.warn(`Puter.js Circuit Breaker Tripped. Disabled for ${PUTER_COOLDOWN_MS / 1000}s.`);
+        localStorage.setItem('puter_disabled_until', puterDisabledUntil);
+        console.warn(`Puter.js Circuit Breaker Tripped. Disabled for ${PUTER_COOLDOWN_MS / 60000}m.`);
     }
 };
 
 const recordPuterSuccess = () => {
     puterFailures = 0;
     puterDisabledUntil = 0;
+    localStorage.removeItem('puter_failures');
+    localStorage.removeItem('puter_disabled_until');
 };
 
 // Helper: Map abstract/OpenRouter models to valid Groq models
@@ -177,21 +183,34 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
 
     for (let i = 0; i < retries; i++) {
         try {
-            const response = await window.puter.ai.chat(puterMessages, {
+            // Enhanced: Add timeout to prevent forever-hangs on bad WebSocket connections
+            const puterPromise = window.puter.ai.chat(puterMessages, {
                 model: targetModel,
                 stream: false,
                 ...params
             });
 
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error("Puter Timeout")), 15000)
+            );
+
+            const response = await Promise.race([puterPromise, timeoutPromise]);
+
             if (response?.message?.content) {
                 let content = response.message.content;
+                recordPuterSuccess(); // Ensure healthy status is recorded
                 return Array.isArray(content) ? content.map(p => p.text || JSON.stringify(p)).join('') : (typeof content === 'string' ? content : JSON.stringify(content));
             }
             return response?.toString() || "";
         } catch (err) {
             const errorMsg = err?.message || err?.toString() || "";
-            // Authentication (401) or Rate Limit (429) errors should trigger a silent fallback
-            if (errorMsg.includes('401') || errorMsg.includes('429') || err?.status === 401 || err?.status === 429) {
+            const isConnectionError = errorMsg.toLowerCase().includes('websocket') || 
+                                    errorMsg.toLowerCase().includes('failed to fetch') ||
+                                    errorMsg.toLowerCase().includes('networkerror');
+
+            // Authentication (401), Rate Limit (429), Timeout or Socket Error should trigger a silent fallback
+            if (errorMsg.includes('401') || errorMsg.includes('429') || errorMsg.includes('Timeout') || isConnectionError || err?.status === 401 || err?.status === 429) {
+                recordPuterFailure(isConnectionError);
                 throw new Error("Puter Limitation");
             }
             console.warn(`Puter attempt ${i + 1} failed:`, errorMsg);
@@ -202,6 +221,7 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
             await new Promise(resolve => setTimeout(resolve, 800));
         }
     }
+
 };
 
 // Client-Side Fallback (Direct to API)
@@ -350,15 +370,18 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
        - C/C++: Missing semicolons, unmatched braces, undefined types.
        - JS: Syntax errors, unclosed strings.
     2. CRASH FIRST: If a syntax error is found, STOP immediately. Set status:"error" and explain exactly which line and why (e.g., "IndentationError: expected an indented block on line 2").
-    3. DETAILED LOGIC: If code is valid, provide a step-by-step execution reasoning.
+    3. DETAILED LOGIC: If code is valid, provide a step-by-step execution reasoning. If input is static data (JSON/Object), explain its structure and potential usage.
     4. RAW OUTPUT: In "output", generate EXACT terminal text.
-       - If Python/JS code is just a class/function with no calls, output should be empty or a subtle message like "# Symbols defined."
+       - If Python/JS code is just a class/function with no calls, show "Status: Symbols Registered / Schema Parsed." or similar.
+       - If the input is PURE DATA (JSON/YAML/Arrays), provide a "Data Hub Map" or "Internal Schema Map" summary in the output.
        - If there are print statements, show their literal output.
        - EMBEDDED/ARDUINO: If isEmbedded is true, show "Virtual Hardware Logs" in the Serial Monitor even if Serial.print is missing (e.g. "[PIN 13] -> HIGH", "Delay 1000ms"). Show the loop execution for at least 2 cycles.
     5. INTERACTION: Simulate interactive prompts clearly.
-    6. MERMAID: If code has loops or if-statements, generate a "mermaidGraph".
-       - ALWAYS use square brackets: A["Label Text"] for ALL nodes. NEVER use A(text) or A{text}.
-       - STRIP: Remove any colons, backticks, or unquoted parentheses from inside labels.
+    6. MERMAID: Generate a "mermaidGraph" if the input has logic (loops/ifs) OR if it has structural data (Nested Objects/JSON/Arrays).
+       - FORMAT: Use "graph TD" and ensure each statement is on a NEW LINE or separated by a semicolon (;).
+       - FOR JSON/DATA: Create a tree structure where Root is the object name, and keys are child nodes.
+       - QUOTED LABELS: ALWAYS use the syntax ID["Label Text"] or ID["Label<br/>Line2"] for ALL nodes. The quotes are MANDATORY.
+       - STRIP: Remove any colons (:), backticks, or unquoted parentheses from inside labels to prevent syntax crashes.
     </rules>
     <response_format>JSON: { reasoning, language, isEmbedded, output, serialMonitor, status, errorExplanation, fixedCode, mermaidGraph }</response_format>`;
 

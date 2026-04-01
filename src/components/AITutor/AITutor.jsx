@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     Send, Paperclip, X, Sparkles, Bot, Plus,
     ArrowLeft, Copy, Check, Search, FileText, Code, Info,
-    Image as ImageIcon, Zap, Command, Trash2
+    Image as ImageIcon, Zap, Command, Trash2, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
@@ -62,6 +62,9 @@ export default function AITutor() {
     const [simulationResults, setSimulationResults] = useState({}); // key (${index}-${code}) -> result
     const [simulatingKey, setSimulatingKey] = useState(null);
 
+    // Preview State
+    const [previewFile, setPreviewFile] = useState(null);
+
     // Toast System
     const [toasts, setToasts] = useState([]);
     const showToast = (message, type = 'info') => {
@@ -110,6 +113,18 @@ export default function AITutor() {
     };
 
     const handleNewSession = async () => {
+        // Reuse existing empty session if possible
+        const currentSession = sessions.find(s => s.id === activeSessionId);
+        const currentHasUserMsg = messages.some(m => m.role === 'user');
+        
+        if (currentSession && !currentHasUserMsg) {
+            setInput('');
+            setFilePreview(null);
+            setSelectedFile(null);
+            setIsSidebarOpen(false);
+            return;
+        }
+
         const newSession = {
             id: crypto.randomUUID(),
             title: 'New Research Log',
@@ -117,10 +132,11 @@ export default function AITutor() {
             hasPDF: false,
             hasCode: false,
             hasImage: false,
-            messageCount: 1
+            messageCount: 0 // Will be corrected on first send
         };
-        await saveSession(newSession);
-        setSessions([newSession, ...sessions]);
+        
+        // DO NOT save to DB yet to avoid empty clutter
+        setSessions(prev => [newSession, ...prev]);
         setActiveSessionId(newSession.id);
 
         const welcomeMsg = {
@@ -129,7 +145,8 @@ export default function AITutor() {
             content: `Hello ${profile?.full_name?.split(' ')[0] || 'Engineer'}! Target initialized. How can I assist your studies today?`,
             timestamp: Date.now()
         };
-        await saveMessage(welcomeMsg);
+        
+        // DO NOT save message to DB yet
         setMessages([welcomeMsg]);
         setIsSidebarOpen(false);
     };
@@ -137,8 +154,7 @@ export default function AITutor() {
     const handleDeleteSession = async (id) => {
         if (window.confirm("Delete this session and all its data?")) {
             await deleteSessionFromDB(id);
-            const filtered = sessions.filter(s => s.id !== id);
-            setSessions(filtered);
+            setSessions(prev => prev.filter(s => s.id !== id));
             if (activeSessionId === id) {
                 setMessages([]);
                 setActiveSessionId(null);
@@ -176,36 +192,66 @@ export default function AITutor() {
     // --- AI Interaction ---
     const handleSend = async () => {
         if ((!input.trim() && !selectedFile) || loading) return;
+        setLoading(true); // Set loading IMMEDIATELY to prevent double-sends
 
-        let sessionId = activeSessionId;
-        if (!sessionId) {
-            await handleNewSession();
-            return; // handleNewSession sets up state
-        }
-
-        const userMsg = {
-            sessionId,
-            role: 'user',
-            content: input,
-            fileName: selectedFile?.name,
-            fileType: selectedFile?.type,
-            filePreview: selectedFile?.type.startsWith('image/') ? filePreview : null,
-            timestamp: Date.now()
-        };
-
-        const currentInput = input;
-        const currentFile = selectedFile;
-        const currentFilePreview = filePreview;
-
-        setInput('');
-        setSelectedFile(null);
-        setFilePreview(null);
-        setMessages(prev => [...prev, userMsg]);
-        await saveMessage(userMsg);
-
-        setLoading(true);
         try {
+            let sessionId = activeSessionId;
+            
+            // Atomic session creation if missing
+            if (!sessionId) {
+                const newSession = {
+                    id: crypto.randomUUID(),
+                    title: input.trim().substring(0, 30) || 'New Research Log',
+                    timestamp: Date.now(),
+                    hasPDF: selectedFile?.type === 'application/pdf',
+                    hasCode: false,
+                    hasImage: selectedFile?.type.startsWith('image/'),
+                    messageCount: 0
+                };
+                
+                setSessions(prev => [newSession, ...prev]);
+                setActiveSessionId(newSession.id);
+                sessionId = newSession.id;
+
+                const welcomeMsg = {
+                    sessionId: newSession.id,
+                    role: 'assistant',
+                    content: `Hello ${profile?.full_name?.split(' ')[0] || 'Engineer'}! Target initialized. Let's start this session.`,
+                    timestamp: Date.now()
+                };
+                setMessages([welcomeMsg]);
+                // No await here, keep it snappy
+            }
+
+            const currentInput = input;
+            const currentFile = selectedFile;
+            const currentFilePreview = filePreview;
+
+            const userMsg = {
+                sessionId,
+                role: 'user',
+                content: currentInput,
+                fileName: currentFile?.name,
+                fileType: currentFile?.type,
+                filePreview: currentFile?.type.startsWith('image/') ? currentFilePreview : null,
+                timestamp: Date.now()
+            };
+
+            // Clear inputs and update UI messages early
+            setInput('');
+            setSelectedFile(null);
+            setFilePreview(null);
+            setMessages(prev => [...prev, userMsg]);
+            
+            // Persist the user message
+            await saveMessage(userMsg);
+
             const systemPrompt = `You are **Justin**, an elite Academic Assistant and Virtual Tutor exclusively designed for **KTU (APJ Abdul Kalam Technological University)** B.Tech students. You were developed by **Harinandan K** for the **HOPE Studio** initiative at **IES College of Engineering, Thrissur**.
+
+### 0. CURRENT CONTEXT
+- **Today's Date:** ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+- **Current Time:** ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+- **Context Awareness:** You are aware of the current date/time to help students with leave letters, deadlines, and project planning.
 
 ### 1. CORE IDENTITY
 - **University Context:** You possess deep, up-to-date knowledge of the KTU B.Tech syllabus (Schemes 2019, 2021). You MUST align all answers with the specific Module classifications (Module 1-5).
@@ -218,28 +264,27 @@ export default function AITutor() {
 - **Resources:** Reference standard textbooks (local authors like 'Technical Publications' or standard foreign authors) relevant to the KTU curriculum.
 
 ### 3. DOCUMENT GENERATION WORKFLOW (CRITICAL)
-You operate on a strict **"Analyze -> Ask -> Generate"** workflow. You are FORBIDDEN from generating generic documents without specific user context.
+You operate on a strict **"Analyze -> Ask -> Generate"** workflow. You are FORBIDDEN from generating engineering documents or applying the '[[PDF_ATTACHMENT]]' tag unless the user explicitly uses a slash command (like '/doc').
 
 **Step A: Trigger Recognition**
-If the user requests a document (Notes, Lab Report, Project Report, Leave Letter, Resume, etc.), PAUSE. Do not generate immediately.
+- If the user's message start with a slash command (e.g., '/doc', '/explain'), you may proceed to generate and MUST append the '[[PDF_ATTACHMENT]]' tag at the very end of your response.
+- **FORBIDDEN:** Do NOT use the '[[PDF_ATTACHMENT]]' tag in normal conversational chat where no slash command was used.
 
 **Step B: Requirement Analysis**
-Check if the user has provided the following specific details:
+If a slash command IS used, check if the user has provided:
 1.  **Topic Scope:** (e.g., specific Module number, sub-topics).
 2.  **Context:** (e.g., Is it for Internal Assessment? University Exam? Lab Record?).
 3.  **Specifics:** (e.g., Dates for leave letters, specific technology stacks for projects).
 
 **Step C: The Inquiry**
-If ANY critical detail is missing, ASK the user for clarification. Do NOT hallucinate or assume details.
-- *Example User:* "Write a duty leave letter."
-- *Correct Justin Response:* "I can draft that for you. Please provide: 1. The specific dates you need leave for. 2. The reason (e.g., medical, personal). 3. The recipient (HOD or Principal)."
+If ANY critical detail is missing for a document request, ASK the user for clarification. Do NOT hallucinate or assume details.
 
 **Step D: Final Generation**
-Only after the user provides the necessary details, generate the content using these rules:
+Only after the user provides the necessary details AND has used a slash command, generate the content using these rules:
 - **START** immediately with the highest-level header (# Title). No conversational intro.
 - **CONTENT** must be technically rigorous and formatted in Markdown.
 - **END** the message strictly with the content.
-- **APPEND** the exact tag [[PDF_ATTACHMENT]] at the very end of the raw text.
+- **APPEND** the exact tag [[PDF_ATTACHMENT]] at the very end of the raw text ONLY if a slash command was used.
 
 ### 4. INTERACTION STYLE
 - **Tone:** Professional, encouraging, and technically precise.
@@ -270,6 +315,7 @@ Only after the user provides the necessary details, generate the content using t
             }
 
             const aiResponse = await getAICompletion(requestMessages, {
+                max_tokens: 4096, // Increase limit to prevent truncation
                 onProgress: (p) => {
                     setProcessingStep(p);
                     if (p.provider) setProviderStatus(p.provider);
@@ -297,32 +343,46 @@ Only after the user provides the necessary details, generate the content using t
                 hasImage: s.hasImage || currentFile?.type.startsWith('image/')
             } : s));
 
-            // Persistent metadata update
-            const updatedSession = sessions.find(s => s.id === sessionId);
-            if (updatedSession) {
-                await saveSession({
-                    ...updatedSession,
-                    title: updatedSession.title === 'New Research Log' ? currentInput.substring(0, 30) : updatedSession.title,
-                    messageCount: (updatedSession.messageCount || 0) + 2,
-                    hasPDF: updatedSession.hasPDF || currentFile?.type === 'application/pdf',
-                    hasCode: updatedSession.hasCode || aiResponse.includes('```'),
-                    hasImage: updatedSession.hasImage || currentFile?.type.startsWith('image/')
-                });
+            // Persistence Guard: If this is a new session with its first message, save metadata and welcome message now
+            const dbSessions = await getAllSessions();
+            let sessionToUpdate = dbSessions.find(s => s.id === sessionId);
+            
+            if (!sessionToUpdate) {
+                const transientSession = sessions.find(s => s.id === sessionId);
+                if (transientSession) {
+                    await saveSession(transientSession);
+                    // Also save the initial welcome message from local state
+                    if (messages[0] && messages[0].role === 'assistant') {
+                        await saveMessage(messages[0]);
+                    }
+                    sessionToUpdate = transientSession;
+                }
             }
 
+            // Update persistent metadata
+            if (sessionToUpdate) {
+                await saveSession({
+                    ...sessionToUpdate,
+                    title: sessionToUpdate.title === 'New Research Log' ? currentInput.substring(0, 30) : sessionToUpdate.title,
+                    messageCount: (messages.length + 2), // Initial + User + AI
+                    hasPDF: sessionToUpdate.hasPDF || currentFile?.type === 'application/pdf',
+                    hasCode: sessionToUpdate.hasCode || aiResponse.includes('```'),
+                    hasImage: sessionToUpdate.hasImage || currentFile?.type.startsWith('image/')
+                });
+            }
         } catch (e) {
-            console.error(e);
+            console.error("Chat Error:", e);
             const errorMsg = {
                 sessionId,
                 role: 'assistant',
                 content: `⚠️ SYSTEM ERROR: ${e.message || 'Interrupted connection.'}`,
                 timestamp: Date.now()
             };
-            showToast("AI Service Unavailable. Please try again.", "error");
             setMessages(prev => [...prev, errorMsg]);
+            showToast("AI Service Unavailable. Please try again.", "error");
         } finally {
             setLoading(false);
-            setProcessingStep(null);
+            setProcessingStep({ step: '' });
         }
     };
 
@@ -367,9 +427,8 @@ Only after the user provides the necessary details, generate the content using t
 
         // Restore input and metadata
         setInput(userMsg.content);
-        if (userMsg.fileType?.startsWith('image/')) {
+        if (userMsg.fileName) {
             setFilePreview(userMsg.filePreview);
-            // Simulate file object (at least basic props needed for handleSend if any)
             setSelectedFile({ name: userMsg.fileName, type: userMsg.fileType });
         }
 
@@ -385,7 +444,7 @@ Only after the user provides the necessary details, generate the content using t
         if (newTitle && newTitle !== session.title) {
             const updated = { ...session, title: newTitle };
             await saveSession(updated);
-            setSessions(sessions.map(s => s.id === id ? updated : s));
+            setSessions(prev => prev.map(s => s.id === id ? updated : s));
             showToast("Session renamed.", "info");
         }
     };
@@ -466,13 +525,17 @@ Only after the user provides the necessary details, generate the content using t
                     <style>
                         body { font-family: 'Merriweather', serif; line-height: 1.6; padding: 40px; color: #1e293b; }
                         h1, h2, h3 { color: #003366; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
-                        footer { margin-top: 50px; text-align: center; border-top: 1px solid #eee; padding-top: 20px; font-style: italic; color: #94a3b8; font-size: 12px; }
+                        footer { margin-top: 50px; text-align: center; padding-top: 20px; color: #94a3b8; font-size: 11px; opacity: 0.7; }
+                        .footer-main { font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; font-size: 10px; }
                         @media print { body { padding: 0; } footer { position: fixed; bottom: 30px; width: 100%; } }
                     </style>
                 </head>
                 <body>
                     <div id="content"></div>
-                    <footer>Generated by HOPE AI Tutor</footer>
+                    <footer>
+                        <div class="footer-main">Security Verified Document</div>
+                        <div>Generated & Validated by HOPE AI Tutor Environment • Engineering Standard</div>
+                    </footer>
                     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
                     <script>
                         document.getElementById('content').innerHTML = marked.parse(${JSON.stringify(content)});
@@ -489,7 +552,7 @@ Only after the user provides the necessary details, generate the content using t
         setLoading(true);
         try {
             const systemPrompt = `You are a specialized KTU Document Processor embedded in the HOPE Studio Editor.
-            Your sole function is to rewrite and refine academic documents.
+            Your sole function is to rewrite and refine academic documents. Today's date is ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}.
 
             ### STRICT RULES
             1.  **Input/Output:** You will receive a 'Current Document' and a 'User Instruction'.
@@ -524,12 +587,12 @@ Only after the user provides the necessary details, generate the content using t
         }
     };
 
-    const handleExportToMain = async (content) => {
-        if (!content) return;
+    const handleExportToMain = async (text) => {
+        const sessionId = activeSessionId;
         const msg = {
-            sessionId: activeSessionId,
+            sessionId,
             role: 'user',
-            content: `Here is the finalized document:\n\n${content}`,
+            content: text,
             timestamp: Date.now()
         };
         setMessages(prev => [...prev, msg]);
@@ -572,6 +635,7 @@ Only after the user provides the necessary details, generate the content using t
                 messages={messages}
                 profile={profile}
                 onStarterClick={handleStarterClick}
+                onFileClick={setPreviewFile}
                 loading={loading}
                 simulationResults={simulationResults}
                 simulatingKey={simulatingKey}
@@ -811,6 +875,69 @@ Only after the user provides the necessary details, generate the content using t
                                 >
                                     Attach
                                 </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* File Preview Popup */}
+            <AnimatePresence>
+                {previewFile && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                        style={{ zIndex: 4000, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(15px)' }}
+                        onClick={() => setPreviewFile(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden relative d-flex flex-column"
+                            style={{ width: '95%', maxWidth: '800px', height: '80vh' }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Modal Header */}
+                            <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-white sticky-top">
+                                <div className="d-flex align-items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-light text-primary">
+                                        {previewFile.fileType?.startsWith('image/') ? <ImageIcon size={20} /> : <FileText size={20} />}
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <div className="fw-bold text-dark text-truncate small" style={{ maxWidth: '200px' }}>{previewFile.fileName}</div>
+                                        <div className="x-small text-muted uppercase fw-bold" style={{ fontSize: '9px' }}>Engineering Asset</div>
+                                    </div>
+                                </div>
+                                <div className="d-flex align-items-center gap-2">
+                                    <button 
+                                        className="btn btn-light rounded-circle p-2 flex items-center justify-center"
+                                        onClick={() => setPreviewFile(null)}
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="flex-grow-1 overflow-auto p-4 d-flex align-items-center justify-content-center bg-light bg-opacity-50">
+                                {previewFile.fileType?.startsWith('image/') ? (
+                                    <img 
+                                        src={previewFile.filePreview} 
+                                        alt="Preview" 
+                                        className="max-w-full max-h-full object-fit-contain shadow-lg rounded-2xl" 
+                                    />
+                                ) : (
+                                    <div className="text-center p-5">
+                                        <div className="p-5 bg-white rounded-circle shadow-sm d-inline-block mb-4 text-primary">
+                                            <FileText size={64} strokeWidth={1} />
+                                        </div>
+                                        <h3 className="fw-bold text-dark">Document Preview</h3>
+                                        <p className="text-muted">Direct preview for this file type is not available in the chat. Use the button above to download and view.</p>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </motion.div>

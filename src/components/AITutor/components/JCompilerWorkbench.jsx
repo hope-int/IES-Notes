@@ -40,7 +40,8 @@ const JCompilerWorkbench = ({ code, language, onSimulate, simulationResult, isSi
                 <div className="flex items-center gap-2 justify-end">
                     <button
                         onClick={handleCopy}
-                        className="btn btn-sm bg-white border border-gray-200 rounded-xl px-2 md:px-3 py-1.5 flex items-center gap-1 md:gap-2"
+                        className="btn btn-sm bg-white border border-gray-200 px-2 md:px-3 py-1.5 flex items-center gap-1 md:gap-2"
+                        style={{ borderRadius: '9999px' }}
                     >
                         {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                         <span className="hidden md:inline text-[11px]">{copied ? 'Copied' : 'Copy'}</span>
@@ -48,8 +49,8 @@ const JCompilerWorkbench = ({ code, language, onSimulate, simulationResult, isSi
                     <button
                         onClick={onSimulate}
                         disabled={isSimulating}
-                        className="btn btn-sm rounded-xl px-2 md:px-3 py-1.5 flex items-center gap-1 md:gap-2 shadow-sm border-0 relative"
-                        style={{ backgroundColor: '#FF6600', color: 'white', opacity: isSimulating ? 0.7 : 1 }}
+                        className="btn btn-sm px-2 md:px-3 py-1.5 flex items-center gap-1 md:gap-2 shadow-sm border-0 relative"
+                        style={{ backgroundColor: '#FF6600', color: 'white', opacity: isSimulating ? 0.7 : 1, borderRadius: '9999px' }}
                     >
                         {isSimulating ? (
                             <div className="spinner-border spinner-border-sm" style={{ width: '12px', height: '12px' }} />
@@ -123,9 +124,9 @@ const JCompilerWorkbench = ({ code, language, onSimulate, simulationResult, isSi
                                     <p className="small fw-bold uppercase opacity-50" style={{ fontSize: '10px' }}>No execution data... Click Simulate.</p>
                                 </div>
                             ) : (
-                                <div className="text-success" style={{ fontFamily: "'Space Mono', monospace", fontSize: '13px' }}>
+                                <div className="text-success overflow-x-auto" style={{ fontFamily: "'Space Mono', monospace", fontSize: '13px' }}>
                                     <div className="text-muted mb-2 border-bottom border-secondary border-opacity-25 pb-1">[SYSTEM] Execution in context of HOPE Core...</div>
-                                    <pre className="m-0 text-wrap">{simulationResult.output || '# Symbols defined.'}</pre>
+                                    <pre className="m-0" style={{ whiteSpace: 'pre' }}>{simulationResult.output || '# Symbols defined.'}</pre>
                                     {simulationResult.errorExplanation && (
                                         <div className="text-danger mt-3 bg-danger bg-opacity-10 p-3 rounded-3 border border-danger border-opacity-20">
                                             <div className="fw-bold mb-1">RUNTIME ERROR:</div>

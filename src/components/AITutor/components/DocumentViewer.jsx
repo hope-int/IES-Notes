@@ -87,8 +87,11 @@ const DocumentViewer = ({ isOpen, onClose, content, title, onPrint, onDownload, 
                                         <button
                                             key={mode.id}
                                             onClick={() => setViewMode(mode.id)}
-                                            className={`border-0 rounded-xl px-2 md:px-3 py-1.5 flex items-center gap-1 md:gap-2 transition-all ${viewMode === mode.id ? 'bg-white shadow-sm' : 'text-gray-400'} text-xs font-bold`}
-                                            style={{ color: viewMode === mode.id ? '#003366' : undefined }}
+                                            className={`border-0 px-2 md:px-3 py-1.5 flex items-center gap-1 md:gap-2 transition-all ${viewMode === mode.id ? 'bg-white shadow-sm' : 'text-gray-400'} text-xs font-bold`}
+                                            style={{ 
+                                                color: viewMode === mode.id ? '#003366' : undefined,
+                                                borderRadius: '9999px' 
+                                            }}
                                         >
                                             <mode.icon size={14} />
                                             <span className="hidden md:inline">{mode.label}</span>
@@ -98,19 +101,11 @@ const DocumentViewer = ({ isOpen, onClose, content, title, onPrint, onDownload, 
 
                                 <div className="vr mx-2" style={{ height: '30px', opacity: 0.1 }}></div>
 
-                                <button
-                                    onClick={() => onExportToMain(editableContent)}
-                                    className="btn btn-outline-primary rounded-xl px-2 md:px-3 py-2 font-bold flex items-center justify-center gap-1 md:gap-2 border-opacity-25"
-                                    style={{ fontSize: '11px' }}
-                                    title="Push to Main Chat"
-                                >
-                                    <Share2 size={14} /> <span className="hidden md:inline">Export</span>
-                                </button>
 
                                 <button
                                     onClick={onPrint}
-                                    className="btn rounded-xl px-3 md:px-4 py-2 font-bold flex items-center justify-center gap-1 md:gap-2 shadow-sm border-0"
-                                    style={{ backgroundColor: '#003366', color: 'white' }}
+                                    className="btn px-3 md:px-4 py-2 font-bold flex items-center justify-center gap-1 md:gap-2 shadow-sm border-0"
+                                    style={{ backgroundColor: '#003366', color: 'white', borderRadius: '9999px' }}
                                 >
                                     <Printer size={18} /> <span className="hidden md:inline">Print PDF</span>
                                 </button>
@@ -217,7 +212,7 @@ const DocumentViewer = ({ isOpen, onClose, content, title, onPrint, onDownload, 
                                             </ReactMarkdown>
                                         </div>
 
-                                        <div className="mt-16 pt-8 border-t border-gray-100 text-center opacity-40">
+                                        <div className="mt-16 pt-8 text-center opacity-40">
                                             <div className="flex items-center justify-center gap-2 mb-2">
                                                 <div className="bg-primary rounded-full w-1 h-1"></div>
                                                 <span className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.2em]">Security Verified Document</span>

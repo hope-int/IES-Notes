@@ -1,11 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Lock, Unlock, ChevronRight } from 'lucide-react';
+import { Check, Lock, Unlock, ChevronRight, BookOpen } from 'lucide-react';
 
 const MobileTimeline = ({ nodes, onSelectNode }) => {
     // Separate main nodes and sub-nodes
     const mainNodes = nodes.filter(n => n.data.nodeType === 'main');
-    const subNodes = nodes.filter(n => n.data.nodeType !== 'main');
 
     const getStatusStyles = (status) => {
         switch (status) {
@@ -42,53 +41,66 @@ const MobileTimeline = ({ nodes, onSelectNode }) => {
 
     return (
         <div className="flex flex-col gap-6 p-6 pt-24 pb-32 bg-slate-50 min-h-screen">
-            <h2 className="text-xl font-bold text-slate-800 px-2">Your Path</h2>
+            <div className="flex items-center justify-between px-2 mb-2">
+                <h2 className="text-xl font-black text-slate-900">Curriculum</h2>
+                <div className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                    Adaptive Mode
+                </div>
+            </div>
 
             <div className="flex flex-col gap-8 relative">
                 {/* Connecting Background Line */}
-                <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-slate-200 z-0"></div>
+                <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-slate-200 z-0 opacity-50"></div>
 
                 {mainNodes.map((mainNode, index) => {
                     const styles = getStatusStyles(mainNode.data.status);
 
-                    // Find children (sub-nodes connected to this main node)
-                    // Currently, roadmapAI groups logically but we might just show all sub-nodes sequentially 
-                    // or try to match them by checking edges. For simplicity in a pure nodes array iteration,
-                    // we can look for sub-nodes that fall chronologically between this main node and the next.
-                    // A better approach is rendering them sequentially based on their Y coordinate or order in array.
-                    // Given roadmapAI returns nodes in order, we can just group them by the main node they follow.
-
-                    // To be safe and precise, let's find the subNodes that "belong" to this period.
-                    // In a highly structured array, subnodes usually appear immediately after their main node.
+                    // Find sub-nodes belonging to this main node
                     const selfIndex = nodes.findIndex(n => n.id === mainNode.id);
                     const nextMainIndex = nodes.findIndex((n, i) => i > selfIndex && n.data.nodeType === 'main');
                     const mySubNodes = nodes.slice(selfIndex + 1, nextMainIndex === -1 ? nodes.length : nextMainIndex);
+                    
+                    const completedSubs = mySubNodes.filter(s => s.data.status === 'completed').length;
+                    const totalSubs = mySubNodes.length;
 
                     return (
                         <div key={mainNode.id} className="relative z-10 flex flex-col gap-4">
 
                             {/* Main Phase Card */}
                             <motion.div
-                                whileTap={{ scale: 0.98 }}
+                                whileTap={{ scale: 0.97 }}
                                 onClick={() => onSelectNode(mainNode)}
                                 className={`flex bg-white rounded-2xl shadow-sm border ${styles.border} overflow-hidden cursor-pointer`}
                             >
                                 {/* Vertical Status Bar */}
-                                <div className={`w-2 flex-shrink-0 ${styles.bar}`} />
+                                <div className={`w-1.5 flex-shrink-0 ${styles.bar}`} />
 
-                                <div className="p-5 flex-1 flex flex-col gap-2">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <div className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 w-max ${styles.badge}`}>
+                                <div className="p-5 flex-1 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 ${styles.badge}`}>
                                             {styles.icon}
                                             {mainNode.data.status}
                                         </div>
+                                        {totalSubs > 0 && (
+                                            <span className="text-[10px] font-black text-slate-400">
+                                                {completedSubs}/{totalSubs} MASTERED
+                                            </span>
+                                        )}
                                     </div>
-                                    <h3 className={`text-lg font-bold leading-tight ${styles.text}`}>
+                                    <h3 className={`text-lg font-black leading-tight pr-4 ${styles.text}`}>
                                         {mainNode.data.label}
                                     </h3>
-                                    <div className="mt-2 flex items-center justify-between text-slate-400 text-sm font-medium">
-                                        <span>Tap to expand</span>
-                                        <ChevronRight className="w-5 h-5" />
+                                    
+                                    <div className="flex items-center justify-between pt-1">
+                                        {mainNode.data.detailed_notes && mainNode.data.status !== 'locked' && (
+                                            <div className="flex items-center gap-1.5 text-indigo-600">
+                                                <BookOpen size={12} />
+                                                <span className="text-[11px] font-bold">Study Guide</span>
+                                            </div>
+                                        )}
+                                        <div className="ml-auto text-slate-400">
+                                            <ChevronRight className="w-5 h-5" />
+                                        </div>
                                     </div>
                                 </div>
                             </motion.div>
@@ -101,16 +113,23 @@ const MobileTimeline = ({ nodes, onSelectNode }) => {
                                         return (
                                             <motion.div
                                                 key={sub.id}
-                                                whileTap={{ scale: 0.98 }}
+                                                whileTap={{ scale: 0.97 }}
                                                 onClick={() => onSelectNode(sub)}
-                                                className={`flex items-center gap-3 p-4 rounded-xl border-l-4 ${subStyles.border} bg-white shadow-sm border border-slate-100 cursor-pointer`}
+                                                className={`flex items-center gap-3 p-4 rounded-xl border ${subStyles.border} bg-white shadow-sm cursor-pointer`}
                                             >
                                                 <div className={`p-1.5 rounded-full ${subStyles.bg}`}>
                                                     {subStyles.icon}
                                                 </div>
-                                                <span className={`font-semibold text-sm flex-1 leading-snug ${subStyles.text}`}>
-                                                    {sub.data.label}
-                                                </span>
+                                                <div className="flex-1 flex flex-col gap-0.5">
+                                                    <span className={`font-bold text-sm leading-snug ${subStyles.text}`}>
+                                                        {sub.data.label}
+                                                    </span>
+                                                    {sub.data.detailed_notes && sub.data.status !== 'locked' && (
+                                                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-tighter flex items-center gap-1">
+                                                            <BookOpen size={10} /> Research Material
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <ChevronRight className="w-4 h-4 text-slate-300" />
                                             </motion.div>
                                         );
@@ -126,3 +145,4 @@ const MobileTimeline = ({ nodes, onSelectNode }) => {
 };
 
 export default MobileTimeline;
+

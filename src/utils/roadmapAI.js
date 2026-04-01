@@ -10,12 +10,15 @@ const cleanAndParseJSON = (text) => {
     }
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error("JSON Parse Error:", e, "\\nOriginal Text:", text);
-    throw new Error("Failed to parse AI response.");
+    console.error("Roadmap JSON Parse Error:", e);
+    // Provide snippet for debugging
+    const snippet = text.length > 100 ? text.substring(0, 100) + "..." : text;
+    console.error("Problematic AI Response Snippet:", snippet);
+    throw new Error(`Failed to parse AI response. Details: ${e.message}`);
   }
 };
 
-export const generateRoadmap = async (answers) => {
+export const generateRoadmap = async (answers, onProgress = () => { }) => {
   const prompt = `
 You are an elite Tech Career Coach and Curriculum Architect. 
 Generate a HIGHLY DETAILED, strict JSON roadmap based on this student profile:
@@ -45,6 +48,8 @@ You MUST output ONLY a valid JSON object with "nodes" and "edges".
       "data": { 
         "label": "Phase 1: Main Topic", 
         "eli5_analogy": "Think of HTML as a Lego house...", 
+        "detailed_notes": "A 2-3 paragraph technical deep-dive. Explain 'the why' and 'how it works under the hood'. Use professional yet accessible language. This is the student's primary study material.",
+        "search_keywords": ["Specific Keyword 1", "Expert Term 2", "API reference for X"],
         "action_steps": [
           "Step 1: Get the bricks",
           "Step 2: Build the walls"
@@ -61,24 +66,40 @@ You MUST output ONLY a valid JSON object with "nodes" and "edges".
 }
 
 Always explain the concept using a simple, real-world analogy (like Legos, cooking, or video games). 
-Break the learning path into 3 to 5 actionable, bite-sized steps written in extremely simple language.
+Generate 4 to 6 highly specific technical keywords that students can use to find advanced material on Google/StackOverflow (search_keywords).
+Write a comprehensive 2-3 paragraph "detailed_notes" section that contains actual technical teaching content.
+Break the learning path into 3 to 5 actionable, bite-sized steps.
 `;
+
 
   const maxRetries = 3;
   let lastError;
 
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const jsonString = await getAICompletion(
+      const startTime = Date.now();
+      onProgress({ step: 'querying', message: i > 0 ? `Retrying... Attempt ${i + 1}` : 'Brainstorming milestones...' });
+
+      // getAICompletion already handles progress for provider-level steps
+      const resultData = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free', actionType: 'roadmap' }
+        {
+          jsonMode: true,
+          model: 'arcee-ai/trinity-large-preview:free',
+          actionType: 'roadmap',
+          includeMetadata: true,
+          onProgress: (p) => onProgress({ ...p, message: `${p.message} (${i + 1}/3)` })
+        }
       );
 
-      const data = cleanAndParseJSON(jsonString);
+      const endTime = Date.now();
+      const data = cleanAndParseJSON(resultData.content);
 
       if (!data.nodes || !data.edges) {
         throw new Error("Invalid format: nodes or edges array missing");
       }
+
+      onProgress({ step: 'formatting', message: 'Finalizing your skill tree...' });
 
       // Add types to nodes for React Flow custom node
       const formattedNodes = data.nodes.map(node => ({
@@ -86,17 +107,29 @@ Break the learning path into 3 to 5 actionable, bite-sized steps written in extr
         type: 'custom',
       }));
 
-      return { nodes: formattedNodes, edges: data.edges };
+      return {
+        nodes: formattedNodes,
+        edges: data.edges,
+        _metadata: {
+          provider: resultData.provider,
+          model: resultData.model,
+          latency: (endTime - startTime) / 1000,
+          attempts: i + 1,
+          nodeCount: data.nodes.length
+        }
+      };
     } catch (error) {
-      console.warn(`Roadmap generation attempt ${i + 1} failed:`, error);
+      console.warn(`Roadmap attempt ${i + 1} failed:`, error);
       lastError = error;
 
       if (i < maxRetries - 1) {
+        onProgress({ step: 'retry', message: `Attempt ${i + 1} failed. Cooling down...` });
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
       }
     }
   }
 
   console.error("All roadmap generation attempts failed:", lastError);
-  throw new Error(`Failed to generate roadmap after ${maxRetries} attempts.`);
+  throw new Error(`Failed to generate roadmap after ${maxRetries} attempts.\nReason: ${lastError.message}`);
 };
+

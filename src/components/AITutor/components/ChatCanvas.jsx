@@ -11,7 +11,7 @@ import 'katex/dist/katex.min.css';
 
 import JCompilerWorkbench from './JCompilerWorkbench';
 
-const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulationResults, simulatingKey, onRegenerate }) => {
+const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, simulationResults, simulatingKey, onRegenerate }) => {
     return (
         <div className="flex-grow-1 overflow-auto custom-scrollbar relative" style={{ background: '#fcfdfe' }}>
             {/* Engineering Grid Background */}
@@ -109,6 +109,50 @@ const ChatCanvas = ({ messages, profile, onStarterClick, loading, simulationResu
 
                                             return (
                                                 <div className="message-content">
+                                                    {/* User Attachments Rendering */}
+                                                    {msg.role === 'user' && msg.filePreview && (
+                                                        <motion.div 
+                                                            initial={{ opacity: 0, scale: 0.95 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            whileHover={{ scale: 1.01 }}
+                                                            onClick={() => onFileClick && onFileClick({
+                                                                fileName: msg.fileName,
+                                                                fileType: msg.fileType,
+                                                                filePreview: msg.filePreview
+                                                            })}
+                                                            className="mb-3 rounded-xl overflow-hidden border border-white border-opacity-20 shadow-sm cursor-pointer" 
+                                                            style={{ 
+                                                                maxHeight: '280px',
+                                                                width: 'fit-content'
+                                                            }}
+                                                        >
+                                                            <img src={msg.filePreview} alt="Attached Context" className="w-100 h-100 object-fit-contain bg-black bg-opacity-10" />
+                                                        </motion.div>
+                                                    )}
+                                                    
+                                                    {msg.role === 'user' && msg.fileName && !msg.fileType?.startsWith('image/') && (
+                                                        <motion.div 
+                                                            initial={{ opacity: 0, x: -10 }}
+                                                            animate={{ opacity: 1, x: 0 }}
+                                                            whileHover={{ x: 2 }}
+                                                            onClick={() => onFileClick && onFileClick({
+                                                                fileName: msg.fileName,
+                                                                fileType: msg.fileType,
+                                                                filePreview: msg.filePreview
+                                                            })}
+                                                            className="mb-3 p-3 bg-white bg-opacity-10 rounded-xl border border-white border-opacity-20 d-flex align-items-center gap-3 transition-all hover:bg-opacity-20 cursor-pointer"
+                                                            style={{ maxWidth: '320px' }}
+                                                        >
+                                                            <div className="p-2 rounded-lg bg-white bg-opacity-20">
+                                                                <FileText size={18} className="text-white" />
+                                                            </div>
+                                                            <div className="flex-grow-1 overflow-hidden">
+                                                                <div className="fw-bold small text-truncate text-white">{msg.fileName}</div>
+                                                                <div className="x-small text-white opacity-50 uppercase fw-bold" style={{ fontSize: '9px' }}>Engineering Context</div>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+
                                                     <ReactMarkdown
                                                         remarkPlugins={[remarkGfm, remarkMath]}
                                                         rehypePlugins={[rehypeKatex]}
