@@ -1,5 +1,18 @@
 import { supabase } from './../supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
+import { getOrderedProviders, getUserKey, getUserModel, getVaultSettings, initVault, sanitizeKey, isProviderEnabled } from './keyVault';
+// ensurePuterReady: waits for window.puter CDN global — no SDK mutations.
+// Only called inside fetchPuter (lazy — on actual AI requests, not module load).
+import { ensurePuterReady } from './puterInit';
+
+// Initialize vault once (lazy, non-blocking)
+let _vaultReady = false;
+const ensureVault = () => {
+    if (_vaultReady) return Promise.resolve();
+    return initVault().then(() => { _vaultReady = true; }).catch(() => {});
+};
+// Kick off immediately on module load (best-effort)
+ensureVault();
 
 const cleanAndParseJSON = (text) => {
     try {
@@ -141,8 +154,10 @@ const getProviderModel = (model, provider) => {
         return model.replace(/\./g, '-'); // Puter prefers hyphens over dots
     }
     if (provider === 'openrouter') {
-        if (model.includes('grok-4.1-non-reasoning')) return "x-ai/grok-4.1-fast";
-        if (model.includes('grok') && !model.includes('/')) return `x-ai/${model}`;
+        // Default to a free model — users with BYOK should not get 402 surprises.
+        // They can override via the vault model selector if they want paid models.
+        if (model.includes('grok-4.1-non-reasoning')) return "meta-llama/llama-3.3-70b-instruct:free";
+        if (model.includes('grok') && !model.includes('/')) return "meta-llama/llama-3.1-70b-instruct:free";
         if (model.includes('gpt-') && !model.includes('/')) return `openai/${model}`;
         if (model.includes('claude-') && !model.includes('/')) return `anthropic/${model}`;
         return model;
@@ -164,18 +179,31 @@ const getProviderModel = (model, provider) => {
         if (model.includes('vision') || model.includes('vl') || model.includes('gpt-4o')) return "llama-3.2-11b-vision-preview";
         return "llama-3.1-8b-instant";
     }
+    if (provider === 'gemini') {
+        // Default to Gemini 2.0 Flash — fastest, generous free quota
+        if (model.includes('gemini')) return model; // pass through if already a gemini model
+        return 'gemini-2.0-flash';
+    }
     return model;
 };
 
 // 1. Puter.js (Free, Serverless, No Key)
 const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
     const { model = "arcee-ai/trinity-large-preview:free", jsonMode = false, ...params } = modelOptions;
-    if (!window.puter) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        if (!window.puter) throw new Error("Puter.js not ready.");
-    }
 
-    const targetModel = getProviderModel(model, 'puter');
+    // Wait for Puter CDN global to be ready. ensurePuterReady() is a shared,
+    // idempotent promise — concurrent calls reuse the same poll loop.
+    // No SDK mutations occur here or in puterInit. See puterInit.js header.
+    try {
+        await ensurePuterReady({ timeoutMs: 5000 });
+    } catch {
+        throw new Error("Puter.js not ready.");
+    }
+    if (!window.puter) throw new Error("Puter.js not ready.");
+
+
+    const targetModel = getUserModel('puter') || getProviderModel(model, 'puter');
+
     const puterMessages = [...messages];
     if (jsonMode) {
         puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format." });
@@ -191,8 +219,9 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
             });
 
             const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("Puter Timeout")), 15000)
+                setTimeout(() => reject(new Error("Puter Timeout")), 45000) // 45s — enough for long AI responses
             );
+
 
             const response = await Promise.race([puterPromise, timeoutPromise]);
 
@@ -206,13 +235,21 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
             const errorMsg = err?.message || err?.toString() || "";
             const isConnectionError = errorMsg.toLowerCase().includes('websocket') || 
                                     errorMsg.toLowerCase().includes('failed to fetch') ||
-                                    errorMsg.toLowerCase().includes('networkerror');
+                                    errorMsg.toLowerCase().includes('networkerror') ||
+                                    errorMsg.toLowerCase().includes('socket') ||
+                                    errorMsg.toLowerCase().includes('connection established') ||
+                                    errorMsg.toLowerCase().includes('unknown_url_scheme') ||
+                                    errorMsg.toLowerCase().includes('unknown url') ||
+                                    errorMsg.toLowerCase().includes('closed before the connection');
 
-            // Authentication (401), Rate Limit (429), Timeout or Socket Error should trigger a silent fallback
+            // Authentication (401), Rate Limit (429), Timeout or Socket/Scheme Error should trigger a silent fallback
             if (errorMsg.includes('401') || errorMsg.includes('429') || errorMsg.includes('Timeout') || isConnectionError || err?.status === 401 || err?.status === 429) {
                 recordPuterFailure(isConnectionError);
                 throw new Error("Puter Limitation");
             }
+
+
+
             console.warn(`Puter attempt ${i + 1} failed:`, errorMsg);
             if (i === retries - 1) {
                 recordPuterFailure();
@@ -227,41 +264,80 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
 // Client-Side Fallback (Direct to API)
 const fetchClientSideFallback = async (messages, modelOptions) => {
     const { model = "grok-4.1-non-reasoning", jsonMode, ...params } = modelOptions;
+    let rateLimited = false; // track if 429 was the failure reason
 
-    // Fallback 1: OpenRouter
+    // ── Fallback 1: OpenRouter — with free-model rotation on 429 ─────────────
+    // Each free model has its own rate-limit pool. On 429, we rotate through
+    // all of them before giving up. New API key does NOT reset the 429 —
+    // OpenRouter rate-limits by IP on free tier, not by key.
     try {
-        const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-        if (apiKey) {
-            const targetModel = getProviderModel(model, 'openrouter');
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const apiKey = sanitizeKey(getUserKey('openrouter'));
+        if (apiKey && isProviderEnabled('openrouter')) {
+            const preferredModel = getUserModel('openrouter') || getProviderModel(model, 'openrouter');
+
+            const FREE_MODEL_ROTATION = [
+                'meta-llama/llama-3.3-70b-instruct:free',
+                'meta-llama/llama-3.1-8b-instruct:free',
+                'google/gemma-3-12b-it:free',
+                'mistralai/mistral-7b-instruct:free',
+                'qwen/qwen3-8b:free',
+            ];
+
+            const orPost = (useModel) => fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${apiKey}`,
                     "Content-Type": "application/json",
                     "HTTP-Referer": window.location.origin,
-                    "X-Title": "HOPE Edu Hub"
+                    "X-Title": "HOPE Studio"
                 },
                 body: JSON.stringify({
-                    model: targetModel,
+                    model: useModel,
                     messages,
+                    max_tokens: params.max_tokens || 8192,
                     response_format: jsonMode ? { type: "json_object" } : undefined,
                     ...params
                 })
             });
-            if (response.ok) {
-                const data = await response.json();
+
+            const first = await orPost(preferredModel);
+
+            if (first.ok) {
+                const data = await first.json();
                 return { content: data.choices?.[0]?.message?.content || "", provider: "OpenRouter" };
+            }
+
+            // 402 = paid model needs credits, 429 = rate limited → both trigger model rotation
+            if (first.status === 402 || first.status === 429) {
+                console.info(`[OpenRouter] ${first.status} on "${preferredModel}" — rotating free models.`);
+                for (const freeModel of FREE_MODEL_ROTATION) {
+                    if (freeModel === preferredModel) continue;
+                    try {
+                        const retry = await orPost(freeModel);
+                        if (retry.ok) {
+                            const rData = await retry.json();
+                            console.info(`[OpenRouter] Served by: ${freeModel}`);
+                            return { content: rData.choices?.[0]?.message?.content || "", provider: "OpenRouter" };
+                        }
+                        if (retry.status !== 429 && retry.status !== 402) break; // hard error, stop
+                        console.info(`[OpenRouter] ${freeModel} also limited (${retry.status}), trying next.`);
+                    } catch { /* network error on this model, try next */ }
+                }
+                rateLimited = true;
+                console.info("[OpenRouter] All free models exhausted — falling through to Groq.");
             } else {
-                console.warn(`OpenRouter Fail Status: ${response.status}`);
+                console.info(`[OpenRouter] HTTP ${first.status} — falling through.`);
             }
         }
-    } catch (e) { console.warn("OpenRouter fallback attempt failed."); }
+    } catch (e) { console.info("[OpenRouter] Skipped:", e.message); }
 
-    // Fallback 2: Groq
+
+    // ── Fallback 2: Groq (user's key only, if enabled) ────────────────────────
     try {
-        const groqKey = import.meta.env.VITE_GROQ_API_KEY;
-        if (groqKey) {
-            const groqModel = getProviderModel(model, 'groq');
+        const groqKey = sanitizeKey(getUserKey('groq'));
+        if (groqKey && isProviderEnabled('groq')) {
+            const groqModel = getUserModel('groq') || getProviderModel(model, 'groq');
+            const groqMaxTokens = Math.min(params.max_tokens || 8192, 8192);
             const gResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
@@ -269,20 +345,58 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
                     model: groqModel,
                     messages,
                     response_format: jsonMode ? { type: "json_object" } : undefined,
-                    ...params
+                    ...params,
+                    max_tokens: groqMaxTokens
                 })
             });
             if (gResponse.ok) {
                 const gData = await gResponse.json();
-                return { content: gData.choices?.[0]?.message?.content || "", provider: "Groq" };
+                const gChoice = gData.choices?.[0];
+                if (gChoice?.finish_reason === 'length') {
+                    console.warn(`[Groq] Truncated. Model: ${groqModel}, max_tokens: ${groqMaxTokens}`);
+                }
+                return { content: gChoice?.message?.content || '', provider: 'Groq' };
             }
+            if (gResponse.status === 429) rateLimited = true;
         }
-    } catch (e) {
-        console.error("Groq fallback completely failed.");
-    }
+    } catch (e) { console.warn("[Groq] Request failed:", e.message); }
 
-    throw new Error("All AI Fallbacks Exhausted");
+    // ── Fallback 3: Google Gemini (user's key only, if enabled) ────────────────
+    // Uses Google's OpenAI-compatible endpoint — same request format as OpenRouter.
+    try {
+        const geminiKey = sanitizeKey(getUserKey('gemini'));
+        if (geminiKey && isProviderEnabled('gemini')) {
+            const geminiModel = getUserModel('gemini') || getProviderModel(model, 'gemini');
+            const gResp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${geminiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: geminiModel,
+                    messages,
+                    max_tokens: Math.min(params.max_tokens || 8192, 8192),
+                })
+            });
+            if (gResp.ok) {
+                const gData = await gResp.json();
+                const gChoice = gData.choices?.[0];
+                console.info(`[Gemini] Served by: ${geminiModel}`);
+                return { content: gChoice?.message?.content || '', provider: 'Gemini' };
+            }
+            if (gResp.status === 429) rateLimited = true;
+            else console.info(`[Gemini] HTTP ${gResp.status} — falling through.`);
+        }
+    } catch (e) { console.warn('[Gemini] Request failed:', e.message); }
+
+    // All providers exhausted
+    if (rateLimited) {
+        throw new Error("RATE_LIMITED: Free-tier limit reached. Wait ~30s then retry, or enable a backup provider in AI Settings.");
+    }
+    throw new Error("No working API key found. Please add your keys in AI Settings → ⚙️");
 };
+
 
 const fetchBackendFallback = async (messages, modelOptions) => {
     try {
@@ -303,6 +417,18 @@ const fetchBackendFallback = async (messages, modelOptions) => {
     }
 };
 
+// Per-action token budget — ensures responses are NEVER cut off mid-sentence
+const ACTION_TOKEN_BUDGETS = {
+    chat:       16000,  // Long explanations, code blocks, doc generation
+    compiler:    4096,  // Structured JSON output, keep tight
+    roadmap:     8192,  // JSON with nodes/edges, moderate size
+    report:     12000,  // Report sections can be lengthy
+    ppt:         8192,  // Presentation slides
+    project:     8192,  // Project briefs
+    assignment: 10000,  // Full assignment write-ups
+    default:     8192   // Catch-all
+};
+
 export const getAICompletion = async (messages, options = {}) => {
     const {
         actionType = "chat",
@@ -315,13 +441,32 @@ export const getAICompletion = async (messages, options = {}) => {
     } = options;
 
     const startTime = Date.now();
-    const modelOptions = { model, ...restOptions };
+
+    // Apply token budget: caller-supplied max_tokens always wins; otherwise use per-action default
+    const defaultTokens = ACTION_TOKEN_BUDGETS[actionType] ?? ACTION_TOKEN_BUDGETS.default;
+    const modelOptions = {
+        model,
+        max_tokens: defaultTokens,  // Global default — overridden if caller explicitly sets it
+        ...restOptions              // Caller's options (including max_tokens) take precedence
+    };
 
     onProgress({ step: 'rate-limit', message: 'Checking Rate Limits...' });
     await checkRateLimit(actionType);
 
+    // ── Vault-aware provider chain ─────────────────────────────────────────
+    // Build ordered list from vault; fall back to hardcoded order if vault not
+    // ready yet (first-load race condition).
+    await ensureVault();
+    const orderedProviders = getOrderedProviders(); // sorted, filtered by enabled
+    const puterEntry   = orderedProviders.find(p => p.id === 'puter');
+    const clientEntry  = orderedProviders.find(p => p.id === 'openrouter' || p.id === 'groq');
+
     let resultData = null;
-    const canUsePuter = isPuterHealthy() && provider !== 'backend' && !messages.some(m => Array.isArray(m.content));
+
+    // 1. Puter (if enabled in vault AND healthy AND no image content)
+    const canUsePuter = puterEntry && isPuterHealthy()
+        && provider !== 'backend'
+        && !messages.some(m => Array.isArray(m.content));
 
     if (canUsePuter) {
         try {
@@ -329,25 +474,29 @@ export const getAICompletion = async (messages, options = {}) => {
             const content = await fetchPuter(messages, modelOptions);
             resultData = { content, provider: "Puter Cloud", model: getProviderModel(model, 'puter') };
         } catch (e) {
-            console.warn("Puter failed/limited, dropping to secondary fallbacks.");
-            onProgress({ step: 'fallback', message: 'Switching to OpenRouter...', provider: 'OpenRouter' });
-            if (onFallback) onFallback("Switching to OpenRouter...");
+            console.warn("Puter failed/limited, dropping to client-side fallbacks.");
+            onProgress({ step: 'fallback', message: 'Switching to next provider...', provider: 'OpenRouter' });
+            if (onFallback) onFallback("Switching to next provider...");
         }
     }
 
+    // 2. Client-side providers (OpenRouter → Groq, with vault key injection)
+    //    Always attempted when Puter fails — NOT gated on vault being ready.
+    //    fetchClientSideFallback handles missing keys gracefully via env fallback.
     if (!resultData) {
         try {
             if (provider !== 'client' && !import.meta.env.DEV) {
                 onProgress({ step: 'querying', message: 'Querying Backend API...', provider: 'Backend' });
                 resultData = await fetchBackendFallback(messages, modelOptions);
             } else {
-                onProgress({ step: 'querying', message: 'Querying OpenRouter (Fallback)...', provider: 'OpenRouter' });
+                const nextName = clientEntry?.name || 'OpenRouter';
+                onProgress({ step: 'querying', message: `Querying ${nextName}...`, provider: nextName });
                 resultData = await fetchClientSideFallback(messages, modelOptions);
             }
         } catch (e) {
-            console.error("All providers failed.");
+            console.error("All client-side providers failed:", e.message);
             onProgress({ step: 'error', message: 'All AI Providers Failed' });
-            throw e;
+            throw new Error("All AI providers are disabled or failed. Please check your AI Settings.");
         }
     }
 
@@ -361,6 +510,7 @@ export const getAICompletion = async (messages, options = {}) => {
     }
     return resultData.content;
 };
+
 
 export const simulateCodeExecution = async (code, language = "auto", inputs = [], history = []) => {
     const systemPrompt = `<personality>Elite Syntax Auditor & Runtime Simulator.</personality>

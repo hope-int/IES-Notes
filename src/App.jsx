@@ -31,6 +31,7 @@ import CommunityFeed from './components/Community/CommunityFeed';
 import AIChat from './components/AITutor/AITutor';
 import AITutorDashboard from './components/AITutor/AITutorDashboard';
 import { getDeviceId, getClientIp, isStandalonePWA, isMobileDevice } from './utils/deviceUtils';
+import { getPuterAuthState } from './utils/puterInit';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useAuth } from './contexts/AuthContext';
 
@@ -180,40 +181,32 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Robustly check (and wait for) Puter.js to initialize
+  // Puter auth state — read from SDK (not localStorage alone) via puterInit
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 20; // Try for ~10 seconds (20 * 500ms)
+    let destroyed = false;
 
-    const checkPuterAuth = () => {
-      // Check if signed in OR successfully used as guest previously
-      const isGuest = localStorage.getItem('hope_puter_guest_confirmed') === 'true';
-      if (isGuest) {
-        setIsPuterSignedIn(true);
-        return true;
-      }
-
-      if (window.puter && window.puter.auth) {
-        const signedIn = window.puter.auth.isSignedIn();
-        setIsPuterSignedIn(signedIn);
-        return signedIn; // Consistent return type
-      }
-      return false;
+    const syncAuthState = () => {
+      if (destroyed) return;
+      const { isSignedIn } = getPuterAuthState();
+      setIsPuterSignedIn(isSignedIn);
+      return isSignedIn;
     };
 
-    // Check immediately
-    if (!checkPuterAuth()) {
-      const interval = setInterval(() => {
-        if (!navigator.onLine) return; // Don't retry while offline
-        attempts++;
-        if (checkPuterAuth() || attempts >= maxAttempts) {
-          clearInterval(interval);
-        }
-      }, 500);
+    // Immediate check (might be false until SDK loads)
+    if (syncAuthState()) return;
 
-      return () => clearInterval(interval);
-    }
+    // Poll until SDK is ready or user signs in (max ~10 s)
+    let attempts = 0;
+    const maxAttempts = 40; // 40 × 250 ms = 10 s
+    const id = setInterval(() => {
+      if (!navigator.onLine) return;
+      attempts++;
+      if (syncAuthState() || attempts >= maxAttempts) clearInterval(id);
+    }, 250);
+
+    return () => { destroyed = true; clearInterval(id); };
   }, []);
+
 
   /* Removed old handleRegistrationComplete */
 

@@ -33,10 +33,17 @@ const useMediaQuery = (query) => {
     return matches;
 };
 
-const nodeTypes = { custom: CustomNode };
-const edgeTypes = {}; 
-
 const RoadmapCanvas = () => {
+    // Memoize static ReactFlow props to silence Warning 002
+    const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
+    const edgeTypes = useMemo(() => ({}), []);
+    const defaultEdgeOptions = useMemo(() => ({
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: '#cbd5e1', strokeWidth: 2 },
+    }), []);
+
+
     const { userProfile: profile } = useAuth();
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
 
@@ -314,15 +321,11 @@ const RoadmapCanvas = () => {
                                     onEdgesChange={onEdgesChange}
                                     nodeTypes={nodeTypes}
                                     edgeTypes={edgeTypes}
-
                                     onNodeClick={onNodeClick}
                                     fitView
                                     fitViewOptions={{ padding: 0.5 }}
-                                    defaultEdgeOptions={{
-                                        type: 'smoothstep',
-                                        animated: true,
-                                        style: { stroke: '#cbd5e1', strokeWidth: 2 },
-                                    }}
+                                    defaultEdgeOptions={defaultEdgeOptions}
+
                                 >
                                     <Background color="#cbd5e1" gap={20} size={1} variant="dots" className="opacity-40" />
                                     <Controls className="bg-white border border-slate-200 shadow-sm rounded-lg text-slate-600 space-y-1" />

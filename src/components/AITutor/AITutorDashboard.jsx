@@ -1,14 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-    Sparkles, MessageSquare, Presentation, FileText, FileSpreadsheet, Code, Cpu, Terminal, Mic, BookOpen, ArrowLeft, Menu, Bot, ChevronRight
+    Sparkles, MessageSquare, Presentation, FileText, FileSpreadsheet, Code, Cpu, Terminal, Mic, BookOpen, ArrowLeft, Menu, Bot, ChevronRight, Settings
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import APIKeyVault from '../Settings/APIKeyVault';
+import { initVault } from '../../utils/keyVault';
 
 const AITutorDashboard = () => {
     const { userProfile: profile } = useAuth();
     const navigate = useNavigate();
+    const [vaultOpen, setVaultOpen] = useState(false);
+
+    // Pre-load vault so aiService has keys ready before first chat
+    useEffect(() => { initVault(); }, []);
 
     return (
         <div className="min-vh-100 bg-white">
@@ -27,7 +33,15 @@ const AITutorDashboard = () => {
                         <span className="fw-bold text-dark fs-5">HOPE Studio</span>
                     </div>
                 </div>
-                <div className="d-flex align-items-center gap-3">
+                <div className="d-flex align-items-center gap-2">
+                    <button
+                        onClick={() => setVaultOpen(true)}
+                        className="btn btn-light border rounded-circle p-0 d-flex align-items-center justify-content-center shadow-sm"
+                        style={{ width: 36, height: 36 }}
+                        title="AI Provider Settings"
+                    >
+                        <Settings size={17} className="text-muted" />
+                    </button>
                     <button
                         onClick={() => navigate('/docs')}
                         className="btn btn-primary rounded-pill px-4 py-2 fw-bold d-flex align-items-center gap-2 shadow-sm"
@@ -145,7 +159,12 @@ const AITutorDashboard = () => {
                     box-shadow: 0 8px 20px -6px rgba(0,0,0,0.1) !important;
                     border-color: #3b82f6 !important;
                 }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                .animate-spin { animation: spin 1s linear infinite; }
             `}</style>
+
+            {/* AI Key Vault Modal */}
+            <APIKeyVault isOpen={vaultOpen} onClose={() => setVaultOpen(false)} />
         </div>
     );
 };

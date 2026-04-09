@@ -3,13 +3,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     Send, Paperclip, X, Sparkles, Bot, Plus,
     ArrowLeft, Copy, Check, Search, FileText, Code, Info,
-    Image as ImageIcon, Zap, Command, Trash2, Download
+    Image as ImageIcon, Zap, Command, Trash2, Download, Settings, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import * as pdfjsLib from 'pdfjs-dist';
+import APIKeyVault from '../Settings/APIKeyVault';
 
 // Utilities
 import { getAICompletion } from '../../utils/aiService';
@@ -72,6 +73,10 @@ export default function AITutor() {
         setToasts(prev => [...prev, { id, message, type }]);
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
     };
+
+    // Provider failure warning
+    const [providerError, setProviderError] = useState(null);
+    const [vaultOpen, setVaultOpen] = useState(false);
 
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -194,8 +199,9 @@ export default function AITutor() {
         if ((!input.trim() && !selectedFile) || loading) return;
         setLoading(true); // Set loading IMMEDIATELY to prevent double-sends
 
+        let sessionId = activeSessionId; // ← declared OUTSIDE try so catch can access it
+
         try {
-            let sessionId = activeSessionId;
             
             // Atomic session creation if missing
             if (!sessionId) {
@@ -315,7 +321,10 @@ Only after the user provides the necessary details AND has used a slash command,
             }
 
             const aiResponse = await getAICompletion(requestMessages, {
-                max_tokens: 4096, // Increase limit to prevent truncation
+                actionType: 'chat',
+                model: 'grok-4.1-non-reasoning',
+                max_tokens: 16000, // Maximum tokens — prevents any response cut-off
+                temperature: 0.7,
                 onProgress: (p) => {
                     setProcessingStep(p);
                     if (p.provider) setProviderStatus(p.provider);
@@ -372,14 +381,25 @@ Only after the user provides the necessary details AND has used a slash command,
             }
         } catch (e) {
             console.error("Chat Error:", e);
-            const errorMsg = {
-                sessionId,
-                role: 'assistant',
-                content: `⚠️ SYSTEM ERROR: ${e.message || 'Interrupted connection.'}`,
-                timestamp: Date.now()
-            };
-            setMessages(prev => [...prev, errorMsg]);
-            showToast("AI Service Unavailable. Please try again.", "error");
+            const isRateLimit    = e.message?.startsWith('RATE_LIMITED');
+            const isProviderFail = isRateLimit ||
+                                   e.message?.includes('All AI providers') ||
+                                   e.message?.includes('No working API key') ||
+                                   e.message?.includes('WebSocket') ||
+                                   e.message?.includes('Failed to fetch');
+
+            if (isProviderFail) {
+                setProviderError(e.message); // popup reads this to choose the right copy
+            } else {
+                const errorMsg = {
+                    sessionId: sessionId || 'unknown',
+                    role: 'assistant',
+                    content: `⚠️ ${e.message || 'Connection interrupted. Please try again.'}`,
+                    timestamp: Date.now()
+                };
+                setMessages(prev => [...prev, errorMsg]);
+                showToast("AI Service Unavailable. Please try again.", "error");
+            }
         } finally {
             setLoading(false);
             setProcessingStep({ step: '' });
@@ -576,7 +596,12 @@ Only after the user provides the necessary details AND has used a slash command,
                 { role: 'user', content: `CURRENT DOCUMENT:\n${currentContent}\n\nUSER INSTRUCTION: ${instruction}` }
             ];
 
-            const result = await getAICompletion(requestMessages);
+            const result = await getAICompletion(requestMessages, {
+                actionType: 'chat',
+                model: 'grok-4.1-non-reasoning',
+                max_tokens: 16000, // Max tokens to avoid truncated document refinements
+                temperature: 0.3
+            });
             return result;
         } catch (e) {
             console.error(e);
@@ -977,6 +1002,104 @@ Only after the user provides the necessary details AND has used a slash command,
                 onRefine={handleDocumentRefinement}
                 onExportToMain={handleExportToMain}
             />
+
+            {/* ── AI Provider Error Warning ── */}
+            <AnimatePresence>
+                {providerError && (
+                    <motion.div
+                        key="prov-err"
+                        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.97 }}
+                        transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+                        style={{
+                            position: 'fixed', bottom: 80, left: '50%',
+                            transform: 'translateX(-50%)',
+                            zIndex: 2000, width: '100%', maxWidth: 440,
+                            padding: '0 12px',
+                        }}
+                    >
+                        <div style={{
+                            background: '#fff',
+                            border: '1.5px solid #fca5a5',
+                            borderRadius: 16,
+                            boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+                            overflow: 'hidden',
+                        }}>
+                            {/* Red header */}
+                            <div style={{
+                                background: 'linear-gradient(135deg,#fef2f2,#fff7f7)',
+                                padding: '14px 16px 10px',
+                                borderBottom: '1px solid #fee2e2',
+                                display: 'flex', alignItems: 'center', gap: 10,
+                            }}>
+                                <div style={{
+                                    background: '#fee2e2', borderRadius: 8, padding: 6,
+                                    display: 'flex', alignItems: 'center', flexShrink: 0,
+                                }}>
+                                    <AlertTriangle size={16} style={{ color: '#dc2626' }} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                                        {providerError?.startsWith('RATE_LIMITED') ? 'Rate Limit Hit' : 'AI Connection Failed'}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>
+                                        {providerError?.startsWith('RATE_LIMITED') ? 'Free-tier request limit reached' : 'No working provider available'}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setProviderError(null)}
+                                    style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding: 0 }}
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ padding: '12px 16px' }}>
+                                <p style={{ fontSize: 12, color: '#475569', margin: '0 0 12px', lineHeight: 1.6 }}>
+                                    {providerError?.startsWith('RATE_LIMITED')
+                                        ? <>OpenRouter's free tier limits requests per minute. <strong>Wait ~30 seconds</strong> then retry, or enable <strong>Groq</strong> in AI Settings as a backup (also free).</>
+                                        : <>Puter.js is unavailable and no personal API key is configured. Add a free <strong>Groq</strong> or <strong>OpenRouter</strong> key to keep the AI working when Puter is offline.</>
+                                    }
+                                </p>
+
+                                <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
+                                    {!providerError?.startsWith('RATE_LIMITED') && (
+                                    <button
+                                        onClick={() => { setProviderError(null); setVaultOpen(true); }}
+                                        style={{
+                                            flex: '1 1 140px', height: 36, padding: '0 14px',
+                                            borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                            background: '#6366f1', color: '#fff',
+                                            border: 'none', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                        }}
+                                    >
+                                        <Settings size={13} /> Add API Key
+                                    </button>
+                                    )}
+                                    <button
+                                        onClick={() => { setProviderError(null); handleSend(); }}
+                                        style={{
+                                            flex: '1 1 100px', height: 36, padding: '0 14px',
+                                            borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                            background: '#f1f5f9', color: '#475569',
+                                            border: '1.5px solid #e2e8f0', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                        }}
+                                    >
+                                        <RefreshCw size={13} /> Retry
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* AI Key Vault (accessible from chat too) */}
+            <APIKeyVault isOpen={vaultOpen} onClose={() => setVaultOpen(false)} />
         </div>
     );
 }
