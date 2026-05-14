@@ -66,7 +66,7 @@ const ProjectDesigner = ({ onBack }) => {
                 { role: 'user', content: prompt }
             ], {
                 jsonMode: type === 'slide',
-                model: 'arcee-ai/trinity-large-preview:free'
+                model: 'inclusionai/ring-2.6-1t:free'
             });
             if (type === 'slide') {
                 try {

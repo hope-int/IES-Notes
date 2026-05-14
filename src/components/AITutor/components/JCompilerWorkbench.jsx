@@ -126,6 +126,9 @@ const JCompilerWorkbench = ({ code, language, onSimulate, simulationResult, isSi
                             ) : (
                                 <div className="text-success overflow-x-auto" style={{ fontFamily: "'Space Mono', monospace", fontSize: '13px' }}>
                                     <div className="text-muted mb-2 border-bottom border-secondary border-opacity-25 pb-1">[SYSTEM] Execution in context of HOPE Core...</div>
+                                    {simulationResult.isStreaming && (
+                                        <div className="text-info mb-2 small fw-bold">[LIVE] Streaming compiler trace...</div>
+                                    )}
                                     <pre className="m-0" style={{ whiteSpace: 'pre' }}>{simulationResult.output || '# Symbols defined.'}</pre>
                                     {simulationResult.errorExplanation && (
                                         <div className="text-danger mt-3 bg-danger bg-opacity-10 p-3 rounded-3 border border-danger border-opacity-20">

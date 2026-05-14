@@ -9,15 +9,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import * as pdfjsLib from 'pdfjs-dist';
 import APIKeyVault from '../Settings/APIKeyVault';
+import { extractPDFContext } from '../../utils/pdfUtils';
 
 // Utilities
 import { getAICompletion } from '../../utils/aiService';
 import {
     saveSession, getAllSessions, deleteSessionFromDB,
-    saveMessage, getMessagesBySession, clearAllMessagesInSession,
-    saveFileToDB, getFileFromDB, clearFilesFromDB
+    saveMessage, getMessagesBySession, clearAllMessagesInSession
 } from '../../utils/indexedDB';
 
 // Components
@@ -26,10 +25,6 @@ import SessionSidebar from './components/SessionSidebar';
 import ChatCanvas from './components/ChatCanvas';
 import JCompilerWorkbench from './components/JCompilerWorkbench';
 import DocumentViewer from './components/DocumentViewer';
-
-// PDF Worker setup
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export default function AITutor() {
     const { userProfile: profile } = useAuth();
@@ -46,7 +41,7 @@ export default function AITutor() {
 
     // Resiliency Stats
     const [providerStatus, setProviderStatus] = useState('Puter Cloud');
-    const [activeModel, setActiveModel] = useState('Trinity-Large');
+    const [activeModel, setActiveModel] = useState('Ring 2.6 1T');
     const [latency, setLatency] = useState(0);
     const [rateLimit, setRateLimit] = useState('98/100');
 
@@ -87,6 +82,7 @@ export default function AITutor() {
         { cmd: '/debug', icon: <Code size={14} />, desc: 'Code optimization', prompt: 'Debug and optimize the following logic:\n\n' },
         { cmd: '/doc', icon: <FileText size={14} />, desc: 'Generate Publication', prompt: 'Generate a comprehensive engineering document titled: ' },
     ];
+    const MAX_PDF_CONTEXT_CHARS = 120000;
 
     // --- Hydration ---
     useEffect(() => {
@@ -171,27 +167,24 @@ export default function AITutor() {
     const handleFileChange = (e) => {
         const file = e.target.files[0] || e.dataTransfer?.files[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) return showToast("File exceeds 2MB limit for direct AI injection.", "warning");
+            if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+                return showToast("Attach a PDF or image file for AI context.", "warning");
+            }
+            if (file.type.startsWith('image/') && file.size > 2 * 1024 * 1024) {
+                return showToast("Image exceeds 2MB limit for direct AI vision.", "warning");
+            }
             setSelectedFile(file);
+            setFileReviewOpen(true);
+            if (file.type === 'application/pdf') {
+                setFilePreview(null);
+                return;
+            }
             const reader = new FileReader();
             reader.onloadend = () => {
                 setFilePreview(reader.result);
-                setFileReviewOpen(true);
             };
             reader.readAsDataURL(file);
         }
-    };
-
-    const extractTextFromPDF = async (file) => {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let text = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += content.items.map(item => item.str).join(' ') + '\n';
-        }
-        return text;
     };
 
     // --- AI Interaction ---
@@ -200,6 +193,7 @@ export default function AITutor() {
         setLoading(true); // Set loading IMMEDIATELY to prevent double-sends
 
         let sessionId = activeSessionId; // ← declared OUTSIDE try so catch can access it
+        let activeAssistantMsgId = null;
 
         try {
             
@@ -232,14 +226,38 @@ export default function AITutor() {
             const currentInput = input;
             const currentFile = selectedFile;
             const currentFilePreview = filePreview;
+            let pdfContext = null;
+
+            if (currentFile?.type === 'application/pdf') {
+                if (currentFile.extractedText) {
+                    pdfContext = {
+                        text: currentFile.extractedText,
+                        pageCount: currentFile.pageCount || 0,
+                        ocrPages: currentFile.ocrPages || 0,
+                        selectablePages: currentFile.selectablePages || 0
+                    };
+                } else {
+                    setProcessingStep({ step: 'ocr', message: 'Extracting PDF text and scanned pages...', provider: 'PDF.js OCR' });
+                    pdfContext = await extractPDFContext(currentFile, {
+                        onProgress: (p) => setProcessingStep({ provider: 'PDF.js OCR', ...p })
+                    });
+                }
+            }
 
             const userMsg = {
                 sessionId,
                 role: 'user',
-                content: currentInput,
+                content: currentInput || (currentFile?.type === 'application/pdf' ? 'Analyze the attached PDF.' : ''),
                 fileName: currentFile?.name,
                 fileType: currentFile?.type,
                 filePreview: currentFile?.type.startsWith('image/') ? currentFilePreview : null,
+                extractedText: pdfContext?.text,
+                pdfContextMeta: pdfContext ? {
+                    pageCount: pdfContext.pageCount,
+                    ocrPages: pdfContext.ocrPages,
+                    selectablePages: pdfContext.selectablePages,
+                    storedAs: 'extracted-text'
+                } : null,
                 timestamp: Date.now()
             };
 
@@ -247,6 +265,7 @@ export default function AITutor() {
             setInput('');
             setSelectedFile(null);
             setFilePreview(null);
+            setFileReviewOpen(false);
             setMessages(prev => [...prev, userMsg]);
             
             // Persist the user message
@@ -302,9 +321,14 @@ Only after the user provides the necessary details AND has used a slash command,
 
             // Attach processing context
             if (currentFile?.type === 'application/pdf') {
-                setProcessingStep({ step: 'ocr', message: 'Extracting PDF Context...', provider: 'Puter.js' });
-                const pdfText = await extractTextFromPDF(currentFile);
-                requestMessages.push({ role: 'user', content: `${currentInput}\n\n[PDF Context]: ${pdfText.substring(0, 8000)}` });
+                const pdfText = pdfContext?.text || '';
+                const contextText = pdfText.length > MAX_PDF_CONTEXT_CHARS
+                    ? `${pdfText.slice(0, MAX_PDF_CONTEXT_CHARS)}\n\n[PDF Context Notice]: Full extracted text is stored locally on this message. This request includes the first ${MAX_PDF_CONTEXT_CHARS.toLocaleString()} characters to stay within model context.`
+                    : pdfText;
+                requestMessages.push({
+                    role: 'user',
+                    content: `${currentInput || 'Analyze the attached PDF.'}\n\n[PDF Context: extracted text stored locally, original PDF not persisted]\nPages: ${pdfContext?.pageCount || 'unknown'} | OCR pages: ${pdfContext?.ocrPages || 0}\n\n${contextText}`
+                });
             } else if (currentFile?.type.startsWith('image/')) {
                 if (!currentFilePreview?.startsWith('data:image/')) {
                     throw new Error("Invalid image format. Ensure full data URL scheme.");
@@ -320,11 +344,32 @@ Only after the user provides the necessary details AND has used a slash command,
                 requestMessages.push({ role: 'user', content: currentInput });
             }
 
+            const assistantMsgId = crypto.randomUUID();
+            activeAssistantMsgId = assistantMsgId;
+            const assistantDraft = {
+                id: assistantMsgId,
+                sessionId,
+                role: 'assistant',
+                content: '',
+                streaming: true,
+                timestamp: Date.now()
+            };
+            setMessages(prev => [...prev, assistantDraft]);
+
+            let streamedContent = '';
             const aiResponse = await getAICompletion(requestMessages, {
                 actionType: 'chat',
-                model: 'grok-4.1-non-reasoning',
-                max_tokens: 16000, // Maximum tokens — prevents any response cut-off
+                model: 'inclusionai/ring-2.6-1t:free',
+                max_tokens: 32000,
                 temperature: 0.7,
+                onToken: (token, fullContent) => {
+                    streamedContent = fullContent || `${streamedContent}${token}`;
+                    setMessages(prev => prev.map(msg => (
+                        msg.id === assistantMsgId
+                            ? { ...msg, content: streamedContent, streaming: true }
+                            : msg
+                    )));
+                },
                 onProgress: (p) => {
                     setProcessingStep(p);
                     if (p.provider) setProviderStatus(p.provider);
@@ -333,13 +378,16 @@ Only after the user provides the necessary details AND has used a slash command,
             });
 
             const assistantMsg = {
+                id: assistantMsgId,
                 sessionId,
                 role: 'assistant',
-                content: aiResponse,
-                timestamp: Date.now()
+                content: aiResponse || streamedContent,
+                streaming: false,
+                timestamp: assistantDraft.timestamp
             };
+            const finalAssistantContent = assistantMsg.content;
 
-            setMessages(prev => [...prev, assistantMsg]);
+            setMessages(prev => prev.map(msg => msg.id === assistantMsgId ? assistantMsg : msg));
             await saveMessage(assistantMsg);
 
             // Update Session Metadata (Optimistic)
@@ -348,7 +396,7 @@ Only after the user provides the necessary details AND has used a slash command,
                 title: s.title === 'New Research Log' ? currentInput.substring(0, 30) : s.title,
                 messageCount: (s.messageCount || 0) + 2,
                 hasPDF: s.hasPDF || currentFile?.type === 'application/pdf',
-                hasCode: s.hasCode || aiResponse.includes('```'),
+                hasCode: s.hasCode || finalAssistantContent.includes('```'),
                 hasImage: s.hasImage || currentFile?.type.startsWith('image/')
             } : s));
 
@@ -375,7 +423,7 @@ Only after the user provides the necessary details AND has used a slash command,
                     title: sessionToUpdate.title === 'New Research Log' ? currentInput.substring(0, 30) : sessionToUpdate.title,
                     messageCount: (messages.length + 2), // Initial + User + AI
                     hasPDF: sessionToUpdate.hasPDF || currentFile?.type === 'application/pdf',
-                    hasCode: sessionToUpdate.hasCode || aiResponse.includes('```'),
+                    hasCode: sessionToUpdate.hasCode || finalAssistantContent.includes('```'),
                     hasImage: sessionToUpdate.hasImage || currentFile?.type.startsWith('image/')
                 });
             }
@@ -397,7 +445,10 @@ Only after the user provides the necessary details AND has used a slash command,
                     content: `⚠️ ${e.message || 'Connection interrupted. Please try again.'}`,
                     timestamp: Date.now()
                 };
-                setMessages(prev => [...prev, errorMsg]);
+                setMessages(prev => activeAssistantMsgId
+                    ? prev.map(msg => msg.id === activeAssistantMsgId ? { ...errorMsg, id: activeAssistantMsgId } : msg)
+                    : [...prev, errorMsg]
+                );
                 showToast("AI Service Unavailable. Please try again.", "error");
             }
         } finally {
@@ -413,12 +464,26 @@ Only after the user provides the necessary details AND has used a slash command,
 
         try {
             const { simulateCodeExecution } = await import('../../utils/aiService');
-            const result = await simulateCodeExecution(code, lang);
+            let liveText = '';
+            const result = await simulateCodeExecution(code, lang, [], [], {
+                onToken: (token, fullContent) => {
+                    liveText = fullContent || `${liveText}${token}`;
+                    setSimulationResults(prev => ({
+                        ...prev,
+                        [key]: {
+                            ...(prev[key] || {}),
+                            output: liveText,
+                            status: 'running',
+                            isStreaming: true
+                        }
+                    }));
+                }
+            });
 
             // Store result by unique key, NOT in the messages array
             setSimulationResults(prev => ({
                 ...prev,
-                [key]: result
+                [key]: { ...result, isStreaming: false }
             }));
         } catch (e) {
             showToast("Simulation engine failed.", "error");
@@ -449,7 +514,14 @@ Only after the user provides the necessary details AND has used a slash command,
         setInput(userMsg.content);
         if (userMsg.fileName) {
             setFilePreview(userMsg.filePreview);
-            setSelectedFile({ name: userMsg.fileName, type: userMsg.fileType });
+            setSelectedFile({
+                name: userMsg.fileName,
+                type: userMsg.fileType,
+                extractedText: userMsg.extractedText,
+                pageCount: userMsg.pdfContextMeta?.pageCount,
+                ocrPages: userMsg.pdfContextMeta?.ocrPages,
+                selectablePages: userMsg.pdfContextMeta?.selectablePages
+            });
         }
 
         // Small delay to ensure state propagates before re-triggering send
@@ -598,8 +670,8 @@ Only after the user provides the necessary details AND has used a slash command,
 
             const result = await getAICompletion(requestMessages, {
                 actionType: 'chat',
-                model: 'grok-4.1-non-reasoning',
-                max_tokens: 16000, // Max tokens to avoid truncated document refinements
+                model: 'inclusionai/ring-2.6-1t:free',
+                max_tokens: 32000,
                 temperature: 0.3
             });
             return result;

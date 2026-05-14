@@ -5,6 +5,75 @@ import { getOrderedProviders, getUserKey, getUserModel, getVaultSettings, initVa
 // Only called inside fetchPuter (lazy — on actual AI requests, not module load).
 import { ensurePuterReady } from './puterInit';
 
+const PUTER_CHAT_TUTOR_MODEL = 'inclusionai/ring-2.6-1t:free';
+const PUTER_JCOMPILER_MODEL = 'poolside/laguna-xs.2:free';
+
+const getStreamText = (chunk) => {
+    if (!chunk) return '';
+    if (typeof chunk === 'string') return chunk;
+    if (typeof chunk.text === 'string') return chunk.text;
+    if (typeof chunk.content === 'string') return chunk.content;
+    if (typeof chunk.message?.content === 'string') return chunk.message.content;
+    if (typeof chunk.delta?.content === 'string') return chunk.delta.content;
+    if (typeof chunk.choices?.[0]?.delta?.content === 'string') return chunk.choices[0].delta.content;
+    if (typeof chunk.choices?.[0]?.message?.content === 'string') return chunk.choices[0].message.content;
+    return '';
+};
+
+const readOpenAIStream = async (response, onToken) => {
+    const reader = response.body?.getReader();
+    if (!reader) return { content: '', finishReason: null };
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let content = '';
+    let finishReason = null;
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+            const dataLines = event
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line.startsWith('data:'))
+                .map(line => line.slice(5).trim());
+
+            for (const dataLine of dataLines) {
+                if (!dataLine || dataLine === '[DONE]') continue;
+                try {
+                    const payload = JSON.parse(dataLine);
+                    const choice = payload.choices?.[0];
+                    const token = getStreamText(choice || payload);
+                    if (token) {
+                        content += token;
+                        onToken?.(token, content);
+                    }
+                    if (choice?.finish_reason) finishReason = choice.finish_reason;
+                } catch {
+                    // Ignore malformed keep-alive chunks.
+                }
+            }
+        }
+    }
+
+    return { content, finishReason };
+};
+
+const readCompletionResponse = async (response, onToken) => {
+    if (onToken) return readOpenAIStream(response, onToken);
+    const data = await response.json();
+    const choice = data.choices?.[0];
+    return {
+        content: choice?.message?.content || '',
+        finishReason: choice?.finish_reason || null
+    };
+};
+
 // Initialize vault once (lazy, non-blocking)
 let _vaultReady = false;
 const ensureVault = () => {
@@ -146,17 +215,12 @@ const recordPuterSuccess = () => {
 // Helper: Map abstract/OpenRouter models to valid Groq models
 const getProviderModel = (model, provider) => {
     if (provider === 'puter') {
-        // Map common aliases to official Puter slugs
-        if (model.includes('grok-4.1-non-reasoning')) return "grok-4-1-fast-non-reasoning";
-        if (model.includes('grok-4.1')) return "grok-4-1-fast";
-        if (model.includes('gpt-5-nano')) return "gpt-5-nano";
-        if (model.includes('arcee')) return "arcee-ai/trinity-large-preview:free";
-        return model.replace(/\./g, '-'); // Puter prefers hyphens over dots
+        if (model.includes('poolside/laguna-xs.2')) return PUTER_JCOMPILER_MODEL;
+        return PUTER_CHAT_TUTOR_MODEL;
     }
     if (provider === 'openrouter') {
         // Default to a free model — users with BYOK should not get 402 surprises.
         // They can override via the vault model selector if they want paid models.
-        if (model.includes('grok-4.1-non-reasoning')) return "meta-llama/llama-3.3-70b-instruct:free";
         if (model.includes('grok') && !model.includes('/')) return "meta-llama/llama-3.1-70b-instruct:free";
         if (model.includes('gpt-') && !model.includes('/')) return `openai/${model}`;
         if (model.includes('claude-') && !model.includes('/')) return `anthropic/${model}`;
@@ -189,7 +253,7 @@ const getProviderModel = (model, provider) => {
 
 // 1. Puter.js (Free, Serverless, No Key)
 const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
-    const { model = "arcee-ai/trinity-large-preview:free", jsonMode = false, ...params } = modelOptions;
+    const { model = PUTER_CHAT_TUTOR_MODEL, jsonMode = false, actionType = 'chat', onToken, ...params } = modelOptions;
 
     // Wait for Puter CDN global to be ready. ensurePuterReady() is a shared,
     // idempotent promise — concurrent calls reuse the same poll loop.
@@ -202,7 +266,9 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
     if (!window.puter) throw new Error("Puter.js not ready.");
 
 
-    const targetModel = getUserModel('puter') || getProviderModel(model, 'puter');
+    const requestedModel = getProviderModel(model, 'puter');
+    const shouldForceSectionModel = actionType === 'chat' || actionType === 'compiler';
+    const targetModel = shouldForceSectionModel ? requestedModel : (getUserModel('puter') || requestedModel);
 
     const puterMessages = [...messages];
     if (jsonMode) {
@@ -214,16 +280,28 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
             // Enhanced: Add timeout to prevent forever-hangs on bad WebSocket connections
             const puterPromise = window.puter.ai.chat(puterMessages, {
                 model: targetModel,
-                stream: false,
+                stream: Boolean(onToken),
                 ...params
             });
 
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("Puter Timeout")), 45000) // 45s — enough for long AI responses
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Puter Timeout")), onToken ? 120000 : 90000)
             );
 
 
             const response = await Promise.race([puterPromise, timeoutPromise]);
+
+            if (onToken && response?.[Symbol.asyncIterator]) {
+                let streamedContent = '';
+                for await (const chunk of response) {
+                    const token = getStreamText(chunk);
+                    if (!token) continue;
+                    streamedContent += token;
+                    onToken(token, streamedContent);
+                }
+                recordPuterSuccess();
+                return streamedContent;
+            }
 
             if (response?.message?.content) {
                 let content = response.message.content;
@@ -263,8 +341,44 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
 
 // Client-Side Fallback (Direct to API)
 const fetchClientSideFallback = async (messages, modelOptions) => {
-    const { model = "grok-4.1-non-reasoning", jsonMode, ...params } = modelOptions;
+    const { model = PUTER_CHAT_TUTOR_MODEL, jsonMode, onToken, actionType: _actionType, ...params } = modelOptions;
     let rateLimited = false; // track if 429 was the failure reason
+
+    const readWithContinuation = async (post, provider, servedModel) => {
+        let fullContent = '';
+        const emit = onToken
+            ? (token) => {
+                fullContent += token;
+                onToken(token, fullContent);
+            }
+            : null;
+
+        const consume = async (useMessages) => {
+            const response = await post(useMessages);
+            if (!response.ok) return { response };
+            const result = await readCompletionResponse(response, emit);
+            if (!onToken) fullContent += result.content;
+            return { response, result };
+        };
+
+        let { response, result } = await consume(messages);
+        if (!response.ok) return { ok: false, response };
+
+        let continuationCount = 0;
+        while (!jsonMode && result?.finishReason === 'length' && continuationCount < 2) {
+            continuationCount += 1;
+            console.info(`[${provider}] Response hit token limit on "${servedModel}" — continuing (${continuationCount}/2).`);
+            const continuationMessages = [
+                ...messages,
+                { role: 'assistant', content: fullContent },
+                { role: 'user', content: 'Continue exactly where you stopped. Do not restart, summarize, or repeat earlier text.' }
+            ];
+            ({ response, result } = await consume(continuationMessages));
+            if (!response.ok) break;
+        }
+
+        return { ok: true, content: fullContent, provider, model: servedModel };
+    };
 
     // ── Fallback 1: OpenRouter — with free-model rotation on 429 ─────────────
     // Each free model has its own rate-limit pool. On 429, we rotate through
@@ -283,7 +397,7 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
                 'qwen/qwen3-8b:free',
             ];
 
-            const orPost = (useModel) => fetch("https://openrouter.ai/api/v1/chat/completions", {
+            const orPost = (useModel, useMessages = messages) => fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${apiKey}`,
@@ -293,40 +407,39 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
                 },
                 body: JSON.stringify({
                     model: useModel,
-                    messages,
+                    messages: useMessages,
                     max_tokens: params.max_tokens || 8192,
+                    stream: Boolean(onToken),
                     response_format: jsonMode ? { type: "json_object" } : undefined,
                     ...params
                 })
             });
 
-            const first = await orPost(preferredModel);
+            const first = await readWithContinuation((useMessages) => orPost(preferredModel, useMessages), 'OpenRouter', preferredModel);
 
             if (first.ok) {
-                const data = await first.json();
-                return { content: data.choices?.[0]?.message?.content || "", provider: "OpenRouter" };
+                return first;
             }
 
             // 402 = paid model needs credits, 429 = rate limited → both trigger model rotation
-            if (first.status === 402 || first.status === 429) {
-                console.info(`[OpenRouter] ${first.status} on "${preferredModel}" — rotating free models.`);
+            if (first.response.status === 402 || first.response.status === 429) {
+                console.info(`[OpenRouter] ${first.response.status} on "${preferredModel}" — rotating free models.`);
                 for (const freeModel of FREE_MODEL_ROTATION) {
                     if (freeModel === preferredModel) continue;
                     try {
-                        const retry = await orPost(freeModel);
+                        const retry = await readWithContinuation((useMessages) => orPost(freeModel, useMessages), 'OpenRouter', freeModel);
                         if (retry.ok) {
-                            const rData = await retry.json();
                             console.info(`[OpenRouter] Served by: ${freeModel}`);
-                            return { content: rData.choices?.[0]?.message?.content || "", provider: "OpenRouter" };
+                            return retry;
                         }
-                        if (retry.status !== 429 && retry.status !== 402) break; // hard error, stop
-                        console.info(`[OpenRouter] ${freeModel} also limited (${retry.status}), trying next.`);
+                        if (retry.response.status !== 429 && retry.response.status !== 402) break; // hard error, stop
+                        console.info(`[OpenRouter] ${freeModel} also limited (${retry.response.status}), trying next.`);
                     } catch { /* network error on this model, try next */ }
                 }
                 rateLimited = true;
                 console.info("[OpenRouter] All free models exhausted — falling through to Groq.");
             } else {
-                console.info(`[OpenRouter] HTTP ${first.status} — falling through.`);
+                console.info(`[OpenRouter] HTTP ${first.response.status} — falling through.`);
             }
         }
     } catch (e) { console.info("[OpenRouter] Skipped:", e.message); }
@@ -334,31 +447,28 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
 
     // ── Fallback 2: Groq (user's key only, if enabled) ────────────────────────
     try {
-        const groqKey = sanitizeKey(getUserKey('groq'));
-        if (groqKey && isProviderEnabled('groq')) {
-            const groqModel = getUserModel('groq') || getProviderModel(model, 'groq');
-            const groqMaxTokens = Math.min(params.max_tokens || 8192, 8192);
-            const gResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: groqModel,
-                    messages,
-                    response_format: jsonMode ? { type: "json_object" } : undefined,
-                    ...params,
-                    max_tokens: groqMaxTokens
-                })
-            });
-            if (gResponse.ok) {
-                const gData = await gResponse.json();
-                const gChoice = gData.choices?.[0];
-                if (gChoice?.finish_reason === 'length') {
-                    console.warn(`[Groq] Truncated. Model: ${groqModel}, max_tokens: ${groqMaxTokens}`);
+            const groqKey = sanitizeKey(getUserKey('groq'));
+            if (groqKey && isProviderEnabled('groq')) {
+                const groqModel = getUserModel('groq') || getProviderModel(model, 'groq');
+                const groqMaxTokens = Math.min(params.max_tokens || 8192, 8192);
+                const groqPost = (useMessages = messages) => fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: groqModel,
+                        messages: useMessages,
+                        response_format: jsonMode ? { type: "json_object" } : undefined,
+                        stream: Boolean(onToken),
+                        ...params,
+                        max_tokens: groqMaxTokens
+                    })
+                });
+                const gResult = await readWithContinuation(groqPost, 'Groq', groqModel);
+                if (gResult.ok) {
+                    return gResult;
                 }
-                return { content: gChoice?.message?.content || '', provider: 'Groq' };
+                if (gResult.response.status === 429) rateLimited = true;
             }
-            if (gResponse.status === 429) rateLimited = true;
-        }
     } catch (e) { console.warn("[Groq] Request failed:", e.message); }
 
     // ── Fallback 3: Google Gemini (user's key only, if enabled) ────────────────
@@ -377,13 +487,13 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
                     model: geminiModel,
                     messages,
                     max_tokens: Math.min(params.max_tokens || 8192, 8192),
+                    stream: Boolean(onToken),
                 })
             });
             if (gResp.ok) {
-                const gData = await gResp.json();
-                const gChoice = gData.choices?.[0];
+                const result = await readCompletionResponse(gResp, onToken);
                 console.info(`[Gemini] Served by: ${geminiModel}`);
-                return { content: gChoice?.message?.content || '', provider: 'Gemini' };
+                return { content: result.content || '', provider: 'Gemini', model: geminiModel };
             }
             if (gResp.status === 429) rateLimited = true;
             else console.info(`[Gemini] HTTP ${gResp.status} — falling through.`);
@@ -400,10 +510,11 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
 
 const fetchBackendFallback = async (messages, modelOptions) => {
     try {
+        if (modelOptions.onToken) return await fetchClientSideFallback(messages, modelOptions);
         const response = await fetch('/api/ai-completion', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(modelOptions)
+            body: JSON.stringify({ messages, ...modelOptions })
         });
         if (!response.ok) {
             if (import.meta.env.DEV || response.status === 500) return await fetchClientSideFallback(messages, modelOptions);
@@ -419,8 +530,8 @@ const fetchBackendFallback = async (messages, modelOptions) => {
 
 // Per-action token budget — ensures responses are NEVER cut off mid-sentence
 const ACTION_TOKEN_BUDGETS = {
-    chat:       16000,  // Long explanations, code blocks, doc generation
-    compiler:    4096,  // Structured JSON output, keep tight
+    chat:       32000,  // Long explanations, code blocks, doc generation
+    compiler:    8192,  // Structured JSON output, keep tight
     roadmap:     8192,  // JSON with nodes/edges, moderate size
     report:     12000,  // Report sections can be lengthy
     ppt:         8192,  // Presentation slides
@@ -435,7 +546,7 @@ export const getAICompletion = async (messages, options = {}) => {
         provider = "auto",
         onFallback = () => { },
         onProgress = () => { }, // New: Support UI progress updates
-        model = "grok-4.1-non-reasoning",
+        model = PUTER_CHAT_TUTOR_MODEL,
         includeMetadata = false,
         ...restOptions
     } = options;
@@ -446,6 +557,7 @@ export const getAICompletion = async (messages, options = {}) => {
     const defaultTokens = ACTION_TOKEN_BUDGETS[actionType] ?? ACTION_TOKEN_BUDGETS.default;
     const modelOptions = {
         model,
+        actionType,
         max_tokens: defaultTokens,  // Global default — overridden if caller explicitly sets it
         ...restOptions              // Caller's options (including max_tokens) take precedence
     };
@@ -512,7 +624,7 @@ export const getAICompletion = async (messages, options = {}) => {
 };
 
 
-export const simulateCodeExecution = async (code, language = "auto", inputs = [], history = []) => {
+export const simulateCodeExecution = async (code, language = "auto", inputs = [], history = [], options = {}) => {
     const systemPrompt = `<personality>Elite Syntax Auditor & Runtime Simulator.</personality>
     <rules>
     1. SYNTAX AUDIT: Before simulating, perform a BRUTAL syntax check. Look for:
@@ -545,11 +657,12 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
     try {
         const resultWithMeta = await getAICompletion(messages, {
             jsonMode: true,
-            model: 'grok-4.1-non-reasoning',
+            model: PUTER_JCOMPILER_MODEL,
             temperature: 0.1,
-            max_tokens: 2048,
+            max_tokens: 8192,
             actionType: 'compiler',
-            includeMetadata: true
+            includeMetadata: true,
+            onToken: options.onToken
         });
         const parsed = cleanAndParseJSON(resultWithMeta.content);
         return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };
@@ -559,7 +672,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
 };
 
 // J-Compiler: Reverse Engineering (Output -> Code)
-export const reverseEngineerCode = async (expectedOutput, language = "javascript") => {
+export const reverseEngineerCode = async (expectedOutput, language = "javascript", options = {}) => {
     const systemPrompt = `<personality>Reverse Engineering Engine.</personality>
     <rules>
     1. INPUT ANALYSIS: Analyze the provided terminal output or error text.
@@ -575,11 +688,12 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
     try {
         const resultWithMeta = await getAICompletion(messages, {
             jsonMode: true,
-            model: 'grok-4.1-non-reasoning',
+            model: PUTER_JCOMPILER_MODEL,
             temperature: 0.1,
-            max_tokens: 1500,
+            max_tokens: 4096,
             actionType: 'compiler',
-            includeMetadata: true
+            includeMetadata: true,
+            onToken: options.onToken
         });
         const parsed = cleanAndParseJSON(resultWithMeta.content);
         return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };

@@ -122,7 +122,7 @@ You will receive raw text, PDFs, or notes. You must ignore any noise/irrelevant 
             Generate the handbook now following the strict structure.`,
             {
                 system: systemPrompt,
-                model: 'gpt-4o-mini' // More reliable availability on Puter free tier
+                model: 'inclusionai/ring-2.6-1t:free'
             }
         );
 

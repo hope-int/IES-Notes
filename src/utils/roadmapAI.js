@@ -85,7 +85,7 @@ Break the learning path into 3 to 5 actionable, bite-sized steps.
         [{ role: 'user', content: prompt }],
         {
           jsonMode: true,
-          model: 'arcee-ai/trinity-large-preview:free',
+          model: 'inclusionai/ring-2.6-1t:free',
           actionType: 'roadmap',
           includeMetadata: true,
           onProgress: (p) => onProgress({ ...p, message: `${p.message} (${i + 1}/3)` })

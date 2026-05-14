@@ -148,7 +148,11 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                             </div>
                                                             <div className="flex-grow-1 overflow-hidden">
                                                                 <div className="fw-bold small text-truncate text-white">{msg.fileName}</div>
-                                                                <div className="x-small text-white opacity-50 uppercase fw-bold" style={{ fontSize: '9px' }}>Engineering Context</div>
+                                                                <div className="x-small text-white opacity-50 uppercase fw-bold" style={{ fontSize: '9px' }}>
+                                                                    {msg.pdfContextMeta
+                                                                        ? `${msg.pdfContextMeta.pageCount || 0} pages extracted${msg.pdfContextMeta.ocrPages ? ` • ${msg.pdfContextMeta.ocrPages} OCR` : ''}`
+                                                                        : 'Engineering Context'}
+                                                                </div>
                                                             </div>
                                                         </motion.div>
                                                     )}
@@ -195,6 +199,10 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                     >
                                                         {displayContent}
                                                     </ReactMarkdown>
+
+                                                    {msg.streaming && (
+                                                        <span className="inline-block align-middle ms-1 bg-primary rounded-sm animate-pulse" style={{ width: 7, height: 16 }} />
+                                                    )}
 
                                                     {hasAttachment && (
                                                         <div className="my-4 p-4 border rounded-4 d-flex align-items-center justify-content-between shadow-sm bg-light bg-opacity-50">
@@ -249,7 +257,7 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                     )}
 
                     {/* Minimal Loading Indicator */}
-                    {loading && (
+                    {loading && !messages.some(msg => msg.streaming) && (
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}

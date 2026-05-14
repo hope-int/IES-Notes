@@ -25,7 +25,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free', actionType: 'assignment' }
+        { jsonMode: true, model: 'inclusionai/ring-2.6-1t:free', actionType: 'assignment' }
     );
 
     try {
@@ -64,7 +64,7 @@ OUTPUT: Return ONLY the raw markdown/text solution for this step.
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'arcee-ai/trinity-large-preview:free', actionType: 'assignment' }
+        { model: 'inclusionai/ring-2.6-1t:free', actionType: 'assignment' }
     );
 
     return content.trim();
@@ -99,7 +99,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free', actionType: 'assignment' }
+        { jsonMode: true, model: 'inclusionai/ring-2.6-1t:free', actionType: 'assignment' }
     );
 
     try {
@@ -134,7 +134,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'arcee-ai/trinity-large-preview:free', actionType: 'assignment' }
+        { jsonMode: true, model: 'inclusionai/ring-2.6-1t:free', actionType: 'assignment' }
     );
 
     try {

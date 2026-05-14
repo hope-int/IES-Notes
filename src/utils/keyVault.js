@@ -81,9 +81,8 @@ const getSecret = (ownerId) => {
 export const PROVIDER_MODELS = {
     puter: [
         { value: null,                                  label: 'App Default',           badge: 'default' },
-        { value: 'arcee-ai/trinity-large-preview:free', label: 'Arcee Trinity',         badge: 'free' },
-        { value: 'grok-4-1-fast',                       label: 'Grok 4.1 Fast',         badge: 'free' },
-        { value: 'gpt-5-nano',                          label: 'GPT-5 Nano',            badge: 'free' },
+        { value: 'inclusionai/ring-2.6-1t:free',        label: 'Ring 2.6 1T',           badge: 'free' },
+        { value: 'poolside/laguna-xs.2:free',           label: 'Laguna XS.2',           badge: 'free' },
     ],
     openrouter: [
         { value: null,                                        label: 'App Default',              badge: 'default' },

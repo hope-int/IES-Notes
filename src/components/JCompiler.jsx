@@ -50,8 +50,19 @@ export default function JCompiler() {
 
     const runSimulation = async () => {
         try {
+            let liveText = '';
+            const handleLiveToken = (token, fullContent) => {
+                liveText = fullContent || `${liveText}${token}`;
+                setOutput(prev => ({
+                    ...prev,
+                    text: liveText,
+                    status: 'running',
+                    isStreaming: true
+                }));
+            };
+
             if (mode === 'compiler') {
-                const result = await simulateCodeExecution(input, language, [], history);
+                const result = await simulateCodeExecution(input, language, [], history, { onToken: handleLiveToken });
 
                 // Add to history (limit to last 5 interactions to keep context manageable)
                 setHistory(prev => [...prev.slice(-9), { code: input, result }]);
@@ -65,16 +76,18 @@ export default function JCompiler() {
                     detectedLanguage: result.language,
                     isEmbedded: result.isEmbedded,
                     serialMonitor: result.serialMonitor,
-                    _metadata: result._metadata
+                    _metadata: result._metadata,
+                    isStreaming: false
                 });
             } else {
                 // Reverse Engineer Mode (Static)
-                const result = await reverseEngineerCode(input, language);
+                const result = await reverseEngineerCode(input, language, { onToken: handleLiveToken });
                 setOutput({
-                    text: result.content,
+                    text: result.code || result.content || '',
                     status: 'success',
-                    explanation: result.explanation,
-                    _metadata: result._metadata
+                    explanation: result.explanation || result.reasoning,
+                    _metadata: result._metadata,
+                    isStreaming: false
                 });
             }
         } catch (error) {
@@ -299,6 +312,11 @@ export default function JCompiler() {
                                         className="h-100 d-flex flex-column"
                                     >
                                         {/* Status Badge - Error Only */}
+                                        {output.isStreaming && (
+                                            <div className="badge mb-2 px-3 py-2 rounded-pill align-self-start bg-info bg-opacity-25 text-info border border-info border-opacity-25 shadow-sm">
+                                                Live generation...
+                                            </div>
+                                        )}
                                         {mode === 'compiler' && !output.isEmbedded && output.status === 'error' && (
                                             <div className="badge mb-2 px-3 py-2 rounded-pill align-self-start bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 shadow-sm">
                                                 Compilation Failed
