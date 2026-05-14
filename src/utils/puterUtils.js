@@ -1,8 +1,6 @@
-export const generatePodcastScript = async (text) => {
-    if (!window.puter) {
-        throw new Error('Puter.js is not initialized');
-    }
+import { getAICompletion } from './aiService';
 
+export const generatePodcastScript = async (text) => {
     const systemPrompt = `
 You are the host of an exclusive, high-energy engineering podcast designed specifically for B.Tech students. Your job is to take raw, messy PDF text extracted from university notes and transform it into a highly engaging, easy-to-listen-to audio script.
 
@@ -34,8 +32,15 @@ ${text.slice(0, 15000)} // Limit context window if necessary
 `;
 
     try {
-        const response = await window.puter.ai.chat(systemPrompt);
-        let content = typeof response === 'string' ? response : response.message.content;
+        let content = await getAICompletion(
+            [{ role: 'user', content: systemPrompt }],
+            {
+                actionType: 'chat',
+                model: 'inclusionai/ring-2.6-1t:free',
+                max_tokens: 12000,
+                temperature: 0.7
+            }
+        );
 
         // Cleanup AI artifacts
         content = content.replace(/```[\s\S]*?```/g, (match) => {

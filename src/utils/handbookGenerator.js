@@ -1,3 +1,5 @@
+import { getAICompletion } from './aiService';
+
 // Obfuscated key to prevent easy tampering
 const STORAGE_KEY_OBF = '_sys_sess_alloc_id';
 const LIMIT = 5;
@@ -7,13 +9,13 @@ const WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours
 const encode = (data) => {
     try {
         return btoa(JSON.stringify(data));
-    } catch (e) { return ''; }
+    } catch { return ''; }
 };
 
 const decode = (str) => {
     try {
         return JSON.parse(atob(str));
-    } catch (e) { return null; }
+    } catch { return null; }
 };
 
 /**
@@ -70,10 +72,6 @@ export const generateHandbook = async (text) => {
         // 1. Check Rate Limit BEFORE starting
         checkRateLimit();
 
-        if (!window.puter) {
-            throw new Error("Puter.js is not initialized");
-        }
-
         const systemPrompt = `### ROLE & OBJECTIVE
 You are the "Exam Survival Kit" Generator, an expert academic synthesizer designed to convert raw student notes into a high-density, print-optimized study handbook.
 
@@ -112,24 +110,32 @@ You will receive raw text, PDFs, or notes. You must ignore any noise/irrelevant 
 ## Module 2: Advanced Logic
 ...`;
 
-        const response = await window.puter.ai.chat(
-            `Here is the raw text from a student's notes/textbook:
+        const content = await getAICompletion(
+            [
+                { role: 'system', content: systemPrompt },
+                {
+                    role: 'user',
+                    content: `Here is the raw text from a student's notes/textbook:
             
             ${text.slice(0, 50000)} 
             
             (Note: Text truncated to first 50k chars if too long to fit context window).
             
-            Generate the handbook now following the strict structure.`,
+            Generate the handbook now following the strict structure.`
+                }
+            ],
             {
-                system: systemPrompt,
-                model: 'inclusionai/ring-2.6-1t:free'
+                actionType: 'chat',
+                model: 'inclusionai/ring-2.6-1t:free',
+                max_tokens: 32000,
+                temperature: 0.4
             }
         );
 
         // 2. Record success
         recordGeneration();
 
-        return response.message.content;
+        return content;
 
     } catch (error) {
         console.error("AI Handbook Generation Failed:", error);

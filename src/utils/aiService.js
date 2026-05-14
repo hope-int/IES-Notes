@@ -1,12 +1,20 @@
 import { supabase } from './../supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
-import { getOrderedProviders, getUserKey, getUserModel, getVaultSettings, initVault, sanitizeKey, isProviderEnabled } from './keyVault';
+import { getOrderedProviders, getUserKey, getUserModel, initVault, sanitizeKey, isProviderEnabled } from './keyVault';
 // ensurePuterReady: waits for window.puter CDN global — no SDK mutations.
 // Only called inside fetchPuter (lazy — on actual AI requests, not module load).
 import { ensurePuterReady } from './puterInit';
 
 const PUTER_CHAT_TUTOR_MODEL = 'inclusionai/ring-2.6-1t:free';
 const PUTER_JCOMPILER_MODEL = 'poolside/laguna-xs.2:free';
+const PUTER_MODEL_LABELS = {
+    [PUTER_CHAT_TUTOR_MODEL]: 'Ring 2.6 1T',
+    [PUTER_JCOMPILER_MODEL]: 'Laguna XS.2'
+};
+const PUTER_MODEL_OUTPUT_LIMITS = {
+    [PUTER_CHAT_TUTOR_MODEL]: 66000,
+    [PUTER_JCOMPILER_MODEL]: 8192
+};
 
 const getStreamText = (chunk) => {
     if (!chunk) return '';
@@ -128,7 +136,7 @@ const fallbackLocalRateLimit = (actionType, limits) => {
     try {
         const stored = localStorage.getItem(key);
         if (stored) history = JSON.parse(stored);
-    } catch (e) { history = []; }
+    } catch { history = []; }
 
     history = history.filter(t => now - t < limits.windowMs);
     if (history.length >= limits.count) {
@@ -182,49 +190,127 @@ export const checkRateLimit = async (actionType) => {
 
 // ----------------------------
 
-// Circuit Breaker State (Persistent)
-let puterFailures = Number(localStorage.getItem('puter_failures')) || 0;
-let puterDisabledUntil = Number(localStorage.getItem('puter_disabled_until')) || 0;
-const PUTER_FAILURE_THRESHOLD = 3; // Lower threshold (faster skip)
-const PUTER_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour cooldown if persistent failure
+// Circuit breaker state is tracked per model. A Laguna outage should not
+// suppress Ring, and a Ring timeout should immediately try Laguna.
+const PUTER_HEALTH_KEY = 'puter_model_health_v2';
+const PUTER_FAILURE_THRESHOLD = 2;
+const PUTER_TRANSIENT_COOLDOWN_MS = 2 * 60 * 1000;
+const PUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
+const PUTER_AUTH_COOLDOWN_MS = 60 * 60 * 1000;
 
-const isPuterHealthy = () => {
-    if (Date.now() < puterDisabledUntil) return false;
-    return true;
-};
-
-const recordPuterFailure = (isConnectionError = false) => {
-    puterFailures++;
-    localStorage.setItem('puter_failures', puterFailures);
-    
-    // If it's a confirmed socket/connection error, disable for longer immediately
-    if (isConnectionError || puterFailures >= PUTER_FAILURE_THRESHOLD) {
-        puterDisabledUntil = Date.now() + PUTER_COOLDOWN_MS;
-        localStorage.setItem('puter_disabled_until', puterDisabledUntil);
-        console.warn(`Puter.js Circuit Breaker Tripped. Disabled for ${PUTER_COOLDOWN_MS / 60000}m.`);
+const readPuterHealth = () => {
+    try {
+        return JSON.parse(localStorage.getItem(PUTER_HEALTH_KEY) || '{}') || {};
+    } catch {
+        return {};
     }
 };
 
-const recordPuterSuccess = () => {
-    puterFailures = 0;
-    puterDisabledUntil = 0;
+const writePuterHealth = (health) => {
+    try {
+        localStorage.setItem(PUTER_HEALTH_KEY, JSON.stringify(health));
+    } catch {
+        // localStorage can be unavailable in strict privacy modes.
+    }
+};
+
+const isPuterModelHealthy = (model) => {
+    const health = readPuterHealth()[model];
+    return !health?.disabledUntil || Date.now() >= health.disabledUntil;
+};
+
+const isPuterHealthy = () =>
+    [PUTER_CHAT_TUTOR_MODEL, PUTER_JCOMPILER_MODEL].some(isPuterModelHealthy);
+
+const recordPuterFailure = (model, reason = 'transient') => {
+    const health = readPuterHealth();
+    const entry = health[model] || { failures: 0, disabledUntil: 0 };
+    entry.failures += 1;
+    entry.lastFailureAt = Date.now();
+    entry.lastReason = reason;
+
+    if (reason === 'auth') {
+        entry.disabledUntil = Date.now() + PUTER_AUTH_COOLDOWN_MS;
+    } else if (reason === 'rate-limit') {
+        entry.disabledUntil = Date.now() + PUTER_RATE_LIMIT_COOLDOWN_MS;
+    } else if (reason === 'transport' || reason === 'timeout' || entry.failures >= PUTER_FAILURE_THRESHOLD) {
+        entry.disabledUntil = Date.now() + PUTER_TRANSIENT_COOLDOWN_MS;
+    }
+
+    health[model] = entry;
+    writePuterHealth(health);
+
+    if (entry.disabledUntil > Date.now()) {
+        const cooldownSeconds = Math.ceil((entry.disabledUntil - Date.now()) / 1000);
+        console.warn(`[Puter] ${PUTER_MODEL_LABELS[model] || model} cooling down for ${cooldownSeconds}s after ${reason}.`);
+    }
+};
+
+const recordPuterSuccess = (model) => {
+    const health = readPuterHealth();
+    if (health[model]) {
+        delete health[model];
+        writePuterHealth(health);
+    }
+    // Remove legacy global breaker keys so older one-hour outages do not keep
+    // the upgraded per-model workflow disabled.
     localStorage.removeItem('puter_failures');
     localStorage.removeItem('puter_disabled_until');
 };
 
+const getPuterModelChain = (preferredModel, actionType) => {
+    const actionFallback = actionType === 'compiler' ? PUTER_CHAT_TUTOR_MODEL : PUTER_JCOMPILER_MODEL;
+    const ordered = [preferredModel, actionFallback, PUTER_CHAT_TUTOR_MODEL, PUTER_JCOMPILER_MODEL]
+        .filter(Boolean)
+        .filter((model, index, list) => list.indexOf(model) === index);
+
+    const healthy = ordered.filter(isPuterModelHealthy);
+    return healthy.length ? healthy : ordered;
+};
+
+const classifyPuterError = (err) => {
+    const message = (err?.message || err?.toString() || '').toLowerCase();
+    const status = err?.status || err?.code;
+
+    if (status === 401 || message.includes('401') || message.includes('unauthorized')) return 'auth';
+    if (status === 429 || message.includes('429') || message.includes('rate limit') || message.includes('quota')) return 'rate-limit';
+    if (message.includes('timeout')) return 'timeout';
+    if (
+        message.includes('websocket') ||
+        message.includes('failed to fetch') ||
+        message.includes('networkerror') ||
+        message.includes('socket') ||
+        message.includes('connection established') ||
+        message.includes('unknown_url_scheme') ||
+        message.includes('unknown url') ||
+        message.includes('closed before the connection')
+    ) return 'transport';
+    if (
+        status === 404 ||
+        message.includes('not found') ||
+        message.includes('unavailable') ||
+        message.includes('overloaded') ||
+        message.includes('model')
+    ) return 'model';
+
+    return 'unknown';
+};
+
 // Helper: Map abstract/OpenRouter models to valid Groq models
 const getProviderModel = (model, provider) => {
+    const modelId = model || PUTER_CHAT_TUTOR_MODEL;
     if (provider === 'puter') {
-        if (model.includes('poolside/laguna-xs.2')) return PUTER_JCOMPILER_MODEL;
+        if (modelId.includes('poolside/laguna-xs.2')) return PUTER_JCOMPILER_MODEL;
         return PUTER_CHAT_TUTOR_MODEL;
     }
     if (provider === 'openrouter') {
         // Default to a free model — users with BYOK should not get 402 surprises.
         // They can override via the vault model selector if they want paid models.
-        if (model.includes('grok') && !model.includes('/')) return "meta-llama/llama-3.1-70b-instruct:free";
-        if (model.includes('gpt-') && !model.includes('/')) return `openai/${model}`;
-        if (model.includes('claude-') && !model.includes('/')) return `anthropic/${model}`;
-        return model;
+        if (modelId.includes('inclusionai/') || modelId.includes('poolside/')) return "meta-llama/llama-3.3-70b-instruct:free";
+        if (modelId.includes('grok') && !modelId.includes('/')) return "meta-llama/llama-3.1-70b-instruct:free";
+        if (modelId.includes('gpt-') && !modelId.includes('/')) return `openai/${modelId}`;
+        if (modelId.includes('claude-') && !modelId.includes('/')) return `anthropic/${modelId}`;
+        return modelId;
     }
     if (provider === 'groq') {
         const validGroqModels = [
@@ -238,17 +324,17 @@ const getProviderModel = (model, provider) => {
             "llama-3.2-11b-vision-preview",
             "llama-3.2-90b-vision-preview"
         ];
-        if (validGroqModels.includes(model)) return model;
-        if (model.includes('grok') || model.includes('gpt-4') || model.includes('claude-3-5')) return "llama-3.3-70b-versatile";
-        if (model.includes('vision') || model.includes('vl') || model.includes('gpt-4o')) return "llama-3.2-11b-vision-preview";
+        if (validGroqModels.includes(modelId)) return modelId;
+        if (modelId.includes('grok') || modelId.includes('gpt-4') || modelId.includes('claude-3-5')) return "llama-3.3-70b-versatile";
+        if (modelId.includes('vision') || modelId.includes('vl') || modelId.includes('gpt-4o')) return "llama-3.2-11b-vision-preview";
         return "llama-3.1-8b-instant";
     }
     if (provider === 'gemini') {
         // Default to Gemini 2.0 Flash — fastest, generous free quota
-        if (model.includes('gemini')) return model; // pass through if already a gemini model
+        if (modelId.includes('gemini')) return modelId; // pass through if already a gemini model
         return 'gemini-2.0-flash';
     }
-    return model;
+    return modelId;
 };
 
 // 1. Puter.js (Free, Serverless, No Key)
@@ -268,74 +354,80 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
 
     const requestedModel = getProviderModel(model, 'puter');
     const shouldForceSectionModel = actionType === 'chat' || actionType === 'compiler';
-    const targetModel = shouldForceSectionModel ? requestedModel : (getUserModel('puter') || requestedModel);
+    const preferredModel = shouldForceSectionModel ? requestedModel : (getUserModel('puter') || requestedModel);
+    const modelChain = getPuterModelChain(preferredModel, actionType);
 
     const puterMessages = [...messages];
     if (jsonMode) {
         puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format." });
     }
 
-    for (let i = 0; i < retries; i++) {
-        try {
-            // Enhanced: Add timeout to prevent forever-hangs on bad WebSocket connections
-            const puterPromise = window.puter.ai.chat(puterMessages, {
-                model: targetModel,
-                stream: Boolean(onToken),
-                ...params
-            });
+    let lastError = null;
 
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Puter Timeout")), onToken ? 120000 : 90000)
-            );
+    for (const candidateModel of modelChain) {
+        const modelMaxTokens = PUTER_MODEL_OUTPUT_LIMITS[candidateModel] || 8192;
+        const requestedMaxTokens = Number(params.max_tokens) || modelMaxTokens;
+        const safeParams = {
+            ...params,
+            max_tokens: Math.min(requestedMaxTokens, modelMaxTokens)
+        };
 
+        for (let i = 0; i < retries; i++) {
+            try {
+                console.info(`[Puter] Trying ${PUTER_MODEL_LABELS[candidateModel] || candidateModel} (${i + 1}/${retries}).`);
 
-            const response = await Promise.race([puterPromise, timeoutPromise]);
+                const puterPromise = window.puter.ai.chat(puterMessages, {
+                    model: candidateModel,
+                    stream: Boolean(onToken),
+                    ...safeParams
+                });
 
-            if (onToken && response?.[Symbol.asyncIterator]) {
-                let streamedContent = '';
-                for await (const chunk of response) {
-                    const token = getStreamText(chunk);
-                    if (!token) continue;
-                    streamedContent += token;
-                    onToken(token, streamedContent);
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error("Puter Timeout")), onToken ? 120000 : 90000)
+                );
+
+                const response = await Promise.race([puterPromise, timeoutPromise]);
+
+                if (onToken && response?.[Symbol.asyncIterator]) {
+                    let streamedContent = '';
+                    for await (const chunk of response) {
+                        const token = getStreamText(chunk);
+                        if (!token) continue;
+                        streamedContent += token;
+                        onToken(token, streamedContent);
+                    }
+                    recordPuterSuccess(candidateModel);
+                    return { content: streamedContent, model: candidateModel };
                 }
-                recordPuterSuccess();
-                return streamedContent;
+
+                if (response?.message?.content) {
+                    const content = response.message.content;
+                    recordPuterSuccess(candidateModel);
+                    return {
+                        content: Array.isArray(content)
+                            ? content.map(p => p.text || JSON.stringify(p)).join('')
+                            : (typeof content === 'string' ? content : JSON.stringify(content)),
+                        model: candidateModel
+                    };
+                }
+
+                recordPuterSuccess(candidateModel);
+                return { content: response?.toString() || '', model: candidateModel };
+            } catch (err) {
+                lastError = err;
+                const reason = classifyPuterError(err);
+                const errorMsg = err?.message || err?.toString() || "";
+                recordPuterFailure(candidateModel, reason);
+                console.warn(`[Puter] ${PUTER_MODEL_LABELS[candidateModel] || candidateModel} attempt ${i + 1} failed (${reason}):`, errorMsg);
+
+                const canRetrySameModel = reason === 'transport' || reason === 'timeout' || reason === 'unknown';
+                if (!canRetrySameModel || i === retries - 1) break;
+                await new Promise(resolve => setTimeout(resolve, 600 * (i + 1)));
             }
-
-            if (response?.message?.content) {
-                let content = response.message.content;
-                recordPuterSuccess(); // Ensure healthy status is recorded
-                return Array.isArray(content) ? content.map(p => p.text || JSON.stringify(p)).join('') : (typeof content === 'string' ? content : JSON.stringify(content));
-            }
-            return response?.toString() || "";
-        } catch (err) {
-            const errorMsg = err?.message || err?.toString() || "";
-            const isConnectionError = errorMsg.toLowerCase().includes('websocket') || 
-                                    errorMsg.toLowerCase().includes('failed to fetch') ||
-                                    errorMsg.toLowerCase().includes('networkerror') ||
-                                    errorMsg.toLowerCase().includes('socket') ||
-                                    errorMsg.toLowerCase().includes('connection established') ||
-                                    errorMsg.toLowerCase().includes('unknown_url_scheme') ||
-                                    errorMsg.toLowerCase().includes('unknown url') ||
-                                    errorMsg.toLowerCase().includes('closed before the connection');
-
-            // Authentication (401), Rate Limit (429), Timeout or Socket/Scheme Error should trigger a silent fallback
-            if (errorMsg.includes('401') || errorMsg.includes('429') || errorMsg.includes('Timeout') || isConnectionError || err?.status === 401 || err?.status === 429) {
-                recordPuterFailure(isConnectionError);
-                throw new Error("Puter Limitation");
-            }
-
-
-
-            console.warn(`Puter attempt ${i + 1} failed:`, errorMsg);
-            if (i === retries - 1) {
-                recordPuterFailure();
-                throw err;
-            }
-            await new Promise(resolve => setTimeout(resolve, 800));
         }
     }
+
+    throw new Error(`Puter Limitation: ${lastError?.message || 'all Puter models failed'}`);
 
 };
 
@@ -575,18 +667,21 @@ export const getAICompletion = async (messages, options = {}) => {
 
     let resultData = null;
 
-    // 1. Puter (if enabled in vault AND healthy AND no image content)
-    const canUsePuter = puterEntry && isPuterHealthy()
+    // 1. Puter (if enabled in vault AND no image content). Even if every
+    // model is cooling down, fetchPuter performs a recovery probe before
+    // falling through to keyed providers.
+    const canUsePuter = puterEntry
         && provider !== 'backend'
         && !messages.some(m => Array.isArray(m.content));
 
     if (canUsePuter) {
         try {
-            onProgress({ step: 'querying', message: 'Querying Puter.js (Primary)...', provider: 'Puter Cloud' });
-            const content = await fetchPuter(messages, modelOptions);
-            resultData = { content, provider: "Puter Cloud", model: getProviderModel(model, 'puter') };
+            const puterMode = isPuterHealthy() ? 'Primary' : 'Recovery Probe';
+            onProgress({ step: 'querying', message: `Querying Puter.js (${puterMode})...`, provider: 'Puter Cloud' });
+            const puterResult = await fetchPuter(messages, modelOptions);
+            resultData = { content: puterResult.content, provider: "Puter Cloud", model: puterResult.model };
         } catch (e) {
-            console.warn("Puter failed/limited, dropping to client-side fallbacks.");
+            console.warn("Puter failed/limited, dropping to client-side fallbacks.", e?.message || e);
             onProgress({ step: 'fallback', message: 'Switching to next provider...', provider: 'OpenRouter' });
             if (onFallback) onFallback("Switching to next provider...");
         }
@@ -625,6 +720,7 @@ export const getAICompletion = async (messages, options = {}) => {
 
 
 export const simulateCodeExecution = async (code, language = "auto", inputs = [], history = [], options = {}) => {
+    void inputs;
     const systemPrompt = `<personality>Elite Syntax Auditor & Runtime Simulator.</personality>
     <rules>
     1. SYNTAX AUDIT: Before simulating, perform a BRUTAL syntax check. Look for:
@@ -666,7 +762,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
         });
         const parsed = cleanAndParseJSON(resultWithMeta.content);
         return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };
-    } catch (e) {
+    } catch {
         throw new Error("Compiler simulation failed.");
     }
 };
@@ -697,7 +793,7 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
         });
         const parsed = cleanAndParseJSON(resultWithMeta.content);
         return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };
-    } catch (e) {
+    } catch {
         throw new Error("Reverse engineering failed.");
     }
 };
