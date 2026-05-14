@@ -5,14 +5,15 @@ import { getOrderedProviders, getUserKey, getUserModel, initVault, sanitizeKey, 
 // Only called inside fetchPuter (lazy — on actual AI requests, not module load).
 import { ensurePuterReady } from './puterInit';
 
-const PUTER_CHAT_TUTOR_MODEL = 'inclusionai/ring-2.6-1t:free';
+const PRIMARY_REASONING_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
+const PUTER_CHAT_TUTOR_MODEL = 'poolside/laguna-xs.2:free';
 const PUTER_JCOMPILER_MODEL = 'poolside/laguna-xs.2:free';
 const PUTER_MODEL_LABELS = {
-    [PUTER_CHAT_TUTOR_MODEL]: 'Ring 2.6 1T',
+    [PUTER_CHAT_TUTOR_MODEL]: 'Laguna XS.2',
     [PUTER_JCOMPILER_MODEL]: 'Laguna XS.2'
 };
 const PUTER_MODEL_OUTPUT_LIMITS = {
-    [PUTER_CHAT_TUTOR_MODEL]: 66000,
+    [PUTER_CHAT_TUTOR_MODEL]: 8192,
     [PUTER_JCOMPILER_MODEL]: 8192
 };
 
@@ -190,8 +191,8 @@ export const checkRateLimit = async (actionType) => {
 
 // ----------------------------
 
-// Circuit breaker state is tracked per model. A Laguna outage should not
-// suppress Ring, and a Ring timeout should immediately try Laguna.
+// Circuit breaker state is tracked per Puter-native model so fallback probes
+// do not suppress the OpenRouter primary model.
 const PUTER_HEALTH_KEY = 'puter_model_health_v2';
 const PUTER_FAILURE_THRESHOLD = 2;
 const PUTER_TRANSIENT_COOLDOWN_MS = 2 * 60 * 1000;
@@ -221,6 +222,9 @@ const isPuterModelHealthy = (model) => {
 
 const isPuterHealthy = () =>
     [PUTER_CHAT_TUTOR_MODEL, PUTER_JCOMPILER_MODEL].some(isPuterModelHealthy);
+
+const isPuterModelId = (model = '') =>
+    typeof model === 'string' && model.includes('poolside/laguna-xs.2');
 
 const recordPuterFailure = (model, reason = 'transient') => {
     const health = readPuterHealth();
@@ -298,7 +302,7 @@ const classifyPuterError = (err) => {
 
 // Helper: Map abstract/OpenRouter models to valid Groq models
 const getProviderModel = (model, provider) => {
-    const modelId = model || PUTER_CHAT_TUTOR_MODEL;
+    const modelId = model || PRIMARY_REASONING_MODEL;
     if (provider === 'puter') {
         if (modelId.includes('poolside/laguna-xs.2')) return PUTER_JCOMPILER_MODEL;
         return PUTER_CHAT_TUTOR_MODEL;
@@ -306,7 +310,7 @@ const getProviderModel = (model, provider) => {
     if (provider === 'openrouter') {
         // Default to a free model — users with BYOK should not get 402 surprises.
         // They can override via the vault model selector if they want paid models.
-        if (modelId.includes('inclusionai/') || modelId.includes('poolside/')) return "meta-llama/llama-3.3-70b-instruct:free";
+        if (modelId.includes('inclusionai/') || modelId.includes('poolside/')) return PRIMARY_REASONING_MODEL;
         if (modelId.includes('grok') && !modelId.includes('/')) return "meta-llama/llama-3.1-70b-instruct:free";
         if (modelId.includes('gpt-') && !modelId.includes('/')) return `openai/${modelId}`;
         if (modelId.includes('claude-') && !modelId.includes('/')) return `anthropic/${modelId}`;
@@ -433,7 +437,7 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
 
 // Client-Side Fallback (Direct to API)
 const fetchClientSideFallback = async (messages, modelOptions) => {
-    const { model = PUTER_CHAT_TUTOR_MODEL, jsonMode, onToken, actionType: _actionType, ...params } = modelOptions;
+    const { model = PRIMARY_REASONING_MODEL, jsonMode, onToken, actionType: _actionType, ...params } = modelOptions;
     let rateLimited = false; // track if 429 was the failure reason
 
     const readWithContinuation = async (post, provider, servedModel) => {
@@ -482,6 +486,7 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
             const preferredModel = getUserModel('openrouter') || getProviderModel(model, 'openrouter');
 
             const FREE_MODEL_ROTATION = [
+                PRIMARY_REASONING_MODEL,
                 'meta-llama/llama-3.3-70b-instruct:free',
                 'meta-llama/llama-3.1-8b-instruct:free',
                 'google/gemma-3-12b-it:free',
@@ -609,7 +614,7 @@ const fetchBackendFallback = async (messages, modelOptions) => {
             body: JSON.stringify({ messages, ...modelOptions })
         });
         if (!response.ok) {
-            if (import.meta.env.DEV || response.status === 500) return await fetchClientSideFallback(messages, modelOptions);
+            if (import.meta.env.DEV || response.status >= 500) return await fetchClientSideFallback(messages, modelOptions);
             throw new Error(`Backend Error ${response.status}`);
         }
         const data = await response.json();
@@ -638,7 +643,7 @@ export const getAICompletion = async (messages, options = {}) => {
         provider = "auto",
         onFallback = () => { },
         onProgress = () => { }, // New: Support UI progress updates
-        model = PUTER_CHAT_TUTOR_MODEL,
+        model = PRIMARY_REASONING_MODEL,
         includeMetadata = false,
         ...restOptions
     } = options;
@@ -667,10 +672,10 @@ export const getAICompletion = async (messages, options = {}) => {
 
     let resultData = null;
 
-    // 1. Puter (if enabled in vault AND no image content). Even if every
-    // model is cooling down, fetchPuter performs a recovery probe before
-    // falling through to keyed providers.
+    // 1. Puter only for Puter-native model ids. The default reasoning model is
+    // served by OpenRouter and must not be silently translated back to Puter.
     const canUsePuter = puterEntry
+        && isPuterModelId(modelOptions.model)
         && provider !== 'backend'
         && !messages.some(m => Array.isArray(m.content));
 
@@ -702,8 +707,24 @@ export const getAICompletion = async (messages, options = {}) => {
             }
         } catch (e) {
             console.error("All client-side providers failed:", e.message);
-            onProgress({ step: 'error', message: 'All AI Providers Failed' });
-            throw new Error("All AI providers are disabled or failed. Please check your AI Settings.");
+            const canUsePuterFallback = puterEntry
+                && provider === 'auto'
+                && !messages.some(m => Array.isArray(m.content));
+
+            if (canUsePuterFallback) {
+                try {
+                    onProgress({ step: 'fallback', message: 'OpenRouter unavailable. Trying Puter Laguna...', provider: 'Puter Cloud' });
+                    const puterResult = await fetchPuter(messages, { ...modelOptions, model: PUTER_CHAT_TUTOR_MODEL });
+                    resultData = { content: puterResult.content, provider: "Puter Cloud", model: puterResult.model };
+                } catch (puterError) {
+                    console.warn("Puter fallback also failed.", puterError?.message || puterError);
+                }
+            }
+
+            if (!resultData) onProgress({ step: 'error', message: 'All AI Providers Failed' });
+            if (!resultData) {
+                throw new Error("All AI providers are disabled or failed. Please check your AI Settings.");
+            }
         }
     }
 

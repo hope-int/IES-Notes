@@ -81,11 +81,11 @@ const getSecret = (ownerId) => {
 export const PROVIDER_MODELS = {
     puter: [
         { value: null,                                  label: 'App Default',           badge: 'default' },
-        { value: 'inclusionai/ring-2.6-1t:free',        label: 'Ring 2.6 1T',           badge: 'free' },
         { value: 'poolside/laguna-xs.2:free',           label: 'Laguna XS.2',           badge: 'free' },
     ],
     openrouter: [
         { value: null,                                        label: 'App Default',              badge: 'default' },
+        { value: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', label: 'Nemotron 3 Nano Omni', badge: 'free' },
         { value: 'meta-llama/llama-3.1-8b-instruct:free',    label: 'Llama 3.1 8B',            badge: 'free' },
         { value: 'meta-llama/llama-3.3-70b-instruct:free',   label: 'Llama 3.3 70B',           badge: 'free' },
         { value: 'google/gemma-2-9b-it:free',                label: 'Gemma 2 9B',              badge: 'free' },

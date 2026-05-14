@@ -41,7 +41,7 @@ export default function AITutor() {
 
     // Resiliency Stats
     const [providerStatus, setProviderStatus] = useState('Puter Cloud');
-    const [activeModel, setActiveModel] = useState('Ring 2.6 1T');
+    const [activeModel, setActiveModel] = useState('Nemotron 3 Nano Omni');
     const [latency, setLatency] = useState(0);
     const [rateLimit, setRateLimit] = useState('98/100');
 
@@ -359,7 +359,7 @@ Only after the user provides the necessary details AND has used a slash command,
             let streamedContent = '';
             const aiResponse = await getAICompletion(requestMessages, {
                 actionType: 'chat',
-                model: 'inclusionai/ring-2.6-1t:free',
+                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
                 max_tokens: 32000,
                 temperature: 0.7,
                 onToken: (token, fullContent) => {
@@ -670,7 +670,7 @@ Only after the user provides the necessary details AND has used a slash command,
 
             const result = await getAICompletion(requestMessages, {
                 actionType: 'chat',
-                model: 'inclusionai/ring-2.6-1t:free',
+                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
                 max_tokens: 32000,
                 temperature: 0.3
             });

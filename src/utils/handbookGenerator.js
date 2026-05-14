@@ -126,7 +126,7 @@ You will receive raw text, PDFs, or notes. You must ignore any noise/irrelevant 
             ],
             {
                 actionType: 'chat',
-                model: 'inclusionai/ring-2.6-1t:free',
+                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
                 max_tokens: 32000,
                 temperature: 0.4
             }

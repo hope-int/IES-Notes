@@ -376,7 +376,7 @@ The routing layer in `aiService.js` has been upgraded from a simple fallback to 
 - **Telemetry Integration**: Every completion now injects a metadata object into the UI header, tracking:
     - **`latency`**: Exact round-trip time (RTT) for inference in seconds.
     - **`active_engine`**: Real-time identification of the provider (e.g., Puter vs. Groq).
-    - **`model_id`**: The specific model string leveraged (e.g., `inclusionai/ring-2.6-1t:free`).
+    - **`model_id`**: The specific model string leveraged (e.g., `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`).
 - **Circuit Breaker 2.0**: Implements a sliding window failure counter. If a provider returns 3 consecutive `5xx` or `429` errors, it is globally locked for 300 seconds, shifting all traffic to secondary nodes.
 
 ### 2. J-Compiler Virtual Hardware Emulation (VHE)
@@ -407,11 +407,11 @@ A proprietary logic-to-diagram transpilation layer mapping code control flow dir
 - **Label Hardening**: To prevent Mermaid syntax crashes, the system now enforces a **Strict Quoting Protocol** for node labels. All dynamic code tokens are escaped and wrapped in square brackets `[ "label" ]` to handle non-alphanumeric characters.
 - **Logical Branching**: Automatically detects `if-else` and `switch` blocks, mapping them as decision diamonds in the flow graph, providing students with a visual mental model of their algorithm.
 
-### 4. AI Tutor 2.0: Ring Cognitive Layer
-The AI Tutor has been upgraded with **InclusionAI Ring 2.6 1T**, while J-Compiler simulation routes to **Poolside Laguna XS.2** for code-focused reasoning.
+### 4. AI Tutor 2.0: Nemotron Cognitive Layer
+The AI Tutor has been upgraded with **NVIDIA Nemotron 3 Nano Omni**, while J-Compiler simulation routes to **Poolside Laguna XS.2** for code-focused reasoning.
 
 - **Forced Contrast CSS**: To overcome conflicts with Tailwind's `.prose` layer, the chat screen now utilizes a **Scoped Style Injector**. This injects high-priority `!important` CSS rules directly into the DOM during runtime to maintain high-contrast light theme containers for code blocks.
-- **Multi-Modal Brain**: Synchronized routing between Ring for tutoring, Laguna for compiler reasoning, and fallback providers for vision-based note analysis.
+- **Multi-Modal Brain**: Synchronized routing between Nemotron for tutoring, Laguna for compiler reasoning, and fallback providers for vision-based note analysis.
 
 ---
 

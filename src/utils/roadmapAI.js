@@ -85,7 +85,7 @@ Break the learning path into 3 to 5 actionable, bite-sized steps.
         [{ role: 'user', content: prompt }],
         {
           jsonMode: true,
-          model: 'inclusionai/ring-2.6-1t:free',
+          model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
           actionType: 'roadmap',
           includeMetadata: true,
           onProgress: (p) => onProgress({ ...p, message: `${p.message} (${i + 1}/3)` })
