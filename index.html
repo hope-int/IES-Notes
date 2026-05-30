@@ -3,6 +3,22 @@
 
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Intercept Puter SDK network connection reset promise rejections early
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      const isPuterXHR = reason && reason._puterReq;
+      const isPuterText = reason && (
+        (reason.message && reason.message.toLowerCase().includes('puter')) ||
+        (reason.toString && typeof reason.toString() === 'string' && reason.toString().toLowerCase().includes('puter'))
+      );
+
+      if (isPuterXHR || isPuterText) {
+        console.warn('[Puter SDK Guard] Suppressed unhandled SDK network/initialization failure.', reason);
+        event.preventDefault();
+      }
+    });
+  </script>
   <link rel="icon" type="image/png" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description"

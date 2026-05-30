@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import {
     LayoutDashboard, FilePlus, Bell, Send, Trash2, Upload,
-    CheckCircle, AlertCircle, Loader, ChevronDown, Folder, Users, Shield, Lock, Search, FileText
+    CheckCircle, AlertCircle, Loader, ChevronDown, Folder, Users, Shield, Lock, Search, FileText,
+    Briefcase, Image as ImageIcon, PlusCircle, Clock, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getInternshipPosts, createInternshipPost, deleteInternshipPost, getReportedInternshipPosts, dismissReport } from './utils/internshipService';
 
 export default function AdminPanel({ onBack }) {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -49,6 +51,7 @@ export default function AdminPanel({ onBack }) {
                 <SidebarItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
                 <SidebarItem id="upload" icon={FilePlus} label="Manage Content" />
                 <SidebarItem id="announcements" icon={Bell} label="Announcements" />
+                <SidebarItem id="internships" icon={Briefcase} label="Internship Posts" />
                 <SidebarItem id="notifications" icon={Send} label="Push Notifications" />
                 <SidebarItem id="team" icon={Users} label="Manage Team" />
 
@@ -71,6 +74,7 @@ export default function AdminPanel({ onBack }) {
                         { id: 'dashboard', icon: LayoutDashboard },
                         { id: 'upload', icon: FilePlus },
                         { id: 'announcements', icon: Bell },
+                        { id: 'internships', icon: Briefcase },
                         { id: 'notifications', icon: Send },
                         { id: 'team', icon: Users }
                     ].map(tab => (
@@ -119,6 +123,7 @@ export default function AdminPanel({ onBack }) {
 
                         {activeTab === 'upload' && <ManageContent setMessage={setMessage} />}
                         {activeTab === 'announcements' && <ManageAnnouncements setMessage={setMessage} />}
+                        {activeTab === 'internships' && <ManageInternships setMessage={setMessage} />}
                         {activeTab === 'notifications' && <SendNotifications setMessage={setMessage} />}
                         {activeTab === 'team' && <ManageTeam setMessage={setMessage} />}
                     </motion.div>
@@ -403,7 +408,11 @@ function ManageAnnouncements({ setMessage }) {
     const [newContent, setNewContent] = useState('');
 
     const fetchAnnouncements = async () => {
-        const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+        const { data } = await supabase
+            .from('announcements')
+            .select('*')
+            .not('content', 'like', 'HOPE_FEED_POST::%')
+            .order('created_at', { ascending: false });
         setItems(data || []);
     };
 
@@ -710,6 +719,632 @@ function ManageTeam({ setMessage }) {
                 )}
             </AnimatePresence>
 
+        </motion.div>
+    );
+}
+
+function ManageInternships({ setMessage }) {
+    const [posts, setPosts] = useState([]);
+    const [reports, setReports] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [subTab, setSubTab] = useState('publish'); // 'publish' or 'reports'
+
+    // Form fields
+    const [companyName, setCompanyName] = useState('');
+    const [location, setLocation] = useState('');
+    const [caption, setCaption] = useState('');
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [departments, setDepartments] = useState([]);
+    const [visibleDuration, setVisibleDuration] = useState('7d');
+    const [posterUrl, setPosterUrl] = useState('');
+
+    // Link/Contact inputs
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [whatsappNumber, setWhatsappNumber] = useState('');
+    const [whatsappLink, setWhatsappLink] = useState('');
+    const [googleFormLink, setGoogleFormLink] = useState('');
+
+    const staticTags = ['Internship', 'Placement', 'Workshop', 'Remote', 'On-site', 'Hybrid'];
+
+    useEffect(() => {
+        fetchPosts();
+        fetchDepartments();
+        fetchReports();
+        // Set up interval to refresh remaining times
+        const interval = setInterval(() => {
+            setPosts(prev => [...prev]);
+        }, 60000); // refresh every minute
+        return () => clearInterval(interval);
+    }, []);
+
+    const fetchPosts = async () => {
+        setLoading(true);
+        try {
+            const data = await getInternshipPosts();
+            setPosts(data || []);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchDepartments = async () => {
+        const { data } = await supabase.from('departments').select('*').order('name');
+        setDepartments(data || []);
+    };
+
+    const fetchReports = async () => {
+        try {
+            const data = await getReportedInternshipPosts();
+            setReports(data || []);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const toggleTag = (tagName) => {
+        setSelectedTags(prev => 
+            prev.includes(tagName) ? prev.filter(t => t !== tagName) : [...prev, tagName]
+        );
+    };
+
+    // Helper to compress image
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    let quality = 0.8;
+                    const checkAndResolve = () => {
+                        canvas.toBlob((blob) => {
+                            if (blob.size <= 102400 || quality <= 0.2) {
+                                resolve(blob);
+                            } else {
+                                quality -= 0.15;
+                                checkAndResolve();
+                            }
+                        }, 'image/jpeg', quality);
+                    };
+                    checkAndResolve();
+                };
+            };
+        });
+    };
+
+    const handleAdd = async (e) => {
+        e.preventDefault();
+        if (!companyName || !caption || (!imageFile && !posterUrl)) {
+            setMessage({ type: 'error', text: 'Please fill in Company Name, Caption and select an Image or provide a Poster URL' });
+            return;
+        }
+
+        setSaving(true);
+        try {
+            let imageUrl = posterUrl;
+            if (imageFile) {
+                setMessage({ type: 'info', text: 'Compressing and preparing poster image...' });
+                const compressedBlob = await compressImage(imageFile);
+                imageUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(compressedBlob);
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = (e) => reject(e);
+                });
+            }
+
+            // Calculate expiration time
+            let expiresAt = new Date();
+            if (visibleDuration === '12h') expiresAt.setHours(expiresAt.getHours() + 12);
+            else if (visibleDuration === '24h') expiresAt.setHours(expiresAt.getHours() + 24);
+            else if (visibleDuration === '3d') expiresAt.setDate(expiresAt.getDate() + 3);
+            else if (visibleDuration === '7d') expiresAt.setDate(expiresAt.getDate() + 7);
+            else if (visibleDuration === '30d') expiresAt.setDate(expiresAt.getDate() + 30);
+
+            // 3. Create post
+            const newPost = await createInternshipPost({
+                caption,
+                imageUrl,
+                tags: selectedTags,
+                companyName,
+                location: location || 'Remote',
+                expiresAt: expiresAt.toISOString(),
+                phoneNumber,
+                whatsappNumber,
+                whatsappLink,
+                googleFormLink
+            });
+
+            if (newPost) {
+                setMessage({ type: 'success', text: 'Internship opportunity published successfully!' });
+                setCompanyName('');
+                setLocation('');
+                setCaption('');
+                setSelectedTags([]);
+                setImageFile(null);
+                setImagePreview(null);
+                setPosterUrl('');
+                setVisibleDuration('7d');
+                setPhoneNumber('');
+                setWhatsappNumber('');
+                setWhatsappLink('');
+                setGoogleFormLink('');
+                fetchPosts();
+            }
+        } catch (err) {
+            console.error(err);
+            setMessage({ type: 'error', text: 'Failed to publish opportunity: ' + err.message });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (postId) => {
+        if (!window.confirm('Are you sure you want to delete this opportunity post?')) return;
+        const success = await deleteInternshipPost(postId);
+        if (success) {
+            setMessage({ type: 'success', text: 'Opportunity post deleted' });
+            fetchPosts();
+        } else {
+            setMessage({ type: 'error', text: 'Failed to delete' });
+        }
+    };
+
+    const handleDismissReport = async (reportId) => {
+        const success = await dismissReport(reportId);
+        if (success) {
+            setMessage({ type: 'success', text: 'Report dismissed successfully.' });
+            fetchReports();
+        } else {
+            setMessage({ type: 'error', text: 'Failed to dismiss report.' });
+        }
+    };
+
+    const handleDeleteReportedPost = async (postId, reportId) => {
+        if (!window.confirm('Are you sure you want to delete this post? This will delete the post and resolve the report.')) return;
+        const success = await deleteInternshipPost(postId);
+        if (success) {
+            await dismissReport(reportId);
+            setMessage({ type: 'success', text: 'Post deleted and report resolved.' });
+            fetchPosts();
+            fetchReports();
+        } else {
+            setMessage({ type: 'error', text: 'Failed to delete post.' });
+        }
+    };
+
+    const getRemainingTimeText = (expiresAt) => {
+        if (!expiresAt) return 'Never';
+        const diff = new Date(expiresAt) - new Date();
+        if (diff <= 0) return 'Expired';
+        
+        const hrs = Math.floor(diff / 3600000);
+        if (hrs < 24) {
+            const mins = Math.floor((diff % 3600000) / 60000);
+            return `${hrs}h ${mins}m`;
+        }
+        const days = Math.floor(hrs / 24);
+        const remainingHrs = hrs % 24;
+        return `${days}d ${remainingHrs}h`;
+    };
+
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <h2 className="mb-4 fw-bold text-dark">Opportunities Feed Manager</h2>
+
+            {/* Sub-tabs */}
+            <div className="d-flex gap-2 mb-4">
+                <button 
+                    type="button"
+                    onClick={() => setSubTab('publish')}
+                    className={`btn btn-sm rounded-pill px-4 py-2 fw-bold transition-all ${
+                        subTab === 'publish' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border'
+                    }`}
+                >
+                    Publish & Active Posts
+                </button>
+                <button 
+                    type="button"
+                    onClick={() => setSubTab('reports')}
+                    className={`btn btn-sm rounded-pill px-4 py-2 fw-bold transition-all d-flex align-items-center gap-2 ${
+                        subTab === 'reports' ? 'btn-danger text-white shadow-sm' : 'btn-light text-muted border'
+                    }`}
+                >
+                    Student Reports
+                    {reports.length > 0 && (
+                        <span className="badge bg-white text-danger rounded-pill px-2 py-0.5" style={{ fontSize: '10px' }}>
+                            {reports.length}
+                        </span>
+                    )}
+                </button>
+            </div>
+
+            {subTab === 'publish' ? (
+                <div className="row g-4">
+                    {/* Form to add */}
+                    <div className="col-12 col-lg-5">
+                        <div className="clay-card p-4 bg-white shadow-sm rounded-4 border">
+                            <h5 className="fw-bold mb-3 d-flex align-items-center gap-2 text-primary">
+                                <PlusCircle size={20} /> Publish New Opportunity
+                            </h5>
+                            <form onSubmit={handleAdd}>
+                                <div className="mb-3">
+                                    <label className="fw-bold small text-muted">Company Name *</label>
+                                    <input 
+                                        className="form-control bg-light border-0 py-2.5 rounded-3" 
+                                        placeholder="e.g. Google, Tesla, Microsoft" 
+                                        value={companyName}
+                                        onChange={e => setCompanyName(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                
+                                <div className="mb-3">
+                                    <label className="fw-bold small text-muted">Location / Work Type</label>
+                                    <input 
+                                        className="form-control bg-light border-0 py-2.5 rounded-3" 
+                                        placeholder="e.g. Bangalore (Hybrid), Remote, On-site" 
+                                        value={location}
+                                        onChange={e => setLocation(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="mb-3">
+                                    <label className="fw-bold small text-muted">Visible Duration *</label>
+                                    <select 
+                                        className="form-select bg-light border-0 py-2.5 rounded-3 fw-bold text-dark" 
+                                        value={visibleDuration}
+                                        onChange={e => setVisibleDuration(e.target.value)}
+                                        required
+                                    >
+                                        <option value="12h">12 Hours (Quick Post)</option>
+                                        <option value="24h">24 Hours (1 Day)</option>
+                                        <option value="3d">3 Days</option>
+                                        <option value="7d">7 Days (1 Week)</option>
+                                        <option value="30d">30 Days (1 Month)</option>
+                                    </select>
+                                </div>
+
+                                <div className="mb-3">
+                                    <label className="fw-bold small text-muted">Caption & Details *</label>
+                                    <textarea 
+                                        className="form-control bg-light border-0 py-2 rounded-3" 
+                                        rows="4"
+                                        placeholder="Roles, eligibility criteria, link to apply..." 
+                                        value={caption}
+                                        onChange={e => setCaption(e.target.value)}
+                                        required
+                                    />
+                                </div>
+
+                                {/* External Links Options */}
+                                <div className="mb-3 p-3 bg-light rounded-3 border">
+                                    <h6 className="fw-bold small text-primary mb-2">Apply / Contact Links (Optional)</h6>
+                                    
+                                    <div className="mb-2">
+                                        <label className="fw-bold text-muted d-block mb-1" style={{ fontSize: '10px' }}>Phone Number</label>
+                                        <input 
+                                            type="tel"
+                                            className="form-control bg-white border-0 py-1.5 rounded-2" 
+                                            placeholder="e.g. +91 9876543210" 
+                                            value={phoneNumber}
+                                            onChange={e => setPhoneNumber(e.target.value)}
+                                            style={{ fontSize: '12px' }}
+                                        />
+                                    </div>
+                                    <div className="mb-2">
+                                        <label className="fw-bold text-muted d-block mb-1" style={{ fontSize: '10px' }}>WhatsApp Number</label>
+                                        <input 
+                                            type="tel"
+                                            className="form-control bg-white border-0 py-1.5 rounded-2" 
+                                            placeholder="e.g. +91 9876543210" 
+                                            value={whatsappNumber}
+                                            onChange={e => setWhatsappNumber(e.target.value)}
+                                            style={{ fontSize: '12px' }}
+                                        />
+                                    </div>
+                                    <div className="mb-2">
+                                        <label className="fw-bold text-muted d-block mb-1" style={{ fontSize: '10px' }}>WhatsApp Group/Channel/Broadcast Link</label>
+                                        <input 
+                                            type="text"
+                                            inputMode="url"
+                                            className="form-control bg-white border-0 py-1.5 rounded-2" 
+                                            placeholder="e.g. https://chat.whatsapp.com/... or whatsapp.com/channel/..." 
+                                            value={whatsappLink}
+                                            onChange={e => setWhatsappLink(e.target.value)}
+                                            style={{ fontSize: '12px' }}
+                                        />
+                                    </div>
+                                    <div className="mb-0">
+                                        <label className="fw-bold text-muted d-block mb-1" style={{ fontSize: '10px' }}>Google Form Link</label>
+                                        <input 
+                                            type="text"
+                                            inputMode="url"
+                                            className="form-control bg-white border-0 py-1.5 rounded-2" 
+                                            placeholder="e.g. https://forms.gle/..." 
+                                            value={googleFormLink}
+                                            onChange={e => setGoogleFormLink(e.target.value)}
+                                            style={{ fontSize: '12px' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Poster URL */}
+                                <div className="mb-3">
+                                    <label className="fw-bold small text-muted">Poster URL (Alternative to upload)</label>
+                                    <input 
+                                        type="url"
+                                        className="form-control bg-light border-0 py-2.5 rounded-3" 
+                                        placeholder="e.g. https://example.com/image.jpg" 
+                                        value={posterUrl}
+                                        onChange={e => setPosterUrl(e.target.value)}
+                                    />
+                                </div>
+
+                                {/* Image Upload */}
+                                <div className="mb-4">
+                                    <label className="fw-bold small text-muted d-block mb-2">Poster Image</label>
+                                    <div className="d-flex flex-column align-items-center justify-content-center border border-dashed rounded-3 p-3 bg-light position-relative" style={{ minHeight: '150px' }}>
+                                        {imagePreview ? (
+                                            <div className="w-100 text-center position-relative">
+                                                <img src={imagePreview} alt="Preview" className="img-fluid rounded shadow-sm mb-2" style={{ maxHeight: '150px' }} />
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                                    className="btn btn-sm btn-danger rounded-pill px-3 mt-1 d-block mx-auto"
+                                                >
+                                                    Change Image
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <ImageIcon size={32} className="text-muted mb-2 opacity-50" />
+                                                <span className="small text-muted mb-2 text-center">Upload poster image (will compress to &lt;100kb)</span>
+                                                <label className="btn btn-sm btn-primary rounded-pill px-3 cursor-pointer">
+                                                    Browse Poster
+                                                    <input type="file" accept="image/*" className="d-none" onChange={handleImageChange} />
+                                                </label>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Tags checkboxes */}
+                                <div className="mb-4">
+                                    <label className="fw-bold small text-muted d-block mb-2">Target Departments & Categories</label>
+                                    <div className="d-flex flex-wrap gap-1.5" style={{ maxHeight: '180px', overflowY: 'auto', padding: '5px' }}>
+                                        {/* Static tags */}
+                                        {staticTags.map(tag => {
+                                            const active = selectedTags.includes(tag);
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={tag}
+                                                    onClick={() => toggleTag(tag)}
+                                                    className={`btn btn-sm rounded-pill px-2.5 py-1 text-start d-flex align-items-center gap-1.5 transition-all ${
+                                                        active ? 'btn-primary text-white' : 'btn-outline-secondary bg-white text-muted border-secondary-subtle'
+                                                    }`}
+                                                    style={{ fontSize: '11px' }}
+                                                >
+                                                    {active && <Check size={10} />}
+                                                    {tag}
+                                                </button>
+                                            );
+                                        })}
+                                        {/* Dynamic department tags */}
+                                        {departments.map(dept => {
+                                            const active = selectedTags.includes(dept.name);
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={dept.id}
+                                                    onClick={() => toggleTag(dept.name)}
+                                                    className={`btn btn-sm rounded-pill px-2.5 py-1 text-start d-flex align-items-center gap-1.5 transition-all ${
+                                                        active ? 'btn-primary text-white' : 'btn-outline-secondary bg-white text-muted border-secondary-subtle'
+                                                    }`}
+                                                    style={{ fontSize: '11px' }}
+                                                >
+                                                    {active && <Check size={10} />}
+                                                    {dept.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <button 
+                                    type="submit" 
+                                    disabled={saving || !companyName || !caption || (!imageFile && !posterUrl)}
+                                    className="btn btn-primary w-100 py-2.5 rounded-pill fw-bold"
+                                >
+                                    {saving ? 'Uploading...' : 'Publish Poster'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    {/* List of active posts */}
+                    <div className="col-12 col-lg-7">
+                        <div className="clay-card p-4 bg-white shadow-sm rounded-4 border h-100">
+                            <h5 className="fw-bold mb-3 text-dark">Active Opportunities ({posts.length})</h5>
+                            
+                            {loading ? (
+                                <div className="text-center py-5"><Loader className="animate-spin text-primary" /></div>
+                            ) : posts.length === 0 ? (
+                                <div className="text-center py-5 text-muted border border-dashed rounded-4">
+                                    <Briefcase size={36} className="mb-2 opacity-25" />
+                                    <p className="mb-0">No active opportunities.</p>
+                                </div>
+                            ) : (
+                                <div className="d-flex flex-column gap-3" style={{ maxHeight: '750px', overflowY: 'auto', paddingRight: '5px' }}>
+                                    {posts.map(post => (
+                                        <div key={post.id} className="p-3 border rounded-3 bg-light d-flex gap-3 position-relative">
+                                            <div style={{ width: '80px', height: '80px', flexShrink: 0 }}>
+                                                <img 
+                                                    src={post.image_url} 
+                                                    alt="Poster" 
+                                                    className="w-100 h-100 object-fit-cover rounded border"
+                                                    onError={(e) => {
+                                                        e.target.onerror = null;
+                                                        e.target.src = 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80';
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="flex-grow-1 min-w-0">
+                                                <div className="d-flex justify-content-between align-items-start gap-2">
+                                                    <h6 className="fw-bold text-dark mb-0.5 text-truncate">{post.company_name}</h6>
+                                                    <span className="badge bg-warning-subtle text-warning-emphasis d-flex align-items-center gap-1 rounded-pill" style={{ fontSize: '10px' }}>
+                                                        <Clock size={10} /> {getRemainingTimeText(post.expires_at)}
+                                                    </span>
+                                                </div>
+                                                <small className="text-muted d-block mb-1">{post.location}</small>
+                                                <p className="small text-muted mb-2 line-clamp-2" style={{ fontSize: '12px' }}>
+                                                    {post.caption}
+                                                </p>
+                                                {/* Action Links Indicators */}
+                                                <div className="d-flex gap-2 mb-2 flex-wrap">
+                                                    {post.phone_number && <span className="badge bg-secondary-subtle text-secondary-emphasis rounded-pill" style={{ fontSize: '9px' }}>📞 Phone</span>}
+                                                    {post.whatsapp_number && <span className="badge bg-success-subtle text-success-emphasis rounded-pill" style={{ fontSize: '9px' }}>💬 WhatsApp No</span>}
+                                                    {post.whatsapp_link && <span className="badge bg-success-subtle text-success-emphasis rounded-pill" style={{ fontSize: '9px' }}>🔗 WA Link</span>}
+                                                    {post.google_form_link && <span className="badge bg-info-subtle text-info-emphasis rounded-pill" style={{ fontSize: '9px' }}>📄 G-Form</span>}
+                                                </div>
+                                                <div className="d-flex flex-wrap gap-1">
+                                                    {post.tags?.map(t => (
+                                                        <span key={t} className="badge bg-white text-muted border rounded-pill" style={{ fontSize: '9px' }}>{t}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => handleDelete(post.id)}
+                                                className="btn btn-sm btn-light text-danger rounded-circle p-1.5 align-self-start border"
+                                                title="Delete post"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="clay-card p-4 bg-white shadow-sm rounded-4 border">
+                    <h5 className="fw-bold mb-3 text-dark d-flex align-items-center gap-2">
+                        Student Reports
+                    </h5>
+                    {reports.length === 0 ? (
+                        <div className="text-center py-5 text-muted border border-dashed rounded-4 bg-light">
+                            <CheckCircle size={36} className="text-success mb-2 opacity-50" />
+                            <p className="mb-0 fw-bold">All clear! No reports filed.</p>
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Target Opportunity</th>
+                                        <th>Reason</th>
+                                        <th>Details</th>
+                                        <th>Reported By</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reports.map(report => (
+                                        <tr key={report.id}>
+                                            <td>
+                                                <span className="fw-bold text-dark">{report.company_name}</span>
+                                            </td>
+                                            <td>
+                                                <span className="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1" style={{ fontSize: '11px' }}>
+                                                    {report.reason}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small className="text-muted text-wrap d-block" style={{ maxWidth: '250px', fontSize: '11px' }}>
+                                                    {report.details || 'No additional details.'}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <div className="small">
+                                                    <span className="fw-bold text-dark d-block">{report.reporter?.name}</span>
+                                                    <span className="text-muted" style={{ fontSize: '10px' }}>{report.reporter?.email}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <small className="text-muted">{new Date(report.reported_at).toLocaleDateString()}</small>
+                                            </td>
+                                            <td>
+                                                <div className="d-flex gap-2">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => handleDismissReport(report.id)}
+                                                        className="btn btn-sm btn-light border text-muted rounded-pill px-2.5"
+                                                        style={{ fontSize: '11px' }}
+                                                    >
+                                                        Dismiss
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => handleDeleteReportedPost(report.post_id, report.id)}
+                                                        className="btn btn-sm btn-danger text-white rounded-pill px-2.5"
+                                                        style={{ fontSize: '11px' }}
+                                                    >
+                                                        Delete Post
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
         </motion.div>
     );
 }

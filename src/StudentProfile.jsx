@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import {
     User, Upload, Link as LinkIcon, Youtube, Book,
     FileText, Globe, CheckCircle, AlertCircle, Loader,
     ChevronDown, MapPin, Calendar, Hash, Edit2, Save, X,
-    LogOut, Shield, Copy, GraduationCap, ArrowLeft, Coins, Bell
+    LogOut, Shield, Copy, GraduationCap, ArrowLeft, Coins, Bell, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// ... (imports remain)
+import UserAvatar from './components/UserAvatar';
+import ImageCropperModal from './components/ImageCropperModal';
 
 export default function StudentProfile({ session, onBack, refreshProfile, onLogout, onOpenAdmin }) {
     // ... (state remains)
@@ -17,6 +17,76 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({});
     const [saveStatus, setSaveStatus] = useState(null);
+
+    const fileInputRef = useRef(null);
+    const [showCropModal, setShowCropModal] = useState(false);
+    const [cropImageSrc, setCropImageSrc] = useState(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    const handleAvatarClick = () => {
+        if (isEditing) {
+            fileInputRef.current?.click();
+        }
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('Please select a valid image file.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setCropImageSrc(reader.result);
+            setShowCropModal(true);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
+
+    const handleCropComplete = async (blob) => {
+        setShowCropModal(false);
+        setUploadingImage(true);
+
+        try {
+            if (!window.puter || !window.puter.fs) {
+                throw new Error("Puter SDK is not available. Please verify connection.");
+            }
+
+            await window.puter.fs.mkdir('/pfps', { recursive: true }).catch(() => {});
+
+            const userId = session?.user?.id || profile?.id;
+            if (!userId) throw new Error("No student profile ID found.");
+
+            const filename = `/pfps/pfp_${userId}.jpg`;
+            await window.puter.fs.write(filename, blob);
+
+            const { error: dbError } = await supabase
+                .from('profiles')
+                .update({ avatar_url: filename })
+                .eq('id', userId);
+
+            if (dbError) throw dbError;
+
+            const updatedProfile = { ...profile, avatar_url: filename };
+            const updatedEditForm = { ...editForm, avatar_url: filename };
+
+            setProfile(updatedProfile);
+            setEditForm(updatedEditForm);
+
+            localStorage.setItem('hope_student_profile', JSON.stringify(updatedProfile));
+
+            if (refreshProfile) refreshProfile();
+        } catch (err) {
+            console.error("Failed to upload avatar:", err);
+            alert("Failed to upload profile photo: " + err.message);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
 
     useEffect(() => {
         fetchProfile();
@@ -101,9 +171,9 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
                 <ArrowLeft size={18} /> Back to Home
             </button>
 
-            <div className="row justify-content-center">
+            <div className="row g-4 justify-content-center">
                 {/* Modern ID Card Design */}
-                <div className="col-12 col-md-8 col-lg-6">
+                <div className="col-12 col-md-8 col-lg-6 col-xl-5">
                     <div className="clay-card overflow-hidden position-relative">
                         {/* Header Background */}
                         <div className="bg-primary bg-gradient p-4 text-center position-relative" style={{ height: '140px' }}>
@@ -127,14 +197,35 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
 
                         {/* Profile Image & Info */}
                         <div className="px-4 pb-5 text-center" style={{ marginTop: '-60px' }}>
-                            <div className="d-inline-block position-relative mb-3">
-                                <div className="p-1 bg-white rounded-circle shadow-lg">
-                                    <div className="rounded-circle bg-light d-flex align-items-center justify-content-center text-primary" style={{ width: 110, height: 110, fontSize: '2.5rem', fontWeight: 'bold' }}>
-                                        {editForm.full_name?.charAt(0).toUpperCase() || <User size={48} />}
-                                    </div>
+                            <div 
+                                className={`d-inline-block position-relative mb-3 ${isEditing ? 'cursor-pointer group' : ''}`} 
+                                onClick={handleAvatarClick} 
+                                title={isEditing ? "Change Profile Picture" : ""}
+                            >
+                                <div className="p-1 bg-white rounded-circle shadow-lg position-relative overflow-hidden" style={{ width: '118px', height: '118px' }}>
+                                    <UserAvatar profile={isEditing ? editForm : profile} size={110} fontSize="2.5rem" />
+                                    {/* Upload overlay */}
+                                    {isEditing && (
+                                        <div className="position-absolute top-0 start-0 w-100 h-100 bg-dark bg-opacity-40 d-flex align-items-center justify-content-center opacity-0 group-hover-opacity transition-opacity rounded-circle">
+                                            <Camera size={24} className="text-white animate-pulse" />
+                                        </div>
+                                    )}
+                                    {/* Uploading indicator */}
+                                    {uploadingImage && (
+                                        <div className="position-absolute top-0 start-0 w-100 h-100 bg-dark bg-opacity-65 d-flex align-items-center justify-content-center rounded-circle" style={{ zIndex: 1 }}>
+                                            <Loader className="text-white animate-spin" size={24} />
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="position-absolute bottom-0 end-0 bg-success border border-4 border-white rounded-circle p-2" title="Active"></div>
                             </div>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                accept="image/*"
+                                className="d-none"
+                            />
 
                             {isEditing ? (
                                 <div className="mb-3 d-flex flex-column gap-2 mx-auto" style={{ maxWidth: '300px' }}>
@@ -248,31 +339,51 @@ export default function StudentProfile({ session, onBack, refreshProfile, onLogo
                     background: white;
                     border: 1px solid #e5e7eb;
                 }
+                .group:hover .group-hover-opacity {
+                    opacity: 1 !important;
+                }
+                .group-hover-opacity {
+                    opacity: 0;
+                    transition: opacity 0.2s ease-in-out;
+                }
                 `}
             </style>
+
+            <AnimatePresence>
+                {showCropModal && (
+                    <ImageCropperModal
+                        src={cropImageSrc}
+                        onCrop={handleCropComplete}
+                        onClose={() => setShowCropModal(false)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-const ProfileCardItem = ({ isEditing, icon: Icon, label, value, onChange, placeholder, color }) => (
-    <div className="d-flex align-items-center gap-3 p-2 rounded-3 h-100" style={{ background: isEditing ? '#fff' : 'transparent' }}>
-        <div className={`p-2 rounded-circle text-${color}-600 bg-${color}-50 shadow-sm flex-shrink-0`} style={{ background: `var(--bst-${color}-opacity, #eff6ff)`, color: `var(--bst-${color}, #2563eb)` }}>
-            <Icon size={18} />
+const ProfileCardItem = ({ isEditing, icon, label, value, onChange, placeholder, color }) => {
+    const Icon = icon;
+    return (
+        <div className="d-flex align-items-center gap-3 p-2 rounded-3 h-100" style={{ background: isEditing ? '#fff' : 'transparent' }}>
+            <div className={`p-2 rounded-circle text-${color}-600 bg-${color}-50 shadow-sm flex-shrink-0`} style={{ background: `var(--bst-${color}-opacity, #eff6ff)`, color: `var(--bst-${color}, #2563eb)` }}>
+                <Icon size={18} />
+            </div>
+            <div className="flex-grow-1 overflow-hidden">
+                <div className="small text-muted fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>{label}</div>
+                {isEditing ? (
+                    <input
+                        className="form-control form-control-sm p-0 border-0 bg-transparent fw-bold shadow-none"
+                        placeholder={placeholder}
+                        value={value || ''}
+                        onChange={e => onChange(e.target.value)}
+                    />
+                ) : (
+                    <div className="fw-bold text-dark text-truncate">{value || 'N/A'}</div>
+                )}
+            </div>
         </div>
-        <div className="flex-grow-1 overflow-hidden">
-            <div className="small text-muted fw-bold text-uppercase" style={{ fontSize: '0.65rem' }}>{label}</div>
-            {isEditing ? (
-                <input
-                    className="form-control form-control-sm p-0 border-0 bg-transparent fw-bold shadow-none"
-                    placeholder={placeholder}
-                    value={value || ''}
-                    onChange={e => onChange(e.target.value)}
-                />
-            ) : (
-                <div className="fw-bold text-dark text-truncate">{value || 'N/A'}</div>
-            )}
-        </div>
-    </div>
-);
+    );
+};
 
 

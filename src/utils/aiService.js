@@ -4,17 +4,24 @@ import { getOrderedProviders, getUserKey, getUserModel, initVault, sanitizeKey, 
 // ensurePuterReady: waits for window.puter CDN global — no SDK mutations.
 // Only called inside fetchPuter (lazy — on actual AI requests, not module load).
 import { ensurePuterReady } from './puterInit';
+import { logAIChatTelemetry } from './telemetry';
 
-const PRIMARY_REASONING_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
-const PUTER_CHAT_TUTOR_MODEL = 'poolside/laguna-xs.2:free';
-const PUTER_JCOMPILER_MODEL = 'poolside/laguna-xs.2:free';
+const PRIMARY_REASONING_MODEL = 'z-ai/glm-4.7-flash';
+const PUTER_CHAT_TUTOR_MODEL = 'z-ai/glm-4.7-flash';
+const PUTER_JCOMPILER_MODEL = 'z-ai/glm-4.7-flash';
 const PUTER_MODEL_LABELS = {
-    [PUTER_CHAT_TUTOR_MODEL]: 'Laguna XS.2',
-    [PUTER_JCOMPILER_MODEL]: 'Laguna XS.2'
+    'z-ai/glm-4.7-flash': 'GLM-4.7 Flash',
+    'poolside/laguna-m.1:free': 'Laguna M.1',
+    'poolside/laguna-xs.2:free': 'Laguna XS.2',
+    'z-ai/glm-4.6v-flash': 'GLM-4.6V Flash',
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 'Nemotron 3 Omni'
 };
 const PUTER_MODEL_OUTPUT_LIMITS = {
-    [PUTER_CHAT_TUTOR_MODEL]: 8192,
-    [PUTER_JCOMPILER_MODEL]: 8192
+    'z-ai/glm-4.7-flash': 8192,
+    'poolside/laguna-m.1:free': 8192,
+    'poolside/laguna-xs.2:free': 8192,
+    'z-ai/glm-4.6v-flash': 8192,
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 8192
 };
 
 const getStreamText = (chunk) => {
@@ -191,85 +198,149 @@ export const checkRateLimit = async (actionType) => {
 
 // ----------------------------
 
-// Circuit breaker state is tracked per Puter-native model so fallback probes
-// do not suppress the OpenRouter primary model.
-const PUTER_HEALTH_KEY = 'puter_model_health_v2';
-const PUTER_FAILURE_THRESHOLD = 2;
-const PUTER_TRANSIENT_COOLDOWN_MS = 2 * 60 * 1000;
-const PUTER_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
-const PUTER_AUTH_COOLDOWN_MS = 60 * 60 * 1000;
+// ─── Enhanced Health Record & Circuit Breaker ──────────────────────────────
+export const PUTER_FIRST_ROSTER = [
+    { id: "z-ai/glm-4.7-flash", priority: 0, caps: ["reasoning", "code", "fast-chat"] },
+    { id: "poolside/laguna-m.1:free", priority: 1, caps: ["code", "compiler"] },
+    { id: "poolside/laguna-xs.2:free", priority: 2, caps: ["json", "code"] },
+    { id: "z-ai/glm-4.6v-flash", priority: 3, caps: ["vision", "reasoning", "code"] },
+    { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", priority: 4, caps: ["reasoning", "code", "fallback"] },
+    { id: "default", priority: 5, caps: ["fast-chat", "code", "json", "fallback"] }
+];
 
-const readPuterHealth = () => {
+class EnhancedHealthRecord {
+    constructor(modelId, capabilities = []) {
+        this.modelId = modelId;
+        this.capabilities = capabilities;
+        this.rollingSuccesses = 0;
+        this.rollingFailures = 0;
+        this.latencies = []; // Last 20 request durations
+        this.cooldownUntil = 0;
+    }
+}
+
+let _healthRegistry = {};
+
+const loadHealthRegistry = () => {
     try {
-        return JSON.parse(localStorage.getItem(PUTER_HEALTH_KEY) || '{}') || {};
-    } catch {
-        return {};
+        const stored = JSON.parse(localStorage.getItem('hope_ai_health_records') || '{}');
+        const registry = {};
+        PUTER_FIRST_ROSTER.forEach(m => {
+            const record = new EnhancedHealthRecord(m.id, m.caps);
+            if (stored[m.id]) {
+                record.rollingSuccesses = stored[m.id].rollingSuccesses || 0;
+                record.rollingFailures = stored[m.id].rollingFailures || 0;
+                record.latencies = stored[m.id].latencies || [];
+                record.cooldownUntil = stored[m.id].cooldownUntil || 0;
+            }
+            registry[m.id] = record;
+        });
+        _healthRegistry = registry;
+    } catch (e) {
+        PUTER_FIRST_ROSTER.forEach(m => {
+            _healthRegistry[m.id] = new EnhancedHealthRecord(m.id, m.caps);
+        });
     }
 };
 
-const writePuterHealth = (health) => {
+const saveHealthRegistry = () => {
     try {
-        localStorage.setItem(PUTER_HEALTH_KEY, JSON.stringify(health));
-    } catch {
-        // localStorage can be unavailable in strict privacy modes.
-    }
+        localStorage.setItem('hope_ai_health_records', JSON.stringify(_healthRegistry));
+    } catch {}
+};
+
+loadHealthRegistry();
+
+const getP95Latency = (record) => {
+    if (!record.latencies || record.latencies.length === 0) return 0;
+    const sorted = [...record.latencies].sort((a, b) => a - b);
+    const index = Math.ceil(sorted.length * 0.95) - 1;
+    return sorted[index];
+};
+
+const getSuccessRate = (record) => {
+    const total = record.rollingSuccesses + record.rollingFailures;
+    return total === 0 ? 1.0 : record.rollingSuccesses / total;
 };
 
 const isPuterModelHealthy = (model) => {
-    const health = readPuterHealth()[model];
-    return !health?.disabledUntil || Date.now() >= health.disabledUntil;
+    const record = _healthRegistry[model];
+    return !record || Date.now() >= record.cooldownUntil;
 };
 
 const isPuterHealthy = () =>
-    [PUTER_CHAT_TUTOR_MODEL, PUTER_JCOMPILER_MODEL].some(isPuterModelHealthy);
+    PUTER_FIRST_ROSTER.some(m => isPuterModelHealthy(m.id));
 
 const isPuterModelId = (model = '') =>
-    typeof model === 'string' && model.includes('poolside/laguna-xs.2');
+    typeof model === 'string' && (model === 'default' || PUTER_FIRST_ROSTER.some(m => m.id === model));
 
 const recordPuterFailure = (model, reason = 'transient') => {
-    const health = readPuterHealth();
-    const entry = health[model] || { failures: 0, disabledUntil: 0 };
-    entry.failures += 1;
-    entry.lastFailureAt = Date.now();
-    entry.lastReason = reason;
-
-    if (reason === 'auth') {
-        entry.disabledUntil = Date.now() + PUTER_AUTH_COOLDOWN_MS;
-    } else if (reason === 'rate-limit') {
-        entry.disabledUntil = Date.now() + PUTER_RATE_LIMIT_COOLDOWN_MS;
-    } else if (reason === 'transport' || reason === 'timeout' || entry.failures >= PUTER_FAILURE_THRESHOLD) {
-        entry.disabledUntil = Date.now() + PUTER_TRANSIENT_COOLDOWN_MS;
-    }
-
-    health[model] = entry;
-    writePuterHealth(health);
-
-    if (entry.disabledUntil > Date.now()) {
-        const cooldownSeconds = Math.ceil((entry.disabledUntil - Date.now()) / 1000);
-        console.warn(`[Puter] ${PUTER_MODEL_LABELS[model] || model} cooling down for ${cooldownSeconds}s after ${reason}.`);
+    const record = _healthRegistry[model];
+    if (record) {
+        record.rollingFailures++;
+        let duration = 2 * 60 * 1000; // default 2 mins
+        if (reason === 'auth') duration = 60 * 60 * 1000;
+        else if (reason === 'rate-limit') {
+            duration = 15 * 60 * 1000;
+            // Cooldown other non-default models since Puter rate limits IP-wide
+            PUTER_FIRST_ROSTER.forEach(m => {
+                if (m.id !== 'default' && m.id !== model) {
+                    const otherRecord = _healthRegistry[m.id];
+                    if (otherRecord && otherRecord.cooldownUntil < Date.now() + 5 * 60 * 1000) {
+                        otherRecord.cooldownUntil = Date.now() + 5 * 60 * 1000; // 5-minute pre-emptive cooldown
+                    }
+                }
+            });
+        }
+        record.cooldownUntil = Date.now() + duration;
+        saveHealthRegistry();
+        console.warn(`[Puter Breaker] ${model} cooling down for ${Math.ceil(duration / 1000)}s after ${reason}.`);
     }
 };
 
-const recordPuterSuccess = (model) => {
-    const health = readPuterHealth();
-    if (health[model]) {
-        delete health[model];
-        writePuterHealth(health);
+const recordPuterUsageLog = (model, latency) => {
+    try {
+        const logStr = localStorage.getItem('hope_puter_usage_history') || '[]';
+        let logs = JSON.parse(logStr);
+        if (!Array.isArray(logs)) logs = [];
+        logs.push({
+            timestamp: Date.now(),
+            model,
+            latency
+        });
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        logs = logs.filter(log => log.timestamp >= thirtyDaysAgo);
+        localStorage.setItem('hope_puter_usage_history', JSON.stringify(logs));
+        window.dispatchEvent(new CustomEvent('hope_puter_usage_updated'));
+    } catch (e) {
+        console.error("Failed to log Puter usage:", e);
     }
-    // Remove legacy global breaker keys so older one-hour outages do not keep
-    // the upgraded per-model workflow disabled.
-    localStorage.removeItem('puter_failures');
-    localStorage.removeItem('puter_disabled_until');
 };
 
-const getPuterModelChain = (preferredModel, actionType) => {
-    const actionFallback = actionType === 'compiler' ? PUTER_CHAT_TUTOR_MODEL : PUTER_JCOMPILER_MODEL;
-    const ordered = [preferredModel, actionFallback, PUTER_CHAT_TUTOR_MODEL, PUTER_JCOMPILER_MODEL]
-        .filter(Boolean)
-        .filter((model, index, list) => list.indexOf(model) === index);
+const recordPuterSuccess = (model, latency = 0) => {
+    const record = _healthRegistry[model];
+    if (record) {
+        record.rollingSuccesses++;
+        if (latency > 0) {
+            record.latencies.push(latency);
+            if (record.latencies.length > 20) record.latencies.shift();
+        }
+        saveHealthRegistry();
+    }
+    recordPuterUsageLog(model, latency);
+};
 
-    const healthy = ordered.filter(isPuterModelHealthy);
-    return healthy.length ? healthy : ordered;
+const selectModelChain = (caps = []) => {
+    const healthy = PUTER_FIRST_ROSTER.filter(m => isPuterModelHealthy(m.id));
+    const matches = healthy.filter(m => caps.every(c => m.caps.includes(c)));
+    const sorted = (matches.length > 0 ? matches : healthy).sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        const rateA = getSuccessRate(_healthRegistry[a.id]);
+        const rateB = getSuccessRate(_healthRegistry[b.id]);
+        if (rateA !== rateB) return rateB - rateA;
+        return getP95Latency(_healthRegistry[a.id]) - getP95Latency(_healthRegistry[b.id]);
+    });
+    return sorted.map(m => m.id);
 };
 
 const classifyPuterError = (err) => {
@@ -341,13 +412,69 @@ const getProviderModel = (model, provider) => {
     return modelId;
 };
 
+// --- Puter Request Queue System ---
+class PuterRequestQueue {
+    constructor(maxConcurrency = 1, delayBetweenRequestsMs = 1000) {
+        this.maxConcurrency = maxConcurrency;
+        this.delayBetweenRequestsMs = delayBetweenRequestsMs;
+        this.queue = [];
+        this.running = 0;
+        this.lastFinishedTime = 0;
+    }
+
+    async enqueue(fn) {
+        console.info(`[Puter Queue] Enqueuing request (Pending queue length: ${this.queue.length})`);
+        return new Promise((resolve, reject) => {
+            this.queue.push({ fn, resolve, reject });
+            this.processNext();
+        });
+    }
+
+    async processNext() {
+        if (this.running >= this.maxConcurrency || this.queue.length === 0) {
+            return;
+        }
+
+        const now = Date.now();
+        const timeSinceLastFinish = now - this.lastFinishedTime;
+        const delayNeeded = Math.max(0, this.delayBetweenRequestsMs - timeSinceLastFinish);
+
+        if (delayNeeded > 0) {
+            setTimeout(() => this.processNext(), delayNeeded);
+            return;
+        }
+
+        const item = this.queue.shift();
+        if (!item) return;
+
+        const { fn, resolve, reject } = item;
+        this.running++;
+
+        try {
+            console.info(`[Puter Queue] Processing request (Active: ${this.running})`);
+            const result = await fn();
+            resolve(result);
+        } catch (error) {
+            reject(error);
+        } finally {
+            this.running--;
+            this.lastFinishedTime = Date.now();
+            console.info(`[Puter Queue] Request finished (Active: ${this.running}, Delaying next by ${this.delayBetweenRequestsMs}ms)`);
+            this.processNext();
+        }
+    }
+}
+
+const puterQueue = new PuterRequestQueue(1, 1000);
+
 // 1. Puter.js (Free, Serverless, No Key)
 const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
+    return puterQueue.enqueue(() => fetchPuterInternal(messages, modelOptions, retries));
+};
+
+const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
     const { model = PUTER_CHAT_TUTOR_MODEL, jsonMode = false, actionType = 'chat', onToken, ...params } = modelOptions;
 
-    // Wait for Puter CDN global to be ready. ensurePuterReady() is a shared,
-    // idempotent promise — concurrent calls reuse the same poll loop.
-    // No SDK mutations occur here or in puterInit. See puterInit.js header.
     try {
         await ensurePuterReady({ timeoutMs: 5000 });
     } catch {
@@ -355,15 +482,85 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
     }
     if (!window.puter) throw new Error("Puter.js not ready.");
 
+    const caps = actionType === 'compiler' ? ['json', 'code'] : ['reasoning', 'code'];
+    const userConfiguredModel = getUserModel('puter');
+    let modelChain = selectModelChain(caps);
 
-    const requestedModel = getProviderModel(model, 'puter');
-    const shouldForceSectionModel = actionType === 'chat' || actionType === 'compiler';
-    const preferredModel = shouldForceSectionModel ? requestedModel : (getUserModel('puter') || requestedModel);
-    const modelChain = getPuterModelChain(preferredModel, actionType);
+    if (model && model !== PUTER_CHAT_TUTOR_MODEL && isPuterModelId(model)) {
+        modelChain = [model, ...modelChain.filter(m => m !== model)];
+    }
 
-    const puterMessages = [...messages];
+    if (userConfiguredModel) {
+        modelChain = [userConfiguredModel, ...modelChain.filter(m => m !== userConfiguredModel)];
+    }
+
+    if (!modelChain.includes('default')) {
+        modelChain.push('default');
+    }
+
+    // Extract system messages to merge them into the first user message,
+    // as free models on Puter may leak or fail to isolate the 'system' role.
+    const systemMessages = messages.filter(m => m.role === 'system');
+    const systemContent = systemMessages.map(m => {
+        if (typeof m.content === 'string') return m.content;
+        if (Array.isArray(m.content)) {
+            return m.content
+                .map(part => {
+                    if (typeof part === 'string') return part;
+                    if (part && typeof part === 'object' && part.type === 'text') return part.text || '';
+                    return '';
+                })
+                .filter(Boolean)
+                .join('\n');
+        }
+        return String(m.content || '');
+    }).filter(Boolean).join('\n\n');
+
+    const nonSystemMessages = messages.filter(m => m.role !== 'system');
+
+    const puterMessages = nonSystemMessages.map(m => {
+        let contentStr = '';
+        if (typeof m.content === 'string') {
+            contentStr = m.content;
+        } else if (Array.isArray(m.content)) {
+            contentStr = m.content
+                .map(part => {
+                    if (typeof part === 'string') return part;
+                    if (part && typeof part === 'object') {
+                        if (part.type === 'text') return part.text || '';
+                        if (part.type === 'image_url') return '[Attached Image]';
+                    }
+                    return '';
+                })
+                .filter(Boolean)
+                .join('\n');
+        } else if (m.content) {
+            contentStr = String(m.content);
+        }
+
+        return {
+            role: m.role || 'user',
+            content: contentStr.trim() === "" ? " " : contentStr
+        };
+    });
+
+    if (systemContent.trim()) {
+        const firstUserMsg = puterMessages.find(m => m.role === 'user');
+        if (firstUserMsg) {
+            firstUserMsg.content = `[System Instructions]\n${systemContent}\n\n[End of System Instructions]\n\n${firstUserMsg.content}`;
+        } else {
+            puterMessages.unshift({
+                role: 'user',
+                content: `[System Instructions]\n${systemContent}\n\n[End of System Instructions]\n\nPlease acknowledge and wait for instructions.`
+            });
+        }
+    }
+
     if (jsonMode) {
-        puterMessages.push({ role: 'system', content: "\n\nIMPORTANT: Respond in strict JSON format." });
+        const lastUserMsg = [...puterMessages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) {
+            lastUserMsg.content += "\n\nIMPORTANT: Respond in strict JSON format.";
+        }
     }
 
     let lastError = null;
@@ -377,20 +574,27 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
         };
 
         for (let i = 0; i < retries; i++) {
+            const startTime = Date.now();
             try {
-                console.info(`[Puter] Trying ${PUTER_MODEL_LABELS[candidateModel] || candidateModel} (${i + 1}/${retries}).`);
+                const displayName = candidateModel === 'default' ? 'Puter Default Model' : (PUTER_MODEL_LABELS[candidateModel] || candidateModel);
+                console.info(`[Puter] Trying ${displayName} (${i + 1}/${retries}).`);
 
-                const puterPromise = window.puter.ai.chat(puterMessages, {
-                    model: candidateModel,
+                const chatOptions = {
                     stream: Boolean(onToken),
                     ...safeParams
-                });
+                };
+                if (candidateModel !== 'default') {
+                    chatOptions.model = candidateModel;
+                }
+
+                const puterPromise = window.puter.ai.chat(puterMessages, chatOptions);
 
                 const timeoutPromise = new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Puter Timeout")), onToken ? 120000 : 90000)
                 );
 
                 const response = await Promise.race([puterPromise, timeoutPromise]);
+                const durationMs = Date.now() - startTime;
 
                 if (onToken && response?.[Symbol.asyncIterator]) {
                     let streamedContent = '';
@@ -400,13 +604,13 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
                         streamedContent += token;
                         onToken(token, streamedContent);
                     }
-                    recordPuterSuccess(candidateModel);
+                    recordPuterSuccess(candidateModel, durationMs);
                     return { content: streamedContent, model: candidateModel };
                 }
 
                 if (response?.message?.content) {
                     const content = response.message.content;
-                    recordPuterSuccess(candidateModel);
+                    recordPuterSuccess(candidateModel, durationMs);
                     return {
                         content: Array.isArray(content)
                             ? content.map(p => p.text || JSON.stringify(p)).join('')
@@ -415,7 +619,7 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
                     };
                 }
 
-                recordPuterSuccess(candidateModel);
+                recordPuterSuccess(candidateModel, durationMs);
                 return { content: response?.toString() || '', model: candidateModel };
             } catch (err) {
                 lastError = err;
@@ -432,7 +636,6 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
     }
 
     throw new Error(`Puter Limitation: ${lastError?.message || 'all Puter models failed'}`);
-
 };
 
 // Client-Side Fallback (Direct to API)
@@ -666,6 +869,31 @@ export const getAICompletion = async (messages, options = {}) => {
     // Build ordered list from vault; fall back to hardcoded order if vault not
     // ready yet (first-load race condition).
     await ensureVault();
+
+    // Sanitize messages to avoid empty content which rejects under strict OpenAI/Puter APIs
+    const sanitizedMessages = messages.map(m => {
+        if (m.content === undefined || m.content === null) {
+            return { ...m, content: " " };
+        }
+        if (typeof m.content === 'string') {
+            return { ...m, content: m.content.trim() === "" ? " " : m.content };
+        }
+        if (Array.isArray(m.content)) {
+            const hasText = m.content.some(part => part && (typeof part === 'string' || part.text));
+            if (!hasText) {
+                return {
+                    ...m,
+                    content: [
+                        { type: 'text', text: ' ' },
+                        ...m.content.filter(part => part && part.type !== 'text')
+                    ]
+                };
+            }
+            return m;
+        }
+        return { ...m, content: String(m.content).trim() === "" ? " " : String(m.content) };
+    });
+
     const orderedProviders = getOrderedProviders(); // sorted, filtered by enabled
     const puterEntry   = orderedProviders.find(p => p.id === 'puter');
     const clientEntry  = orderedProviders.find(p => p.id === 'openrouter' || p.id === 'groq');
@@ -677,13 +905,13 @@ export const getAICompletion = async (messages, options = {}) => {
     const canUsePuter = puterEntry
         && isPuterModelId(modelOptions.model)
         && provider !== 'backend'
-        && !messages.some(m => Array.isArray(m.content));
+        && !sanitizedMessages.some(m => Array.isArray(m.content));
 
     if (canUsePuter) {
         try {
             const puterMode = isPuterHealthy() ? 'Primary' : 'Recovery Probe';
             onProgress({ step: 'querying', message: `Querying Puter.js (${puterMode})...`, provider: 'Puter Cloud' });
-            const puterResult = await fetchPuter(messages, modelOptions);
+            const puterResult = await fetchPuter(sanitizedMessages, modelOptions);
             resultData = { content: puterResult.content, provider: "Puter Cloud", model: puterResult.model };
         } catch (e) {
             console.warn("Puter failed/limited, dropping to client-side fallbacks.", e?.message || e);
@@ -699,22 +927,22 @@ export const getAICompletion = async (messages, options = {}) => {
         try {
             if (provider !== 'client' && !import.meta.env.DEV) {
                 onProgress({ step: 'querying', message: 'Querying Backend API...', provider: 'Backend' });
-                resultData = await fetchBackendFallback(messages, modelOptions);
+                resultData = await fetchBackendFallback(sanitizedMessages, modelOptions);
             } else {
                 const nextName = clientEntry?.name || 'OpenRouter';
                 onProgress({ step: 'querying', message: `Querying ${nextName}...`, provider: nextName });
-                resultData = await fetchClientSideFallback(messages, modelOptions);
+                resultData = await fetchClientSideFallback(sanitizedMessages, modelOptions);
             }
         } catch (e) {
             console.error("All client-side providers failed:", e.message);
             const canUsePuterFallback = puterEntry
                 && provider === 'auto'
-                && !messages.some(m => Array.isArray(m.content));
+                && !sanitizedMessages.some(m => Array.isArray(m.content));
 
             if (canUsePuterFallback) {
                 try {
                     onProgress({ step: 'fallback', message: 'OpenRouter unavailable. Trying Puter Laguna...', provider: 'Puter Cloud' });
-                    const puterResult = await fetchPuter(messages, { ...modelOptions, model: PUTER_CHAT_TUTOR_MODEL });
+                    const puterResult = await fetchPuter(sanitizedMessages, { ...modelOptions, model: PUTER_CHAT_TUTOR_MODEL });
                     resultData = { content: puterResult.content, provider: "Puter Cloud", model: puterResult.model };
                 } catch (puterError) {
                     console.warn("Puter fallback also failed.", puterError?.message || puterError);
@@ -732,6 +960,30 @@ export const getAICompletion = async (messages, options = {}) => {
     const duration = (endTime - startTime);
 
     onProgress({ step: 'completed', message: 'Response Received', duration });
+
+    if (resultData) {
+        logAIChatTelemetry({
+            model: resultData.model || modelOptions.model,
+            provider: resultData.provider || provider,
+            durationMs: duration,
+            success: true,
+            fallbackTriggered: resultData.provider !== (provider === 'auto' ? 'Puter Cloud' : provider),
+            misconceptionHalted: Boolean(options.misconceptionHalted),
+            studentProficiency: options.studentProficiency || null,
+            ruralIndicator: options.ruralIndicator || false
+        }).catch(err => console.error("Telemetry upload failed:", err));
+    } else {
+        logAIChatTelemetry({
+            model: modelOptions.model,
+            provider,
+            durationMs: duration,
+            success: false,
+            fallbackTriggered: true,
+            misconceptionHalted: Boolean(options.misconceptionHalted),
+            studentProficiency: options.studentProficiency || null,
+            ruralIndicator: options.ruralIndicator || false
+        }).catch(err => console.error("Telemetry upload failed:", err));
+    }
 
     if (includeMetadata) {
         return { ...resultData, time: (duration / 1000).toFixed(2) };
@@ -781,10 +1033,28 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
             includeMetadata: true,
             onToken: options.onToken
         });
-        const parsed = cleanAndParseJSON(resultWithMeta.content);
+        
+        let parsed;
+        try {
+            parsed = cleanAndParseJSON(resultWithMeta.content);
+        } catch (jsonErr) {
+            console.warn("Compiler JSON parsing failed, using fallback parser:", jsonErr);
+            parsed = {
+                reasoning: "Failed to parse structured JSON from model. Displaying raw output.",
+                language: language,
+                isEmbedded: false,
+                output: resultWithMeta.content,
+                serialMonitor: "",
+                status: "success",
+                errorExplanation: "",
+                fixedCode: code,
+                mermaidGraph: ""
+            };
+        }
         return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };
-    } catch {
-        throw new Error("Compiler simulation failed.");
+    } catch (err) {
+        console.error("Compiler simulation critical error:", err);
+        throw new Error("Compiler simulation failed: " + (err.message || err));
     }
 };
 
@@ -812,9 +1082,21 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
             includeMetadata: true,
             onToken: options.onToken
         });
-        const parsed = cleanAndParseJSON(resultWithMeta.content);
+        
+        let parsed;
+        try {
+            parsed = cleanAndParseJSON(resultWithMeta.content);
+        } catch (jsonErr) {
+            console.warn("Reverse engineering JSON parsing failed, using fallback parser:", jsonErr);
+            parsed = {
+                code: resultWithMeta.content,
+                explanation: "Could not parse structured JSON from response.",
+                reasoning: "Displaying raw response content."
+            };
+        }
         return { ...parsed, _metadata: { time: resultWithMeta.time, provider: resultWithMeta.provider, model: resultWithMeta.model } };
-    } catch {
-        throw new Error("Reverse engineering failed.");
+    } catch (err) {
+        console.error("Reverse engineering critical error:", err);
+        throw new Error("Reverse engineering failed: " + (err.message || err));
     }
 };

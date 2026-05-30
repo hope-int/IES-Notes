@@ -25,6 +25,8 @@
   --danger-color: #dc2626;
   --warning-color: #d97706;
 
+  --border-color: #e2e8f0;
+
   --clay-radius: 16px;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -53,7 +55,7 @@ a {
 .clay-card {
   background: var(--bg-card);
   border-radius: var(--clay-radius);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
   transition: var(--smooth-transition);
 }
@@ -237,8 +239,8 @@ button:disabled {
 
 .btn-light,
 .btn-secondary {
-  background: white !important;
-  border: 1px solid #e2e8f0 !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
   color: var(--text-main) !important;
 }
 
@@ -246,7 +248,7 @@ button:disabled {
 .clay-input,
 input.form-control {
   background: var(--bg-input) !important;
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--border-color) !important;
   color: var(--text-main) !important;
   border-radius: 12px;
   padding: 0.75rem 1rem;
@@ -336,8 +338,8 @@ h6 {
 }
 
 .dropdown-menu {
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   box-shadow: var(--shadow-md);
   border-radius: 12px;
 }
@@ -518,4 +520,116 @@ h6 {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
+}
+
+/* Deep Slate Dark Theme overrides */
+body.dark-mode {
+  --bg-page: #0f172a;
+  --bg-card: #1e293b;
+  --bg-input: #1e293b;
+
+  --text-main: #e2e8f0;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --primary-accent: #60a5fa;
+  --secondary-accent: #818cf8;
+  --accent-soft: rgba(96, 165, 250, 0.12);
+
+  --success-color: #34d399;
+  --danger-color: #f87171;
+  --warning-color: #fbbf24;
+
+  --border-color: #334155;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Map Bootstrap theme classes to Deep Slate variables */
+body.dark-mode .text-dark {
+  color: var(--text-main) !important;
+}
+
+body.dark-mode .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+body.dark-mode .bg-light {
+  background-color: var(--bg-page) !important;
+}
+
+body.dark-mode .border {
+  border-color: var(--border-color) !important;
+}
+
+body.dark-mode .glass-card {
+  background: rgba(30, 41, 59, 0.8) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.dark-mode .glass-nav {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.dark-mode .segmented-control {
+  background: #1e293b;
+}
+
+body.dark-mode .segmented-control .btn.active {
+  background: #334155 !important;
+  color: var(--text-main) !important;
+}
+
+body.dark-mode .shimmer-bg {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+}
+
+body.dark-mode .compose-modal,
+body.dark-mode .modal-content,
+body.dark-mode .dropdown-menu {
+  background: #1e293b !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+}
+
+body.dark-mode .skeleton-box {
+  background: #334155;
+}
+
+body.dark-mode .custom-scrollbar::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+body.dark-mode .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+body.dark-mode .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+body.dark-mode .clay-button,
+body.dark-mode .btn-primary {
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.15) !important;
+}
+
+body.dark-mode .clay-button:hover,
+body.dark-mode .btn-primary:hover {
+  box-shadow: 0 6px 16px rgba(96, 165, 250, 0.25) !important;
+}
+
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+}
+
+.hide-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
 }

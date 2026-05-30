@@ -71,8 +71,10 @@ export const getOwnerId = async () => {
     return { ownerId: sessionId, isAuth: false };
 };
 
-const getSecret = (ownerId) => {
-    const pepper = import.meta.env.VITE_ENC_PEPPER || 'hope-studio-default-pepper-v1';
+const getSecret = (ownerId, useLegacy = false) => {
+    const pepper = useLegacy
+        ? (import.meta.env.VITE_LEGACY_ENC_PEPPER || 'hope-studio-default-pepper-v1')
+        : (import.meta.env.VITE_ENC_PEPPER || 'hope-studio-default-pepper-v1');
     return `${pepper}::${ownerId}`;
 };
 
@@ -80,8 +82,12 @@ const getSecret = (ownerId) => {
 
 export const PROVIDER_MODELS = {
     puter: [
-        { value: null,                                  label: 'App Default',           badge: 'default' },
-        { value: 'poolside/laguna-xs.2:free',           label: 'Laguna XS.2',           badge: 'free' },
+        { value: null,                                                 label: 'App Default',           badge: 'default' },
+        { value: 'z-ai/glm-4.7-flash',                                 label: 'GLM 4.7 Flash',         badge: 'free' },
+        { value: 'poolside/laguna-m.1:free',                           label: 'Laguna M.1',            badge: 'free' },
+        { value: 'poolside/laguna-xs.2:free',                          label: 'Laguna XS.2',           badge: 'free' },
+        { value: 'z-ai/glm-4.6v-flash',                                label: 'GLM 4.6V Flash',        badge: 'free' },
+        { value: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', label: 'Nemotron 3 Omni',       badge: 'free' },
     ],
     openrouter: [
         { value: null,                                        label: 'App Default',              badge: 'default' },
@@ -202,7 +208,8 @@ export const saveVaultSettings = async (settings) => {
 
 export const loadVaultSettings = async () => {
     const { ownerId } = await getOwnerId();
-    const secret = getSecret(ownerId);
+    const secret = getSecret(ownerId, false);
+    const legacySecret = getSecret(ownerId, true);
 
     // 1. localStorage (instant, no network)
     try {
@@ -210,7 +217,14 @@ export const loadVaultSettings = async () => {
         if (raw) {
             const { encrypted, iv, ownerId: cachedOwner } = JSON.parse(raw);
             if (cachedOwner === ownerId) {
-                const data = await decryptData(encrypted, iv, secret, ownerId);
+                let data = await decryptData(encrypted, iv, secret, ownerId);
+                if (!data && secret !== legacySecret) {
+                    data = await decryptData(encrypted, iv, legacySecret, ownerId);
+                    if (data) {
+                        // Re-encrypt with new pepper asynchronously
+                        saveVaultSettings(data).catch(err => console.error("Pepper rotation sync failed:", err));
+                    }
+                }
                 if (data) return mergeWithDefaults(data);
             }
         }
@@ -225,7 +239,14 @@ export const loadVaultSettings = async () => {
             .maybeSingle();
 
         if (data?.encrypted_blob) {
-            const settings = await decryptData(data.encrypted_blob, data.iv, secret, ownerId);
+            let settings = await decryptData(data.encrypted_blob, data.iv, secret, ownerId);
+            if (!settings && secret !== legacySecret) {
+                settings = await decryptData(data.encrypted_blob, data.iv, legacySecret, ownerId);
+                if (settings) {
+                    // Re-encrypt with new pepper and update cache
+                    saveVaultSettings(settings).catch(err => console.error("Pepper rotation sync failed:", err));
+                }
+            }
             if (settings) {
                 // Re-hydrate localStorage
                 localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({

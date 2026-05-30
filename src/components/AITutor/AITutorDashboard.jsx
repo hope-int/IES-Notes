@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-    Sparkles, MessageSquare, Presentation, FileText, FileSpreadsheet, Code, Cpu, Terminal, Mic, BookOpen, ArrowLeft, Menu, Bot, ChevronRight, Settings
+    Sparkles, MessageSquare, Presentation, FileText, FileSpreadsheet, Code, Cpu, Terminal, Mic, BookOpen, ArrowLeft, Menu, Bot, ChevronRight, Settings, GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import APIKeyVault from '../Settings/APIKeyVault';
@@ -95,6 +95,7 @@ const AITutorDashboard = () => {
 
                     <div className="row g-3">
                         {[
+                            { id: 'zero-to-hero', icon: GraduationCap, title: "Zero to Hero", desc: "Autonomous Live Class.", color: '#ef4444' },
                             { id: 'roadmap', icon: Sparkles, title: "Study Roadmap", desc: "AI-powered career paths.", color: '#f59e0b', beta: true },
                             { id: 'presentation', icon: Presentation, title: "AI Presentation", desc: "Instant slide generation.", color: '#3b82f6', beta: true },
                             { id: 'handbook', icon: BookOpen, title: "Revision Kit", desc: "Concise exam-ready notes.", color: '#2563eb' },

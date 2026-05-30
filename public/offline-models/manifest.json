@@ -1,0 +1,20 @@
+{
+  "offlineModels": [
+    {
+      "id": "qwen/qwen3-4b:free",
+      "name": "Qwen3 4B INT4 Quantized",
+      "sizeBytes": 2200000000,
+      "format": "gguf",
+      "localPath": "/offline-models/qwen3-4b-int4.gguf",
+      "fallbackTriggered": true
+    },
+    {
+      "id": "gemma-3n-2b:free",
+      "name": "Gemma 3N 2B INT4 Quantized",
+      "sizeBytes": 1300000000,
+      "format": "gguf",
+      "localPath": "/offline-models/gemma-3n-2b-int4.gguf",
+      "fallbackTriggered": true
+    }
+  ]
+}

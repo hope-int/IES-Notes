@@ -22,7 +22,10 @@ export default function PuterAuthPopup({ onAuthComplete }) {
     }, []);
 
     const onCancel = () => {
-        if (onAuthComplete && !loading && !success) onAuthComplete(false);
+        if (onAuthComplete && !loading && !success) {
+            localStorage.setItem('hope_puter_guest_confirmed', 'true');
+            onAuthComplete(false);
+        }
     };
 
     const handleSetup = async () => {
@@ -38,7 +41,7 @@ export default function PuterAuthPopup({ onAuthComplete }) {
 
             if (window.puter.auth.isSignedIn()) {
                 setSuccess(true);
-                localStorage.setItem('hope_puter_guest_confirmed', 'true');
+                localStorage.setItem('hope_puter_guest_confirmed', 'false');
                 
                 // Keep the modal open a bit longer for success animation
                 setTimeout(() => {

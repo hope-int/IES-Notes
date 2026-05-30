@@ -30,7 +30,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', actionType: 'report' }
+        { model: 'z-ai/glm-4.7-flash', actionType: 'report' }
     );
 
     try {
@@ -71,7 +71,7 @@ OUTPUT: Return ONLY the raw plain text content for this section. No Markdown, no
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', actionType: 'report' }
+        { model: 'z-ai/glm-4.7-flash', actionType: 'report' }
     );
 
     return content.trim();

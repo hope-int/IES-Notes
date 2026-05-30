@@ -4,7 +4,7 @@ import {
   Folder, ExternalLink, Search, Book, Zap, Database, Code, FolderPlus,
   Cpu, ChevronRight, ArrowLeft, Users, Building, Settings,
   FileText, Heart, Shield, LogOut, User, Bell, MessageCircle, Home, Upload, Download, Sparkles, GraduationCap,
-  Bot, Terminal
+  Bot, Terminal, Coins, Sun, Moon, Briefcase
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { useLocation, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ import CreateFolderModal from './CreateFolderModal';
 import AdminPanel from './AdminPanel';
 import AdminLoginModal from './AdminLoginModal';
 import StudentProfile from './StudentProfile';
+import PuterUsageWidget from './components/Dashboard/PuterUsageWidget';
 import JCompiler from './components/JCompiler';
 import PuterAuthPopup from './components/PuterAuthPopup';
 import ZeroToHero from './components/ZeroToHero/ZeroToHero';
@@ -26,14 +27,86 @@ import ProjectGenerator from './components/Project/ProjectGenerator';
 import RoadmapCanvas from './components/Roadmap/RoadmapCanvas';
 import HopeDocsLayout from './components/HopeDocs/HopeDocsLayout';
 import HopeSheetsLayout from './components/HopeSheets/HopeSheetsLayout';
+import InternshipFeed from './components/Feed/InternshipFeed';
 
 import CommunityFeed from './components/Community/CommunityFeed';
 import AIChat from './components/AITutor/AITutor';
 import AITutorDashboard from './components/AITutor/AITutorDashboard';
+import UserAvatar from './components/UserAvatar';
 import { getDeviceId, getClientIp, isStandalonePWA, isMobileDevice } from './utils/deviceUtils';
 import { getPuterAuthState } from './utils/puterInit';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useAuth } from './contexts/AuthContext';
+
+
+function PuterIndicator({ onClick }) {
+  const [remaining, setRemaining] = useState(null);
+  const authState = getPuterAuthState();
+
+  const fetchRemaining = async () => {
+    try {
+      if (window.puter && window.puter.auth && !authState.isGuest) {
+        const usage = await window.puter.auth.getMonthlyUsage();
+        if (usage && usage.allowanceInfo) {
+          setRemaining(usage.allowanceInfo.remaining || 0);
+          return;
+        }
+      }
+      // Mock remaining: $0.8520
+      setRemaining(85200000);
+    } catch (e) {
+      console.warn("Failed to fetch Puter remaining usage for indicator:", e);
+      setRemaining(85200000);
+    }
+  };
+
+  useEffect(() => {
+    fetchRemaining();
+    window.addEventListener('hope_puter_usage_updated', fetchRemaining);
+    return () => {
+      window.removeEventListener('hope_puter_usage_updated', fetchRemaining);
+    };
+  }, []);
+
+  if (remaining === null) return null;
+
+  const usdValue = (remaining / 100000000).toFixed(4);
+
+  return (
+    <div 
+      onClick={onClick}
+      className="d-flex align-items-center gap-2 px-3 py-2 rounded-pill clay-card cursor-pointer hover-scale"
+      style={{ maxHeight: '48px', transition: 'transform 0.2s', background: 'rgba(255, 255, 255, 0.8)' }}
+      title="Puter API Balance (Click to view details)"
+    >
+      <div className="position-relative d-flex align-items-center">
+        <Coins size={16} className="text-success" />
+        <span 
+          className="position-absolute rounded-circle bg-success" 
+          style={{ 
+            width: '6px', 
+            height: '6px', 
+            top: '-2px', 
+            right: '-2px', 
+            boxShadow: '0 0 4px rgba(25, 135, 84, 0.8)',
+            animation: 'pulse 2s infinite' 
+          }} 
+        />
+      </div>
+      <span className="fw-bold font-monospace text-dark" style={{ fontSize: '0.85rem' }}>
+        {usdValue}
+      </span>
+      
+      <style>{`
+        @keyframes pulse {
+          0% { transform: scale(0.95); opacity: 0.5; }
+          50% { transform: scale(1.2); opacity: 1; }
+          100% { transform: scale(0.95); opacity: 0.5; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 // Mapping string icon names to components
 const iconMap = {
@@ -106,13 +179,23 @@ function App() {
 
 
   // Route Handling: Check if we are on a special route (e.g. /compiler, /admin)
-  const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes', '/handbook', '/presentation', '/report', '/assignment', '/mini-project', '/final-project', '/roadmap', '/ai-chat', '/ai-tutor', '/docs', '/sheets', '/community'].includes(location.pathname);
+  const isSpecialRoute = ['/compiler', '/admin', '/zero-to-hero', '/podcast-classes', '/handbook', '/presentation', '/report', '/assignment', '/mini-project', '/final-project', '/roadmap', '/ai-chat', '/ai-tutor', '/docs', '/sheets', '/community', '/feed'].includes(location.pathname);
 
   // Warning State
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showPuterUsage, setShowPuterUsage] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [isPuterSignedIn, setIsPuterSignedIn] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [hideBottomNav, setHideBottomNav] = useState(false);
+
+  useEffect(() => {
+    const handleHide = (e) => {
+      setHideBottomNav(!!e.detail);
+    };
+    window.addEventListener('hope_hide_bottom_nav', handleHide);
+    return () => window.removeEventListener('hope_hide_bottom_nav', handleHide);
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -240,6 +323,7 @@ function App() {
       .from('announcements')
       .select('content')
       .eq('is_active', true)
+      .not('content', 'like', 'HOPE_FEED_POST::%')
       .order('created_at', { ascending: false })
       .limit(5);
     setAnnouncements(data || []);
@@ -541,6 +625,7 @@ function App() {
                       <button
                         onClick={() => {
                           setShowNotifications(!showNotifications);
+                          setShowPuterUsage(false); // Close Puter usage popup if open
                         }}
                         className="btn btn-link p-2 rounded-circle d-flex align-items-center justify-content-center position-relative"
                         style={{ width: '48px', height: '48px', padding: 0, border: 'none' }}
@@ -550,6 +635,20 @@ function App() {
                         {announcements.length > 0 && <span className="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
                           <span className="visually-hidden">New alerts</span>
                         </span>}
+                      </button>
+
+                      {/* Mode Toggle Switch (Classroom / Study) */}
+                      <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        className="btn btn-link p-2 rounded-circle d-flex align-items-center justify-content-center"
+                        style={{ width: '48px', height: '48px', padding: 0, border: 'none' }}
+                        title={darkMode ? "Switch to Classroom Mode (Light)" : "Switch to Study Mode (Dark)"}
+                      >
+                        {darkMode ? (
+                          <Sun size={22} className="text-warning" />
+                        ) : (
+                          <Moon size={22} className="text-secondary" />
+                        )}
                       </button>
 
                       {/* Favorites Button */}
@@ -594,6 +693,30 @@ function App() {
                         )}
                       </AnimatePresence>
 
+                      {/* Puter Credits Indicator */}
+                      <div className="position-relative">
+                        <PuterIndicator onClick={() => {
+                          setShowPuterUsage(!showPuterUsage);
+                          setShowNotifications(false); // Close notifications if open
+                        }} />
+                        <AnimatePresence>
+                          {showPuterUsage && (
+                            <>
+                              <div className="position-fixed top-0 start-0 w-100 h-100 z-2" onClick={() => setShowPuterUsage(false)}></div>
+                              <motion.div
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                className="position-absolute p-0 shadow-lg z-3"
+                                style={{ top: '60px', right: '0px', width: '380px', maxWidth: '95vw', border: 'none' }}
+                              >
+                                <PuterUsageWidget />
+                              </motion.div>
+                            </>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
                       {/* Profile Pill - Student Dashboard */}
                       <div
                         onClick={() => setShowProfile(true)}
@@ -601,13 +724,7 @@ function App() {
                         style={{ maxHeight: '48px', transition: 'transform 0.2s' }}
                         title="Student Dashboard"
                       >
-                        <div className="bg-primary bg-opacity-25 rounded-circle p-1 d-flex shadow-inner align-items-center justify-content-center" style={{ width: 32, height: 32 }}>
-                          {userProfile && userProfile.full_name ? (
-                            <span className="fw-bold text-white">{userProfile.full_name.charAt(0).toUpperCase()}</span>
-                          ) : (
-                            <User size={20} className="text-white" />
-                          )}
-                        </div>
+                        <UserAvatar profile={userProfile} size={32} />
                         <span className="fw-bold" style={{ color: 'var(--text-main)' }}>
                           {userProfile && userProfile.full_name ? userProfile.full_name : 'Student'}
                         </span>
@@ -617,10 +734,10 @@ function App() {
                       {/* Mobile Menu Button - Also opens Dashboard */}
                       <button
                         onClick={() => setShowProfile(true)}
-                        className="d-flex d-md-none btn btn-primary p-0 rounded-circle align-items-center justify-content-center"
+                        className="d-flex d-md-none btn p-0 rounded-circle align-items-center justify-content-center border-0"
                         style={{ width: '48px', height: '48px' }}
                       >
-                        <span className="fw-bold text-white">{userProfile?.full_name?.charAt(0) || <User size={22} />}</span>
+                        <UserAvatar profile={userProfile} size={48} />
                       </button>
                     </div>
                   </nav >
@@ -945,6 +1062,7 @@ function App() {
                 <Route path="/ai-chat" element={<AIChat />} />
                 <Route path="/docs" element={<HopeDocsLayout onBack={() => navigate(-1)} />} />
                 <Route path="/sheets" element={<HopeSheetsLayout onBack={() => navigate(-1)} />} />
+                <Route path="/feed" element={<InternshipFeed studentProfile={userProfile} onBack={() => navigate('/')} />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
 
@@ -979,8 +1097,16 @@ function App() {
           }
           {/* Floating Navigation Bar - Global */}
           {
-            !showProfile && location.pathname !== '/community' && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && location.pathname !== '/assignment' && (
-              <div className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" style={{ pointerEvents: 'none', zIndex: 1055 }}>
+            !showProfile && location.pathname !== '/feed' && location.pathname !== '/community' && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && location.pathname !== '/assignment' && (
+              <div 
+                className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" 
+                style={{ 
+                  pointerEvents: 'none', 
+                  zIndex: 1055,
+                  transform: hideBottomNav ? 'translateY(120px)' : 'translateY(0)',
+                  transition: 'transform 0.3s ease-in-out'
+                }}
+              >
                 <motion.div
                   whileHover={{
                     y: -10,
@@ -991,6 +1117,16 @@ function App() {
                   className="clay-card rounded-pill p-2 d-flex gap-2 shadow-lg glass-panel"
                   style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}
                 >
+                  <button
+                    onClick={() => {
+                      navigate('/feed');
+                      setActiveTab('feed');
+                    }}
+                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/feed' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+                  >
+                    <Briefcase size={20} /> {location.pathname === '/feed' && <span>Feed</span>}
+                  </button>
+
                   <button
                     onClick={() => {
                       navigate('/');
@@ -1006,13 +1142,7 @@ function App() {
                     }}
                     className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' && location.pathname === '/' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
-                    <Home size={20} /> <span className={activeTab === 'home' && location.pathname === '/' ? 'd-inline' : 'd-none d-sm-inline'}>Home</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/community')}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/community' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
-                  >
-                    <MessageCircle size={20} /> <span className={location.pathname === '/community' ? 'd-inline' : 'd-none d-sm-inline'}>Community</span>
+                    <Home size={20} /> {activeTab === 'home' && location.pathname === '/' && <span>Home</span>}
                   </button>
 
                   <button
@@ -1026,9 +1156,18 @@ function App() {
                     className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname.startsWith('/ai-') ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
                     <Sparkles size={20} />
-                    <span className={location.pathname.startsWith('/ai-') ? 'd-inline' : 'd-none d-sm-inline'}>
-                      {isPuterSignedIn ? "HOPE Studio" : "Unlock Studio"}
-                    </span>
+                    {location.pathname.startsWith('/ai-') && (
+                      <span>
+                        {isPuterSignedIn ? "HOPE Studio" : "Unlock Studio"}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/community')}
+                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/community' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+                  >
+                    <MessageCircle size={20} /> {location.pathname === '/community' && <span>Community</span>}
                   </button>
                 </motion.div>
               </div>

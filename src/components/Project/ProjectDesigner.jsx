@@ -62,11 +62,18 @@ const ProjectDesigner = ({ onBack }) => {
 
     const handleAiCall = async (prompt, type) => {
         try {
+            let targetModel = 'z-ai/glm-4.7-flash';
+            if (type === 'code') {
+                targetModel = 'poolside/laguna-m.1:free';
+            } else if (type === 'slide') {
+                targetModel = 'poolside/laguna-xs.2:free';
+            }
+
             const response = await getAICompletion([
                 { role: 'user', content: prompt }
             ], {
                 jsonMode: type === 'slide',
-                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'
+                model: targetModel
             });
             if (type === 'slide') {
                 try {

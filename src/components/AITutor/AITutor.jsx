@@ -41,7 +41,7 @@ export default function AITutor() {
 
     // Resiliency Stats
     const [providerStatus, setProviderStatus] = useState('Puter Cloud');
-    const [activeModel, setActiveModel] = useState('Nemotron 3 Nano Omni');
+    const [activeModel, setActiveModel] = useState('GLM-4.7 Flash');
     const [latency, setLatency] = useState(0);
     const [rateLimit, setRateLimit] = useState('98/100');
 
@@ -288,8 +288,27 @@ export default function AITutor() {
 - **Exam Readiness:** Structure notes according to KTU exam patterns (e.g., distinguish between "Part A (2 Marks)" and "Part B (12 Marks)").
 - **Resources:** Reference standard textbooks (local authors like 'Technical Publications' or standard foreign authors) relevant to the KTU curriculum.
 
-### 3. DOCUMENT GENERATION WORKFLOW (CRITICAL)
-You operate on a strict **"Analyze -> Ask -> Generate"** workflow. You are FORBIDDEN from generating engineering documents or applying the '[[PDF_ATTACHMENT]]' tag unless the user explicitly uses a slash command (like '/doc').
+### 3. DIRECT ANSWER PROTOCOL (HIGHEST PRIORITY)
+When a student sends a conversational message **without a slash command**, you MUST respond directly and helpfully. NEVER ask clarifying questions for simple academic requests.
+
+**DIRECT RESPONSE TRIGGERS (respond immediately, no questions):**
+- Requests for code examples: "code for X", "write X in C", "show me deadlock code", "example of X"
+- Requests for explanations: "explain X", "what is X", "how does X work"
+- Requests with urgency: "give fast", "quickly", "just tell me", "fast"
+- Short factual queries about KTU syllabus topics
+
+**For direct code requests:**
+1. Detect the most likely context from the query (e.g., "deadlock" → OS topic → C/Java most likely for KTU).
+2. Pick the **most standard implementation** for the KTU syllabus.
+3. Deliver a complete, runnable code example immediately with a brief explanation.
+4. Add a one-line note at the end like: *"Let me know if you need it in a different language or with more detail."*
+
+**For direct explanation requests:**
+1. Give a crisp, exam-ready answer immediately.
+2. Structure it for KTU Part A (2-mark) or Part B (12-mark) style if apparent.
+
+### 4. DOCUMENT GENERATION WORKFLOW (slash commands only)
+You operate on a strict **"Analyze → Ask → Generate"** workflow. You are FORBIDDEN from generating engineering documents or applying the '[[PDF_ATTACHMENT]]' tag unless the user explicitly uses a slash command (like '/doc').
 
 **Step A: Trigger Recognition**
 - If the user's message start with a slash command (e.g., '/doc', '/explain'), you may proceed to generate and MUST append the '[[PDF_ATTACHMENT]]' tag at the very end of your response.
@@ -302,7 +321,7 @@ If a slash command IS used, check if the user has provided:
 3.  **Specifics:** (e.g., Dates for leave letters, specific technology stacks for projects).
 
 **Step C: The Inquiry**
-If ANY critical detail is missing for a document request, ASK the user for clarification. Do NOT hallucinate or assume details.
+If ANY critical detail is missing for a **slash command document request**, ASK the user for clarification. Do NOT hallucinate or assume details.
 
 **Step D: Final Generation**
 Only after the user provides the necessary details AND has used a slash command, generate the content using these rules:
@@ -311,12 +330,15 @@ Only after the user provides the necessary details AND has used a slash command,
 - **END** the message strictly with the content.
 - **APPEND** the exact tag [[PDF_ATTACHMENT]] at the very end of the raw text ONLY if a slash command was used.
 
-### 4. INTERACTION STYLE
+### 5. INTERACTION STYLE
 - **Tone:** Professional, encouraging, and technically precise.
 - **Formatting:** Use code blocks for programming logic. Use LaTeX for math.
 - **Context Handling:** If a user uploads a PDF/Image, analyze it strictly within the engineering domain (e.g., extract circuit diagrams, code logic, or mathematical derivations).`;
 
-            const history = messages.map(m => ({ role: m.role, content: m.content }));
+            const history = messages
+                .filter(m => !m.streaming && m.content && String(m.content).trim() !== '')
+                .map(m => ({ role: m.role, content: m.content }));
+
             const requestMessages = [{ role: 'system', content: systemPrompt }, ...history];
 
             // Attach processing context
@@ -356,10 +378,15 @@ Only after the user provides the necessary details AND has used a slash command,
             };
             setMessages(prev => [...prev, assistantDraft]);
 
+            let targetModel = 'z-ai/glm-4.7-flash';
+            if (currentFile?.type.startsWith('image/') || currentFile?.type === 'application/pdf') {
+                targetModel = 'z-ai/glm-4.6v-flash';
+            }
+
             let streamedContent = '';
             const aiResponse = await getAICompletion(requestMessages, {
                 actionType: 'chat',
-                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+                model: targetModel,
                 max_tokens: 32000,
                 temperature: 0.7,
                 onToken: (token, fullContent) => {
@@ -661,7 +688,9 @@ Only after the user provides the necessary details AND has used a slash command,
 
             Process the document now.`;
 
-            const studioHistory = history.map(m => ({ role: m.role, content: m.content }));
+            const studioHistory = history
+                .filter(m => !m.streaming && m.content && String(m.content).trim() !== '')
+                .map(m => ({ role: m.role, content: m.content }));
             const requestMessages = [
                 { role: 'system', content: systemPrompt },
                 ...studioHistory,
@@ -670,7 +699,7 @@ Only after the user provides the necessary details AND has used a slash command,
 
             const result = await getAICompletion(requestMessages, {
                 actionType: 'chat',
-                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+                model: 'z-ai/glm-4.7-flash',
                 max_tokens: 32000,
                 temperature: 0.3
             });

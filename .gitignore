@@ -1,36 +1,212 @@
-# Environment Files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# =============================================================================
+# HOPE Edu-Hub · .gitignore
+# Stack: Vite 7 · React 19 · Supabase · Puter.js · Vercel Edge · PWA
+# Last updated: 2026-05-31
+# =============================================================================
 
-# Logs
-logs
+
+# ─── Package managers ────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.*
+.npm/
+.pnpm-store/
+.yarn/*
+!.yarn/patches/
+!.yarn/plugins/
+!.yarn/releases/
+!.yarn/sdks/
+!.yarn/versions/
+
+
+# ─── Environment & secrets ───────────────────────────────────────────────────
+# Never commit real .env files — use .env.example for templates
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Auth / token files
+*.local
+.npmrc.local
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+*.csr
+*.secret
+.secret
+secrets/
+credentials/
+auth-tokens/
+
+# Supabase local credentials  
+supabase/.env
+supabase/.branches/
+supabase/functions/.env
+
+
+# ─── Build output ────────────────────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+out/
+.output/
+.next/
+.nuxt/
+.svelte-kit/
+
+# Vite internals
+.vite/
+.vite-inspect/
+dev-dist/
+
+# PWA / Workbox generated assets
+sw.js
+sw.js.map
+workbox-*.js
+workbox-*.js.map
+registerSW.js
+
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.pnpm-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-node_modules
-dist
-dist-ssr
-*.local
 
-# Editor directories and files
+# ─── Testing & coverage ──────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+.vitest/
+.vitest-cache/
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
+
+# ─── Tool / build caches ─────────────────────────────────────────────────────
+.cache/
+.eslintcache
+.stylelintcache
+.prettiercache
+.sass-cache/
+*.tsbuildinfo
+.turbo/
+.parcel-cache/
+
+
+# ─── Hosting / deployment metadata ──────────────────────────────────────────
+.vercel/
+.netlify/
+.railway/
+.render/
+.fly/
+.wrangler/
+.cloudflare/
+
+
+# ─── Local scratch / exports / temp files ────────────────────────────────────
+artifacts/
+exports/
+downloads/
+scratch/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.swp
+*~
+list-tables.js
+live_classroom_architecture.txt
+test-connect.js
+create_syllabus_folders.py
+
+
+# ─── Local databases & runtime state ─────────────────────────────────────────
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.data/
+.local-data/
+data/
+supabase/migrations/*.bak
+
+
+# ─── AI / ML model weights ───────────────────────────────────────────────────
+# Manifest JSON can stay — only binary weights are excluded
+/public/offline-models/*.gguf
+/public/offline-models/*.ggml
+/public/offline-models/*.safetensors
+/public/offline-models/*.onnx
+/public/offline-models/*.pt
+/public/offline-models/*.pth
+/public/offline-models/*.ckpt
+/public/offline-models/*.tflite
+/models/
+/checkpoints/
+*.gguf
+*.ggml
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.tflite
+*.bin
+*.mlmodel
+
+
+# ─── Python helper output ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist-info/
+
+
+# ─── Editor & IDE files ──────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/settings.example.json
+!.vscode/launch.json.example
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+.history/
+*.code-workspace
 
-# OS Generated Files
+
+# ─── OS generated files ──────────────────────────────────────────────────────
 .DS_Store
 .DS_Store?
 ._*
@@ -38,3 +214,15 @@ dist-ssr
 .Trashes
 ehthumbs.db
 Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+
+# ─── Agent / AI tooling state ────────────────────────────────────────────────
+.agents/
+.codex/
+.claude/
+.gemini/
+.cursor/
+.aider*
+.continue/

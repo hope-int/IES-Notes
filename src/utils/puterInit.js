@@ -35,10 +35,18 @@ let _readyPromise = null;
  */
 const waitForPuterGlobal = (timeoutMs = PUTER_READY_TIMEOUT_MS) =>
     new Promise((resolve, reject) => {
-        if (window.puter) { resolve(); return; }
+        if (window.puter) {
+            window.puter.quiet = true;
+            resolve();
+            return;
+        }
         const deadline = Date.now() + timeoutMs;
         const id = setInterval(() => {
-            if (window.puter) { clearInterval(id); resolve(); }
+            if (window.puter) {
+                clearInterval(id);
+                window.puter.quiet = true;
+                resolve();
+            }
             else if (Date.now() > deadline) {
                 clearInterval(id);
                 reject(new Error('Puter.js CDN did not load within timeout'));
@@ -81,16 +89,23 @@ export const initializePuterOnce = () => {
  * @returns {{ isSignedIn: boolean, isGuest: boolean }}
  */
 export const getPuterAuthState = () => {
-    const isGuest = localStorage.getItem('hope_puter_guest_confirmed') === 'true';
+    const isGuestConfirmed = localStorage.getItem('hope_puter_guest_confirmed') === 'true';
 
     if (!window.puter?.auth) {
         // SDK not yet loaded — trust guest flag to avoid UI flicker
-        return { isSignedIn: isGuest, isGuest };
+        return { isSignedIn: !isGuestConfirmed, isGuest: isGuestConfirmed };
     }
 
     // SDK present: SDK is the truth source
     const sdkSignedIn = Boolean(window.puter.auth.isSignedIn());
-    return { isSignedIn: sdkSignedIn || isGuest, isGuest };
+    if (sdkSignedIn) {
+        if (isGuestConfirmed) {
+            localStorage.setItem('hope_puter_guest_confirmed', 'false');
+        }
+        return { isSignedIn: true, isGuest: false };
+    } else {
+        return { isSignedIn: false, isGuest: isGuestConfirmed };
+    }
 };
 
 /**

@@ -1,10 +1,15 @@
 
 const DB_NAME = 'HOPE_AI_Tutor_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORES = {
     SESSIONS: 'sessions',
     MESSAGES: 'messages',
-    FILES: 'files'
+    FILES: 'files',
+    QUEUE: 'queue',
+    REPLAY: 'replay',
+    AUDIO_CACHE: 'audio_cache',
+    WHITEBOARD_EVENTS: 'whiteboard_events',
+    OFFLINE_PROGRESS: 'offline_progress'
 };
 
 export const initDB = () => {
@@ -25,9 +30,36 @@ export const initDB = () => {
                 messageStore.createIndex('sessionId', 'sessionId', { unique: false });
             }
 
-            // Legacy Files Store (kept for compatibility or specific blobs)
+            // Legacy Files Store
             if (!db.objectStoreNames.contains(STORES.FILES)) {
                 db.createObjectStore(STORES.FILES);
+            }
+
+            // Queue Store
+            if (!db.objectStoreNames.contains(STORES.QUEUE)) {
+                db.createObjectStore(STORES.QUEUE, { keyPath: 'id' });
+            }
+
+            // Replay Store (events stream)
+            if (!db.objectStoreNames.contains(STORES.REPLAY)) {
+                const replayStore = db.createObjectStore(STORES.REPLAY, { keyPath: 'id' });
+                replayStore.createIndex('sessionId', 'sessionId', { unique: false });
+            }
+
+            // Audio Cache
+            if (!db.objectStoreNames.contains(STORES.AUDIO_CACHE)) {
+                db.createObjectStore(STORES.AUDIO_CACHE, { keyPath: 'id' }); // id is segment hash
+            }
+
+            // Whiteboard Events Store
+            if (!db.objectStoreNames.contains(STORES.WHITEBOARD_EVENTS)) {
+                const wbStore = db.createObjectStore(STORES.WHITEBOARD_EVENTS, { keyPath: 'id', autoIncrement: true });
+                wbStore.createIndex('sessionId', 'sessionId', { unique: false });
+            }
+
+            // Offline Progress
+            if (!db.objectStoreNames.contains(STORES.OFFLINE_PROGRESS)) {
+                db.createObjectStore(STORES.OFFLINE_PROGRESS, { keyPath: 'id' });
             }
         };
 
@@ -160,6 +192,121 @@ export const clearFilesFromDB = async () => {
         const store = transaction.objectStore(STORES.FILES);
         const request = store.clear();
         request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+// --- Queue Operations ---
+export const saveQueueState = async (sessionId, queueItems) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.QUEUE, 'readwrite');
+        const store = transaction.objectStore(STORES.QUEUE);
+        const request = store.put({ id: sessionId, items: queueItems, updatedAt: Date.now() });
+        request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+export const getQueueState = async (sessionId) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.QUEUE, 'readonly');
+        const store = transaction.objectStore(STORES.QUEUE);
+        const request = store.get(sessionId);
+        request.onsuccess = (e) => resolve(e.target.result ? e.target.result.items : null);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+// --- Replay Operations ---
+export const saveReplayEvents = async (sessionId, events) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.REPLAY, 'readwrite');
+        const store = transaction.objectStore(STORES.REPLAY);
+        const request = store.put({ id: sessionId, events, updatedAt: Date.now() });
+        request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+export const getReplayEvents = async (sessionId) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.REPLAY, 'readonly');
+        const store = transaction.objectStore(STORES.REPLAY);
+        const request = store.get(sessionId);
+        request.onsuccess = (e) => resolve(e.target.result ? e.target.result.events : []);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+// --- Audio Cache Operations ---
+export const saveAudioToCache = async (hashId, audioBlobOrBase64) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.AUDIO_CACHE, 'readwrite');
+        const store = transaction.objectStore(STORES.AUDIO_CACHE);
+        const request = store.put({ id: hashId, data: audioBlobOrBase64, timestamp: Date.now() });
+        request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+export const getAudioFromCache = async (hashId) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.AUDIO_CACHE, 'readonly');
+        const store = transaction.objectStore(STORES.AUDIO_CACHE);
+        const request = store.get(hashId);
+        request.onsuccess = (e) => resolve(e.target.result ? e.target.result.data : null);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+// --- Whiteboard Events Operations ---
+export const saveWhiteboardEvents = async (sessionId, events) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.WHITEBOARD_EVENTS, 'readwrite');
+        const store = transaction.objectStore(STORES.WHITEBOARD_EVENTS);
+        const request = store.put({ id: sessionId, events, updatedAt: Date.now() });
+        request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+export const getWhiteboardEvents = async (sessionId) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.WHITEBOARD_EVENTS, 'readonly');
+        const store = transaction.objectStore(STORES.WHITEBOARD_EVENTS);
+        const request = store.get(sessionId);
+        request.onsuccess = (e) => resolve(e.target.result ? e.target.result.events : []);
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+// --- Offline Progress Operations ---
+export const saveOfflineProgress = async (progressId, data) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.OFFLINE_PROGRESS, 'readwrite');
+        const store = transaction.objectStore(STORES.OFFLINE_PROGRESS);
+        const request = store.put({ id: progressId, ...data, updatedAt: Date.now() });
+        request.onsuccess = () => resolve();
+        request.onerror = (e) => reject(e.target.error);
+    });
+};
+
+export const getOfflineProgress = async (progressId) => {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORES.OFFLINE_PROGRESS, 'readonly');
+        const store = transaction.objectStore(STORES.OFFLINE_PROGRESS);
+        const request = store.get(progressId);
+        request.onsuccess = (e) => resolve(e.target.result || null);
         request.onerror = (e) => reject(e.target.error);
     });
 };

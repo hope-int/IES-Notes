@@ -25,7 +25,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', actionType: 'assignment' }
+        { jsonMode: true, model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
     );
 
     try {
@@ -64,7 +64,7 @@ OUTPUT: Return ONLY the raw markdown/text solution for this step.
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', actionType: 'assignment' }
+        { model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
     );
 
     return content.trim();
@@ -99,7 +99,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', actionType: 'assignment' }
+        { jsonMode: true, model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
     );
 
     try {
@@ -134,7 +134,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', actionType: 'assignment' }
+        { jsonMode: true, model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
     );
 
     try {

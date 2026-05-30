@@ -150,11 +150,11 @@ export default function JCompiler() {
             </div>
 
             {/* Main Content Area */}
-            <div className="row g-4 flex-grow-1">
+            <div className="row g-4 flex-grow-1 jcompiler-row">
 
                 {/* Input Panel */}
                 <div className="col-lg-6 d-flex flex-column">
-                    <div className="clay-card h-100 d-flex flex-column overflow-hidden border-0 shadow-sm" style={{ background: 'var(--bg-card)' }}>
+                    <div className="clay-card h-100 d-flex flex-column overflow-hidden border-0 shadow-sm jcompiler-card" style={{ background: 'var(--bg-card)' }}>
 
                         {/* Panel Header */}
                         <div className="p-3 border-bottom d-flex justify-content-between align-items-center bg-light bg-opacity-50">
@@ -270,7 +270,7 @@ export default function JCompiler() {
 
                 {/* Output Panel */}
                 <div className="col-lg-6 d-flex flex-column">
-                    <div className="clay-card h-100 d-flex flex-column overflow-hidden border-0 shadow-sm" style={{ background: '#1e1e1e' }}>
+                    <div className="clay-card h-100 d-flex flex-column overflow-hidden border-0 shadow-sm jcompiler-card" style={{ background: '#1e1e1e' }}>
 
                         {/* Output Header */}
                         <div className="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center" style={{ background: '#252526' }}>
@@ -411,6 +411,17 @@ export default function JCompiler() {
                 .serial-output-glow {
                     text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
                     line-height: 1.8;
+                }
+                @media (min-width: 992px) {
+                    .jcompiler-row {
+                        height: calc(100vh - 140px);
+                        min-height: 500px;
+                    }
+                }
+                @media (max-width: 991.98px) {
+                    .jcompiler-card {
+                        height: 400px;
+                    }
                 }
                 `}
             </style>

@@ -36,7 +36,7 @@ ${text.slice(0, 15000)} // Limit context window if necessary
             [{ role: 'user', content: systemPrompt }],
             {
                 actionType: 'chat',
-                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+                model: 'z-ai/glm-4.7-flash',
                 max_tokens: 12000,
                 temperature: 0.7
             }

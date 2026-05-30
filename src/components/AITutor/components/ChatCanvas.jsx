@@ -11,6 +11,74 @@ import 'katex/dist/katex.min.css';
 
 import JCompilerWorkbench from './JCompilerWorkbench';
 
+const ChatMessageContext = React.createContext(null);
+
+const CodeBlockWrapper = ({ codeContent, language }) => {
+    const { idx, simulationResults, simulatingKey, onStarterClick, streaming } = React.useContext(ChatMessageContext);
+    const key = `${idx}-${codeContent}`;
+
+    if (streaming) {
+        return (
+            <pre className="overflow-x-auto my-4 rounded-xl p-4 bg-dark text-light" style={{ fontFamily: "'Fira Code', monospace", fontSize: '13px' }}>
+                <code className={`language-${language}`}>
+                    {codeContent}
+                </code>
+            </pre>
+        );
+    }
+
+    return (
+        <div className="overflow-x-auto my-4 rounded-xl">
+            <JCompilerWorkbench
+                code={codeContent}
+                language={language}
+                simulationResult={simulationResults[key]}
+                isSimulating={key === simulatingKey}
+                onSimulate={() => onStarterClick('SIMULATE_CODE', { index: idx, code: codeContent, language })}
+            />
+        </div>
+    );
+};
+
+const InlineCode = ({ className, children, ...props }) => {
+    const { role } = React.useContext(ChatMessageContext);
+    return (
+        <code
+            className={`${className} px-2 py-0.5 rounded fw-bold font-monospace`}
+            style={{
+                backgroundColor: role === 'user' ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
+                color: role === 'user' ? '#fff' : '#003366',
+                fontSize: '13px'
+            }}
+            {...props}
+        >
+            {children}
+        </code>
+    );
+};
+
+const chatMarkdownComponents = {
+    code: ({ node, inline, className, children, ...props }) => {
+        const match = /language-(\w+)/.exec(className || '');
+        const language = match ? match[1] : '';
+
+        if (!inline && language) {
+            const codeContent = String(children).replace(/\n$/, '');
+            return (
+                <CodeBlockWrapper
+                    codeContent={codeContent}
+                    language={language}
+                />
+            );
+        }
+        return (
+            <InlineCode className={className} {...props}>
+                {children}
+            </InlineCode>
+        );
+    }
+};
+
 const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, simulationResults, simulatingKey, onRegenerate }) => {
     return (
         <div className="flex-grow-1 overflow-auto custom-scrollbar relative" style={{ background: '#fcfdfe' }}>
@@ -156,49 +224,22 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                             </div>
                                                         </motion.div>
                                                     )}
-
-                                                    <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm, remarkMath]}
-                                                        rehypePlugins={[rehypeKatex]}
-                                                        components={{
-                                                            code: ({ node, inline, className, children, ...props }) => {
-                                                                const match = /language-(\w+)/.exec(className || '');
-                                                                const language = match ? match[1] : '';
-
-                                                                if (!inline && language) {
-                                                                    const codeContent = String(children).replace(/\n$/, '');
-                                                                    const key = `${idx}-${codeContent}`;
-
-                                                                    return (
-                                                                        <div className="overflow-x-auto my-4 rounded-xl">
-                                                                            <JCompilerWorkbench
-                                                                                code={codeContent}
-                                                                                language={language}
-                                                                                simulationResult={simulationResults[key]}
-                                                                                isSimulating={key === simulatingKey}
-                                                                                onSimulate={() => onStarterClick('SIMULATE_CODE', { index: idx, code: codeContent, language })}
-                                                                            />
-                                                                        </div>
-                                                                    );
-                                                                }
-                                                                return (
-                                                                    <code
-                                                                        className={`${className} px-2 py-0.5 rounded fw-bold font-monospace`}
-                                                                        style={{
-                                                                            backgroundColor: msg.role === 'user' ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
-                                                                            color: msg.role === 'user' ? '#fff' : '#003366',
-                                                                            fontSize: '13px'
-                                                                        }}
-                                                                        {...props}
-                                                                    >
-                                                                        {children}
-                                                                    </code>
-                                                                );
-                                                            }
-                                                        }}
-                                                    >
-                                                        {displayContent}
-                                                    </ReactMarkdown>
+                                                     <ChatMessageContext.Provider value={{
+                                                         idx,
+                                                         simulationResults,
+                                                         simulatingKey,
+                                                         onStarterClick,
+                                                         streaming: msg.streaming,
+                                                         role: msg.role
+                                                     }}>
+                                                         <ReactMarkdown
+                                                             remarkPlugins={[remarkGfm, remarkMath]}
+                                                             rehypePlugins={[rehypeKatex]}
+                                                             components={chatMarkdownComponents}
+                                                         >
+                                                             {displayContent}
+                                                         </ReactMarkdown>
+                                                     </ChatMessageContext.Provider>
 
                                                     {msg.streaming && (
                                                         <span className="inline-block align-middle ms-1 bg-primary rounded-sm animate-pulse" style={{ width: 7, height: 16 }} />
