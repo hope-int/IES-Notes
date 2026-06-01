@@ -1,4 +1,5 @@
 import { getAICompletion } from './aiService';
+import { parseAIJSON } from './jsonUtils';
 
 /**
  * Generates a comprehensive project roadmap/blueprint.
@@ -33,12 +34,11 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'z-ai/glm-4.7-flash', actionType: 'project' }
+        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'project' }
     );
 
     try {
-        const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleaned);
+        return parseAIJSON(response);
     } catch (e) {
         console.error("Project Blueprint Parse Error:", e);
         throw new Error("Failed to architect project.");
@@ -65,7 +65,7 @@ OUTPUT: Return markdown content only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'z-ai/glm-4.7-flash', actionType: 'project' }
+        { model: 'z-ai/glm-4.5', actionType: 'project' }
     );
 
     return response.trim();

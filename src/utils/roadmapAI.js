@@ -1,14 +1,9 @@
 import { getAICompletion } from './aiService';
+import { parseAIJSON } from './jsonUtils';
 
 const cleanAndParseJSON = (text) => {
   try {
-    let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const firstBrace = cleaned.indexOf('{');
-    const endBrace = cleaned.lastIndexOf('}');
-    if (firstBrace !== -1 && endBrace !== -1) {
-      cleaned = cleaned.substring(firstBrace, endBrace + 1);
-    }
-    return JSON.parse(cleaned);
+    return parseAIJSON(text);
   } catch (e) {
     console.error("Roadmap JSON Parse Error:", e);
     // Provide snippet for debugging
@@ -85,7 +80,7 @@ Break the learning path into 3 to 5 actionable, bite-sized steps.
         [{ role: 'user', content: prompt }],
         {
           jsonMode: true,
-          model: 'poolside/laguna-xs.2:free',
+          model: 'z-ai/glm-4.5',
           actionType: 'roadmap',
           includeMetadata: true,
           onProgress: (p) => onProgress({ ...p, message: `${p.message} (${i + 1}/3)` })
@@ -132,4 +127,3 @@ Break the learning path into 3 to 5 actionable, bite-sized steps.
   console.error("All roadmap generation attempts failed:", lastError);
   throw new Error(`Failed to generate roadmap after ${maxRetries} attempts.\nReason: ${lastError.message}`);
 };
-

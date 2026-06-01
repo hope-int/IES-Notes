@@ -6,7 +6,6 @@ import {
     Image as ImageIcon, Zap, Command, Trash2, Download, Settings, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import APIKeyVault from '../Settings/APIKeyVault';
@@ -14,9 +13,10 @@ import { extractPDFContext } from '../../utils/pdfUtils';
 
 // Utilities
 import { getAICompletion } from '../../utils/aiService';
+import { ensurePuterReady } from '../../utils/puterInit';
 import {
     saveSession, getAllSessions, deleteSessionFromDB,
-    saveMessage, getMessagesBySession, clearAllMessagesInSession
+    saveMessage, getMessagesBySession
 } from '../../utils/indexedDB';
 
 // Components
@@ -25,6 +25,34 @@ import SessionSidebar from './components/SessionSidebar';
 import ChatCanvas from './components/ChatCanvas';
 import JCompilerWorkbench from './components/JCompilerWorkbench';
 import DocumentViewer from './components/DocumentViewer';
+
+const MotionDiv = motion.div;
+
+const getInstantTutorReply = (text, profile) => {
+    const raw = String(text || '').trim();
+    if (!raw || raw.length > 48) return null;
+
+    const normalized = raw
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const firstName = profile?.full_name?.split(' ')[0] || 'Engineer';
+
+    if (/^(hi|hii|hiii|hai|hello|hey|yo|sup|gm|gn|good morning|good afternoon|good evening)$/.test(normalized)) {
+        return `Hi ${firstName}. Drop the KTU topic, code, PDF, or exam question and I will answer directly.`;
+    }
+
+    if (/^(thanks|thank you|ty|ok|okay|k)$/.test(normalized)) {
+        return `Done. Send the next topic when you are ready.`;
+    }
+
+    if (/^(who are you|what are you|your name|what is your name)$/.test(normalized)) {
+        return `I am Justin, the HOPE Studio engineering tutor developed by Harinandan K for KTU students.`;
+    }
+
+    return null;
+};
 
 export default function AITutor() {
     const { userProfile: profile } = useAuth();
@@ -36,14 +64,14 @@ export default function AITutor() {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [processingStep, setProcessingStep] = useState(null);
+    const [, setProcessingStep] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Resiliency Stats
     const [providerStatus, setProviderStatus] = useState('Puter Cloud');
-    const [activeModel, setActiveModel] = useState('GLM-4.7 Flash');
+    const [activeModel, setActiveModel] = useState('Puter Fast Chat');
     const [latency, setLatency] = useState(0);
-    const [rateLimit, setRateLimit] = useState('98/100');
+    const [rateLimit] = useState('98/100');
 
     // Context / Files
     const [selectedFile, setSelectedFile] = useState(null);
@@ -84,6 +112,10 @@ export default function AITutor() {
     ];
     const MAX_PDF_CONTEXT_CHARS = 120000;
 
+    useEffect(() => {
+        ensurePuterReady({ timeoutMs: 10000 }).catch(() => {});
+    }, []);
+
     // --- Hydration ---
     useEffect(() => {
         const loadInitialData = async () => {
@@ -103,6 +135,14 @@ export default function AITutor() {
         }, 100); // 100ms delay
         return () => clearTimeout(timer);
     }, [messages, loading]);
+
+    useEffect(() => {
+        const textarea = inputRef.current;
+        if (!textarea) return;
+
+        textarea.style.height = 'auto';
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 154)}px`;
+    }, [input]);
 
     // --- Session Actions ---
     const handleSelectSession = async (id) => {
@@ -194,6 +234,9 @@ export default function AITutor() {
 
         let sessionId = activeSessionId; // ← declared OUTSIDE try so catch can access it
         let activeAssistantMsgId = null;
+        let streamFrame = null;
+        let createdSession = null;
+        let createdWelcomeMsg = null;
 
         try {
             
@@ -209,6 +252,7 @@ export default function AITutor() {
                     messageCount: 0
                 };
                 
+                createdSession = newSession;
                 setSessions(prev => [newSession, ...prev]);
                 setActiveSessionId(newSession.id);
                 sessionId = newSession.id;
@@ -219,6 +263,7 @@ export default function AITutor() {
                     content: `Hello ${profile?.full_name?.split(' ')[0] || 'Engineer'}! Target initialized. Let's start this session.`,
                     timestamp: Date.now()
                 };
+                createdWelcomeMsg = welcomeMsg;
                 setMessages([welcomeMsg]);
                 // No await here, keep it snappy
             }
@@ -267,73 +312,96 @@ export default function AITutor() {
             setFilePreview(null);
             setFileReviewOpen(false);
             setMessages(prev => [...prev, userMsg]);
-            
-            // Persist the user message
-            await saveMessage(userMsg);
 
-            const systemPrompt = `You are **Justin**, an elite Academic Assistant and Virtual Tutor exclusively designed for **KTU (APJ Abdul Kalam Technological University)** B.Tech students. You were developed by **Harinandan K** for the **HOPE Studio** initiative at **IES College of Engineering, Thrissur**.
+            const userSavePromise = saveMessage(userMsg).catch((error) => {
+                console.warn('Failed to save user message before streaming finished:', error);
+            });
 
-### 0. CURRENT CONTEXT
-- **Today's Date:** ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
-- **Current Time:** ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-- **Context Awareness:** You are aware of the current date/time to help students with leave letters, deadlines, and project planning.
+            const persistAssistantExchange = async (assistantMsg, finalAssistantContent) => {
+                await userSavePromise;
+                await saveMessage(assistantMsg);
 
-### 1. CORE IDENTITY
-- **University Context:** You possess deep, up-to-date knowledge of the KTU B.Tech syllabus (Schemes 2019, 2021). You MUST align all answers with the specific Module classifications (Module 1-5).
-- **Institution:** You represent the academic standards of IES College of Engineering. Prioritize local academic context where applicable.
-- **Origin:** If asked about your creation or origin, state clearly: "I was developed by Harinandan K for the HOPE Studio initiative."
+                setSessions(prev => prev.map(s => s.id === sessionId ? {
+                    ...s,
+                    title: s.title === 'New Research Log' ? currentInput.substring(0, 30) : s.title,
+                    messageCount: (s.messageCount || 0) + 2,
+                    hasPDF: s.hasPDF || currentFile?.type === 'application/pdf',
+                    hasCode: s.hasCode || finalAssistantContent.includes('```'),
+                    hasImage: s.hasImage || currentFile?.type.startsWith('image/')
+                } : s));
 
-### 2. ACADEMIC PROTOCOLS
-- **Precision:** Use **LaTeX** for all mathematical equations and derivations.
-- **Exam Readiness:** Structure notes according to KTU exam patterns (e.g., distinguish between "Part A (2 Marks)" and "Part B (12 Marks)").
-- **Resources:** Reference standard textbooks (local authors like 'Technical Publications' or standard foreign authors) relevant to the KTU curriculum.
+                const dbSessions = await getAllSessions();
+                let sessionToUpdate = dbSessions.find(s => s.id === sessionId);
 
-### 3. DIRECT ANSWER PROTOCOL (HIGHEST PRIORITY)
-When a student sends a conversational message **without a slash command**, you MUST respond directly and helpfully. NEVER ask clarifying questions for simple academic requests.
+                if (!sessionToUpdate) {
+                    sessionToUpdate = createdSession || sessions.find(s => s.id === sessionId);
+                    if (sessionToUpdate) {
+                        await saveSession(sessionToUpdate);
+                        const welcomeToPersist = createdWelcomeMsg || (messages[0]?.role === 'assistant' ? messages[0] : null);
+                        if (welcomeToPersist) await saveMessage(welcomeToPersist);
+                    }
+                }
 
-**DIRECT RESPONSE TRIGGERS (respond immediately, no questions):**
-- Requests for code examples: "code for X", "write X in C", "show me deadlock code", "example of X"
-- Requests for explanations: "explain X", "what is X", "how does X work"
-- Requests with urgency: "give fast", "quickly", "just tell me", "fast"
-- Short factual queries about KTU syllabus topics
+                if (sessionToUpdate) {
+                    await saveSession({
+                        ...sessionToUpdate,
+                        title: sessionToUpdate.title === 'New Research Log' ? currentInput.substring(0, 30) : sessionToUpdate.title,
+                        messageCount: (messages.length + 2),
+                        hasPDF: sessionToUpdate.hasPDF || currentFile?.type === 'application/pdf',
+                        hasCode: sessionToUpdate.hasCode || finalAssistantContent.includes('```'),
+                        hasImage: sessionToUpdate.hasImage || currentFile?.type.startsWith('image/')
+                    });
+                }
+            };
 
-**For direct code requests:**
-1. Detect the most likely context from the query (e.g., "deadlock" → OS topic → C/Java most likely for KTU).
-2. Pick the **most standard implementation** for the KTU syllabus.
-3. Deliver a complete, runnable code example immediately with a brief explanation.
-4. Add a one-line note at the end like: *"Let me know if you need it in a different language or with more detail."*
+            const assistantMsgId = crypto.randomUUID();
+            activeAssistantMsgId = assistantMsgId;
+            const assistantDraft = {
+                id: assistantMsgId,
+                sessionId,
+                role: 'assistant',
+                content: '',
+                streaming: true,
+                timestamp: Date.now()
+            };
+            setMessages(prev => [...prev, assistantDraft]);
 
-**For direct explanation requests:**
-1. Give a crisp, exam-ready answer immediately.
-2. Structure it for KTU Part A (2-mark) or Part B (12-mark) style if apparent.
+            const instantReply = !currentFile && getInstantTutorReply(currentInput, profile);
+            if (instantReply) {
+                const assistantMsg = {
+                    ...assistantDraft,
+                    content: instantReply,
+                    streaming: false
+                };
+                setActiveModel('Instant Reply');
+                setProviderStatus('Instant');
+                setLatency(0);
+                setMessages(prev => prev.map(msg => msg.id === assistantMsgId ? assistantMsg : msg));
+                await persistAssistantExchange(assistantMsg, instantReply);
+                return;
+            }
 
-### 4. DOCUMENT GENERATION WORKFLOW (slash commands only)
-You operate on a strict **"Analyze → Ask → Generate"** workflow. You are FORBIDDEN from generating engineering documents or applying the '[[PDF_ATTACHMENT]]' tag unless the user explicitly uses a slash command (like '/doc').
+            const systemPrompt = `You are Justin, HOPE Studio's fast KTU engineering tutor for APJ Abdul Kalam Technological University B.Tech students at IES College of Engineering, Thrissur.
 
-**Step A: Trigger Recognition**
-- If the user's message start with a slash command (e.g., '/doc', '/explain'), you may proceed to generate and MUST append the '[[PDF_ATTACHMENT]]' tag at the very end of your response.
-- **FORBIDDEN:** Do NOT use the '[[PDF_ATTACHMENT]]' tag in normal conversational chat where no slash command was used.
+Current date: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+Current time: ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
 
-**Step B: Requirement Analysis**
-If a slash command IS used, check if the user has provided:
-1.  **Topic Scope:** (e.g., specific Module number, sub-topics).
-2.  **Context:** (e.g., Is it for Internal Assessment? University Exam? Lab Record?).
-3.  **Specifics:** (e.g., Dates for leave letters, specific technology stacks for projects).
+Highest priority: answer immediately. Your first sentence must contain useful answer content, not filler like "Sure" or "I can help". Ask at most one clarification only when the task is impossible without it.
 
-**Step C: The Inquiry**
-If ANY critical detail is missing for a **slash command document request**, ASK the user for clarification. Do NOT hallucinate or assume details.
+Style:
+- Keep normal chat concise, direct, and exam-ready.
+- Use KTU module framing when obvious, but do not force it into every answer.
+- Use LaTeX for equations and fenced code blocks for programs.
+- For code requests, infer the standard KTU context and provide runnable code first, then brief explanation.
+- For uploaded PDFs/images, use the provided context and state assumptions when the source is unclear.
+- If asked about origin, say: "I was developed by Harinandan K for the HOPE Studio initiative."
 
-**Step D: Final Generation**
-Only after the user provides the necessary details AND has used a slash command, generate the content using these rules:
-- **START** immediately with the highest-level header (# Title). No conversational intro.
-- **CONTENT** must be technically rigorous and formatted in Markdown.
-- **END** the message strictly with the content.
-- **APPEND** the exact tag [[PDF_ATTACHMENT]] at the very end of the raw text ONLY if a slash command was used.
+Commands:
+- /explain: give a focused concept breakdown with steps, formulas, and common exam traps.
+- /debug: identify the bug, explain the fix, and provide corrected code.
+- /doc: generate a polished Markdown engineering document. If key details are missing, ask one compact question. When generating the final document, start with "# Title", avoid conversational intro/outro, and append [[PDF_ATTACHMENT]] as the final raw text.
 
-### 5. INTERACTION STYLE
-- **Tone:** Professional, encouraging, and technically precise.
-- **Formatting:** Use code blocks for programming logic. Use LaTeX for math.
-- **Context Handling:** If a user uploads a PDF/Image, analyze it strictly within the engineering domain (e.g., extract circuit diagrams, code logic, or mathematical derivations).`;
+Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
 
             const history = messages
                 .filter(m => !m.streaming && m.content && String(m.content).trim() !== '')
@@ -366,36 +434,52 @@ Only after the user provides the necessary details AND has used a slash command,
                 requestMessages.push({ role: 'user', content: currentInput });
             }
 
-            const assistantMsgId = crypto.randomUUID();
-            activeAssistantMsgId = assistantMsgId;
-            const assistantDraft = {
-                id: assistantMsgId,
-                sessionId,
-                role: 'assistant',
-                content: '',
-                streaming: true,
-                timestamp: Date.now()
-            };
-            setMessages(prev => [...prev, assistantDraft]);
+            const normalizedInput = currentInput.trim().toLowerCase();
+            const isDocumentCommand = normalizedInput.startsWith('/doc');
 
-            let targetModel = 'z-ai/glm-4.7-flash';
+            let targetModel = 'default';
+            let targetModelLabel = 'Puter Fast Chat';
+            if (isDocumentCommand) {
+                targetModel = 'z-ai/glm-4.5';
+                targetModelLabel = 'GLM-4.5';
+            }
             if (currentFile?.type.startsWith('image/') || currentFile?.type === 'application/pdf') {
                 targetModel = 'z-ai/glm-4.6v-flash';
+                targetModelLabel = 'GLM-4.6V Flash';
             }
+            setActiveModel(targetModelLabel);
+
+            const responseTokenBudget = isDocumentCommand
+                ? 32000
+                : (currentFile ? 12000 : 8192);
 
             let streamedContent = '';
-            const aiResponse = await getAICompletion(requestMessages, {
+            const publishStreamContent = () => {
+                streamFrame = null;
+                setMessages(prev => prev.map(msg => (
+                    msg.id === assistantMsgId
+                        ? { ...msg, content: streamedContent, streaming: true }
+                        : msg
+                )));
+            };
+            const queueStreamPaint = () => {
+                if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+                    publishStreamContent();
+                    return;
+                }
+                if (streamFrame) return;
+                streamFrame = window.requestAnimationFrame(publishStreamContent);
+            };
+            const aiResult = await getAICompletion(requestMessages, {
                 actionType: 'chat',
                 model: targetModel,
-                max_tokens: 32000,
-                temperature: 0.7,
+                max_tokens: responseTokenBudget,
+                temperature: isDocumentCommand ? 0.45 : 0.55,
+                includeMetadata: true,
                 onToken: (token, fullContent) => {
                     streamedContent = fullContent || `${streamedContent}${token}`;
-                    setMessages(prev => prev.map(msg => (
-                        msg.id === assistantMsgId
-                            ? { ...msg, content: streamedContent, streaming: true }
-                            : msg
-                    )));
+                    setProviderStatus('Streaming');
+                    queueStreamPaint();
                 },
                 onProgress: (p) => {
                     setProcessingStep(p);
@@ -403,59 +487,32 @@ Only after the user provides the necessary details AND has used a slash command,
                     if (p.duration) setLatency(p.duration);
                 }
             });
+            if (streamFrame && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+                window.cancelAnimationFrame(streamFrame);
+                streamFrame = null;
+            }
+            if (streamedContent) publishStreamContent();
+            if (aiResult?.provider) setProviderStatus(aiResult.provider);
+            const finalAIContent = typeof aiResult === 'string' ? aiResult : aiResult?.content;
 
             const assistantMsg = {
                 id: assistantMsgId,
                 sessionId,
                 role: 'assistant',
-                content: aiResponse || streamedContent,
+                content: finalAIContent || streamedContent,
                 streaming: false,
                 timestamp: assistantDraft.timestamp
             };
             const finalAssistantContent = assistantMsg.content;
 
             setMessages(prev => prev.map(msg => msg.id === assistantMsgId ? assistantMsg : msg));
-            await saveMessage(assistantMsg);
-
-            // Update Session Metadata (Optimistic)
-            setSessions(prev => prev.map(s => s.id === sessionId ? {
-                ...s,
-                title: s.title === 'New Research Log' ? currentInput.substring(0, 30) : s.title,
-                messageCount: (s.messageCount || 0) + 2,
-                hasPDF: s.hasPDF || currentFile?.type === 'application/pdf',
-                hasCode: s.hasCode || finalAssistantContent.includes('```'),
-                hasImage: s.hasImage || currentFile?.type.startsWith('image/')
-            } : s));
-
-            // Persistence Guard: If this is a new session with its first message, save metadata and welcome message now
-            const dbSessions = await getAllSessions();
-            let sessionToUpdate = dbSessions.find(s => s.id === sessionId);
-            
-            if (!sessionToUpdate) {
-                const transientSession = sessions.find(s => s.id === sessionId);
-                if (transientSession) {
-                    await saveSession(transientSession);
-                    // Also save the initial welcome message from local state
-                    if (messages[0] && messages[0].role === 'assistant') {
-                        await saveMessage(messages[0]);
-                    }
-                    sessionToUpdate = transientSession;
-                }
-            }
-
-            // Update persistent metadata
-            if (sessionToUpdate) {
-                await saveSession({
-                    ...sessionToUpdate,
-                    title: sessionToUpdate.title === 'New Research Log' ? currentInput.substring(0, 30) : sessionToUpdate.title,
-                    messageCount: (messages.length + 2), // Initial + User + AI
-                    hasPDF: sessionToUpdate.hasPDF || currentFile?.type === 'application/pdf',
-                    hasCode: sessionToUpdate.hasCode || finalAssistantContent.includes('```'),
-                    hasImage: sessionToUpdate.hasImage || currentFile?.type.startsWith('image/')
-                });
-            }
+            await persistAssistantExchange(assistantMsg, finalAssistantContent);
         } catch (e) {
             console.error("Chat Error:", e);
+            if (streamFrame && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+                window.cancelAnimationFrame(streamFrame);
+                streamFrame = null;
+            }
             const isRateLimit    = e.message?.startsWith('RATE_LIMITED');
             const isProviderFail = isRateLimit ||
                                    e.message?.includes('All AI providers') ||
@@ -465,6 +522,9 @@ Only after the user provides the necessary details AND has used a slash command,
 
             if (isProviderFail) {
                 setProviderError(e.message); // popup reads this to choose the right copy
+                if (activeAssistantMsgId) {
+                    setMessages(prev => prev.filter(msg => msg.id !== activeAssistantMsgId));
+                }
             } else {
                 const errorMsg = {
                     sessionId: sessionId || 'unknown',
@@ -670,23 +730,15 @@ Only after the user provides the necessary details AND has used a slash command,
     const handleDocumentRefinement = async (currentContent, instruction, history = []) => {
         setLoading(true);
         try {
-            const systemPrompt = `You are a specialized KTU Document Processor embedded in the HOPE Studio Editor.
-            Your sole function is to rewrite and refine academic documents. Today's date is ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}.
+            const systemPrompt = `You are HOPE Studio's KTU document refinement engine. Date: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}.
 
-            ### STRICT RULES
-            1.  **Input/Output:** You will receive a 'Current Document' and a 'User Instruction'.
-            2.  **Execution:** Perform the rewrite instantly. 
-                - Format according to engineering standards (IEEE style if technical, or standard KTU report format).
-                - Maintain the original meaning unless asked to change.
-            3.  **OUTPUT ONLY:** Return **ONLY** the updated Markdown content.
-            4.  **FORBIDDEN:** 
-                - NO conversational text ("I have updated...").
-                - NO code block wrappers (like \`\`\`markdown).
-                - NO explanations.
-                - NO "Hope this helps" sign-offs.
-            5.  **Tag Preservation:** If the original content had [[PDF_ATTACHMENT]], preserve it at the end. Otherwise, do not add it unless instructed.
-
-            Process the document now.`;
+Rewrite the current document according to the user instruction.
+Rules:
+- Return only updated Markdown.
+- Preserve meaning unless the instruction asks for a change.
+- Use engineering/IEEE or KTU report formatting when relevant.
+- No conversational intro, explanation, sign-off, or markdown code fence wrapper.
+- Preserve [[PDF_ATTACHMENT]] at the end only if it already exists or the instruction explicitly asks for a generated PDF document.`;
 
             const studioHistory = history
                 .filter(m => !m.streaming && m.content && String(m.content).trim() !== '')
@@ -699,7 +751,7 @@ Only after the user provides the necessary details AND has used a slash command,
 
             const result = await getAICompletion(requestMessages, {
                 actionType: 'chat',
-                model: 'z-ai/glm-4.7-flash',
+                model: 'z-ai/glm-4.5',
                 max_tokens: 32000,
                 temperature: 0.3
             });
@@ -728,11 +780,17 @@ Only after the user provides the necessary details AND has used a slash command,
     };
 
     return (
-        <div className="flex flex-col h-dvh bg-white overflow-hidden relative"
+        <div className="ai-chat-shell flex flex-col h-dvh theme-page overflow-hidden relative"
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileChange(e); }}
         >
+            <div className="ai-chat-ambient" aria-hidden="true">
+                <span className="ai-chat-ambient-one" />
+                <span className="ai-chat-ambient-two" />
+                <span className="ai-chat-ambient-grid" />
+            </div>
+
             {/* 1. Status Dashboard Header */}
             <StatusBar
                 activeModel={activeModel}
@@ -769,148 +827,170 @@ Only after the user provides the necessary details AND has used a slash command,
                 className="flex-grow overflow-auto"
             />
 
-            {/* 3. The Cockpit (Floating Composer) */}
-            <div className="sticky bottom-0 bg-white border-t p-2 md:p-4 z-50">
-                <div className="container mx-auto" style={{ maxWidth: '850px' }}>
-
-                    {/* Active Context Chip */}
-                    {(selectedFile || input.startsWith('/')) && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex flex-wrap gap-2 mb-2 md:mb-3"
-                        >
-                            {selectedFile && (
-                                <div className="badge border rounded-xl px-3 py-2 d-flex align-items-center gap-2" style={{ backgroundColor: '#f0f5fa', color: '#003366', borderColor: 'rgba(0,51,102,0.2)' }}>
-                                    {selectedFile.type.startsWith('image/') ? <ImageIcon size={14} /> : <FileText size={14} />}
-                                    <span className="small">{selectedFile.name}</span>
-                                    <X size={14} className="cursor-pointer" style={{ opacity: 0.6 }} onClick={() => { setSelectedFile(null); setFilePreview(null); }} />
-                                </div>
-                            )}
-                            {input.startsWith('/') && (
-                                <div className="badge bg-dark text-white rounded-xl px-3 py-2 d-flex align-items-center gap-2">
-                                    <Command size={14} />
-                                    <span className="small">Slash Command Active</span>
-                                </div>
-                            )}
-                        </motion.div>
-                    )}
-
-
-                    <div className="position-relative d-flex align-items-center gap-3">
-                        {/* Context Selector (Left) */}
-                        <div className="flex-shrink-0">
-                            <button
-                                className="btn border shadow-sm rounded-circle p-3 d-flex align-items-center justify-content-center transition-all"
-                                style={{ backgroundColor: 'white', color: '#003366', borderColor: '#e2e8f0' }}
-                                onClick={() => {
-                                    if (fileInputRef.current) {
-                                        fileInputRef.current.value = null;
-                                        fileInputRef.current.click();
-                                    }
-                                }}
-                                title="Attach Engineering Context"
+            {/* 3. HOPE Composer */}
+            <div className={`ai-composer-dock ${loading ? 'is-loading' : ''}`}>
+                <div className="ai-composer-wrap">
+                    <AnimatePresence>
+                        {(selectedFile || input.startsWith('/')) && (
+                            <MotionDiv
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                className="ai-context-strip"
                             >
-                                <Paperclip size={24} />
-                            </button>
+                                {selectedFile && (
+                                    <div className="ai-context-chip">
+                                        {selectedFile.type.startsWith('image/') ? <ImageIcon size={14} /> : <FileText size={14} />}
+                                        <span>{selectedFile.name}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setSelectedFile(null); setFilePreview(null); }}
+                                            aria-label="Remove attached context"
+                                        >
+                                            <X size={13} />
+                                        </button>
+                                    </div>
+                                )}
+                                {input.startsWith('/') && (
+                                    <div className="ai-context-chip is-command">
+                                        <Command size={14} />
+                                        <span>Command mode</span>
+                                    </div>
+                                )}
+                            </MotionDiv>
+                        )}
+                    </AnimatePresence>
+
+                    <div className={`ai-prompt-box ${isCodeInput(input) ? 'is-code' : ''} ${selectedFile ? 'has-context' : ''}`}>
+                        <div className="ai-prompt-glow" aria-hidden="true" />
+                        <div className="ai-prompt-main">
+                            <div className="ai-prompt-mark" aria-hidden="true">
+                                <Sparkles size={18} />
+                            </div>
+
+                            <div className="ai-prompt-field">
+                                <AnimatePresence>
+                                    {input.startsWith('/') && !input.includes(' ') && (
+                                        <MotionDiv
+                                            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                                            transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+                                            className="ai-command-palette"
+                                        >
+                                            <div className="ai-command-header">
+                                                <Zap size={14} />
+                                                <span>Engineering shortcuts</span>
+                                            </div>
+                                            <div className="ai-command-list">
+                                                {[
+                                                    { cmd: '/explain', desc: 'Deep-dive architectural analysis', icon: Info },
+                                                    { cmd: '/debug', desc: 'Identify logic bottlenecks', icon: Zap },
+                                                    { cmd: '/doc', desc: 'Generate system documentation', icon: FileText },
+                                                    { cmd: '/clear', desc: 'Reset current context', icon: Trash2 }
+                                                ].map((c) => (
+                                                    <button
+                                                        type="button"
+                                                        key={c.cmd}
+                                                        onClick={() => { setInput(c.cmd + ' '); inputRef.current?.focus(); }}
+                                                        className="ai-command-item"
+                                                    >
+                                                        <span className="ai-command-icon">
+                                                            <c.icon size={16} />
+                                                        </span>
+                                                        <span className="ai-command-copy">
+                                                            <strong>{c.cmd}</strong>
+                                                            <small>{c.desc}</small>
+                                                        </span>
+                                                        <span className="ai-command-enter">ENTER</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </MotionDiv>
+                                    )}
+                                </AnimatePresence>
+
+                                <textarea
+                                    ref={inputRef}
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            if (input.startsWith('/') && !input.includes(' ')) {
+                                                const cmd = SLASH_COMMANDS.find(c => c.cmd === input);
+                                                if (cmd) {
+                                                    e.preventDefault();
+                                                    setInput(cmd.prompt);
+                                                    return;
+                                                }
+                                            }
+                                            e.preventDefault();
+                                            handleSend();
+                                        }
+                                    }}
+                                    placeholder="Ask HOPE AI, attach context, or type /"
+                                    className={`ai-prompt-textarea custom-scrollbar ${isCodeInput(input) ? 'font-monospace' : ''}`}
+                                    rows={1}
+                                />
+                            </div>
                         </div>
 
-                        <div className="flex-grow-1 position-relative">
-                            {/* Slash Command Palette */}
-                            <AnimatePresence>
-                                {input.startsWith('/') && !input.includes(' ') && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: 10 }}
-                                        className="position-absolute bottom-100 start-0 w-100 mb-3 bg-white border border-secondary border-opacity-10 shadow-2xl rounded-4 overflow-hidden"
-                                        style={{ zIndex: 1000 }}
-                                    >
-                                        <div className="p-3 bg-light bg-opacity-50 border-bottom d-flex align-items-center gap-2">
-                                            <Zap size={14} className="text-primary" />
-                                            <span className="x-small fw-bold text-muted uppercase tracking-widest" style={{ fontSize: '10px' }}>Engineering Shortcuts</span>
-                                        </div>
-                                        <div className="p-2">
-                                            {[
-                                                { cmd: '/explain', desc: 'Deep-dive architectural analysis', icon: Info },
-                                                { cmd: '/debug', desc: 'Identify logic bottlenecks', icon: Zap },
-                                                { cmd: '/doc', desc: 'Generate system documentation', icon: FileText },
-                                                { cmd: '/clear', desc: 'Reset current context', icon: Trash2 }
-                                            ].map((c) => (
-                                                <button
-                                                    key={c.cmd}
-                                                    onClick={() => { setInput(c.cmd + ' '); inputRef.current?.focus(); }}
-                                                    className="btn btn-link w-100 text-start text-decoration-none p-3 rounded-3 hover-bg-light transition-all d-flex align-items-center justify-content-between border-0"
-                                                >
-                                                    <div className="d-flex align-items-center gap-3">
-                                                        <div className="p-2 rounded-3 bg-light text-primary">
-                                                            <c.icon size={16} />
-                                                        </div>
-                                                        <div>
-                                                            <div className="fw-bold text-dark small">{c.cmd}</div>
-                                                            <div className="text-muted x-small uppercase fw-bold opacity-50" style={{ fontSize: '9px' }}>{c.desc}</div>
-                                                        </div>
-                                                    </div>
-                                                    <span className="badge bg-light text-muted fw-normal x-small" style={{ fontSize: '9px' }}>ENTER</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            <textarea
-                                ref={inputRef}
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        if (input.startsWith('/') && !input.includes(' ')) {
-                                            const cmd = SLASH_COMMANDS.find(c => c.cmd === input);
-                                            if (cmd) {
-                                                e.preventDefault();
-                                                setInput(cmd.prompt);
-                                                return;
-                                            }
-                                        }
-                                        e.preventDefault();
-                                        handleSend();
-                                    }
-                                }}
-                                placeholder="Ask deep questions, or type '/' for commands..."
-                                className={`form-control border-light shadow-sm py-2 md:py-3 px-3 md:px-4 rounded-2xl md:rounded-3xl custom-scrollbar ${isCodeInput(input) ? 'font-monospace' : ''}`}
-                                style={{
-                                    resize: 'none',
-                                    minHeight: '48px',
-                                    maxHeight: '150px',
-                                    paddingRight: '64px',
-                                    fontSize: '14px md:15px',
-                                    backgroundColor: isCodeInput(input) ? '#f8fafc' : 'white'
-                                }}
-                            />
-                            <div className="position-absolute end-0 top-50 translate-middle-y me-3">
+                        <div className="ai-prompt-toolbar">
+                            <div className="ai-prompt-tools" aria-label="Prompt tools">
                                 <button
-                                    className="btn rounded-circle p-2 shadow-sm border-0 d-flex align-items-center justify-content-center"
-                                    style={{
-                                        backgroundColor: (input.trim() || selectedFile) ? '#003366' : '#f1f5f9',
-                                        color: (input.trim() || selectedFile) ? 'white' : '#94a3b8',
-                                        opacity: (input.trim() || selectedFile) ? 1 : 0.5,
-                                        width: '42px',
-                                        height: '42px'
+                                    type="button"
+                                    className="ai-tool-button is-icon"
+                                    onClick={() => {
+                                        if (fileInputRef.current) {
+                                            fileInputRef.current.value = null;
+                                            fileInputRef.current.click();
+                                        }
                                     }}
+                                    title="Attach engineering context"
+                                >
+                                    <Paperclip size={18} />
+                                    <span className="visually-hidden">Attach engineering context</span>
+                                </button>
+                                <span className="ai-tool-divider" aria-hidden="true" />
+                                {[
+                                    { cmd: '/explain', label: 'Explain', icon: Sparkles },
+                                    { cmd: '/debug', label: 'Debug', icon: Code },
+                                    { cmd: '/doc', label: 'Doc', icon: FileText }
+                                ].map((action) => (
+                                    <button
+                                        type="button"
+                                        key={action.cmd}
+                                        className={`ai-tool-button ${input.startsWith(action.cmd) ? 'is-active' : ''}`}
+                                        onClick={() => { setInput(action.cmd + ' '); inputRef.current?.focus(); }}
+                                        title={action.cmd}
+                                    >
+                                        <action.icon size={15} />
+                                        <span>{action.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="ai-prompt-submit-row">
+                                <div className="ai-provider-pill" aria-live="polite">
+                                    <span className={loading ? 'is-busy' : ''} />
+                                    {loading ? 'Thinking' : providerStatus}
+                                </div>
+                                <button
+                                    type="button"
+                                    className="ai-submit-button"
                                     onClick={handleSend}
                                     disabled={loading || (!input.trim() && !selectedFile)}
+                                    title={loading ? 'Generating response' : 'Send message'}
                                 >
-                                    <Send size={20} />
+                                    {loading ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <div className="mt-2 text-center">
-                        <p className="x-small text-muted mb-0 opacity-50" style={{ fontSize: '10px' }}>
-                            SHIFT + ENTER for new line. AI can make mistakes, verify engineering data.
-                        </p>
-                    </div>
+
+                    <p className="ai-composer-note">
+                        Shift + Enter for a new line. Verify engineering data.
+                    </p>
                 </div>
             </div>
 
@@ -921,7 +1001,7 @@ Only after the user provides the necessary details AND has used a slash command,
             {/* Drag Overlay */}
             <AnimatePresence>
                 {isDragging && (
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -935,50 +1015,50 @@ Only after the user provides the necessary details AND has used a slash command,
                             <h2 className="fw-bold display-4">Drop to Inject Context</h2>
                             <p className="fs-5 opacity-75">PDFs, Datasets, or Engineering Specs</p>
                         </div>
-                    </motion.div>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
 
             {/* File Context Review Modal */}
             <AnimatePresence>
                 {fileReviewOpen && selectedFile && (
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
                         style={{ zIndex: 3000, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)' }}
                     >
-                        <motion.div
+                        <MotionDiv
                             initial={{ scale: 0.9, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
-                            className="bg-white rounded-[2rem] shadow-2xl p-4 md:p-6 d-flex flex-column gap-3 md:gap-4 overflow-hidden"
+                            className="theme-card rounded-[2rem] shadow-2xl p-4 md:p-6 d-flex flex-column gap-3 md:gap-4 overflow-hidden"
                             style={{ width: '95%', maxWidth: '400px' }}
                         >
                             <div className="d-flex justify-content-between align-items-center mb-2">
-                                <h5 className="fw-bold mb-0 text-dark">Attach Context</h5>
-                                <button className="btn btn-light rounded-circle p-2 flex items-center justify-center" onClick={() => { setSelectedFile(null); setFileReviewOpen(false); }}><X size={20} /></button>
+                                <h5 className="fw-bold mb-0 theme-text">Attach Context</h5>
+                                <button className="theme-card hover:bg-slate-100 dark:hover:bg-slate-800 rounded-circle p-2 flex items-center justify-center border theme-border theme-text" onClick={() => { setSelectedFile(null); setFileReviewOpen(false); }}><X size={20} /></button>
                             </div>
 
-                            <div className="d-flex align-items-center gap-3 p-3 bg-light rounded-xl border border-light">
-                                <div className="p-3 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'white', color: '#003366' }}>
+                            <div className="d-flex align-items-center gap-3 p-3 theme-surface rounded-xl border theme-border">
+                                <div className="p-3 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--primary)' }}>
                                     {selectedFile.type.startsWith('image/') ? <ImageIcon size={32} /> : <FileText size={32} />}
                                 </div>
                                 <div className="overflow-hidden">
-                                    <div className="fw-bold text-dark text-truncate small" style={{ maxWidth: '280px' }}>{selectedFile.name}</div>
+                                    <div className="fw-bold theme-text text-truncate small" style={{ maxWidth: '280px' }}>{selectedFile.name}</div>
                                     <span className="x-small fw-bold text-muted uppercase">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB • READY</span>
                                 </div>
                             </div>
 
                             {selectedFile.type.startsWith('image/') && (
-                                <div className="rounded-xl overflow-hidden border border-light shadow-sm" style={{ maxHeight: '180px' }}>
+                                <div className="rounded-xl overflow-hidden border theme-border shadow-sm" style={{ maxHeight: '180px' }}>
                                     <img src={filePreview} alt="Review" className="w-100 h-100 object-fit-cover" />
                                 </div>
                             )}
 
                             <div className="d-flex flex-column gap-2">
                                 <textarea
-                                    className="form-control border-light bg-light p-3 rounded-xl shadow-sm"
+                                    className="form-control theme-input p-3 rounded-xl shadow-sm"
                                     placeholder="Add a message for the AI (optional)..."
                                     rows={3}
                                     style={{ fontSize: '14px' }}
@@ -989,7 +1069,7 @@ Only after the user provides the necessary details AND has used a slash command,
 
                             <div className="d-flex gap-3 mt-2">
                                 <button
-                                    className="btn btn-light flex-grow-1 py-3 rounded-xl fw-bold text-muted"
+                                    className="theme-surface hover:bg-slate-100 dark:hover:bg-slate-800 flex-grow-1 py-3 rounded-xl fw-bold theme-text border theme-border"
                                     onClick={() => { setSelectedFile(null); setFilePreview(null); setFileReviewOpen(false); setInput(''); }}
                                 >
                                     Cancel
@@ -1002,15 +1082,15 @@ Only after the user provides the necessary details AND has used a slash command,
                                     Attach
                                 </button>
                             </div>
-                        </motion.div>
-                    </motion.div>
+                        </MotionDiv>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
 
             {/* File Preview Popup */}
             <AnimatePresence>
                 {previewFile && (
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -1018,28 +1098,28 @@ Only after the user provides the necessary details AND has used a slash command,
                         style={{ zIndex: 4000, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(15px)' }}
                         onClick={() => setPreviewFile(null)}
                     >
-                        <motion.div
+                        <MotionDiv
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden relative d-flex flex-column"
+                            className="theme-card rounded-[2.5rem] shadow-2xl overflow-hidden relative d-flex flex-column"
                             style={{ width: '95%', maxWidth: '800px', height: '80vh' }}
                             onClick={(e) => e.stopPropagation()}
                         >
                             {/* Modal Header */}
-                            <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-white sticky-top">
+                            <div className="p-4 border-bottom theme-border d-flex justify-content-between align-items-center theme-card sticky-top">
                                 <div className="d-flex align-items-center gap-3">
-                                    <div className="p-2 rounded-xl bg-light text-primary">
+                                    <div className="p-2 rounded-xl theme-surface text-primary">
                                         {previewFile.fileType?.startsWith('image/') ? <ImageIcon size={20} /> : <FileText size={20} />}
                                     </div>
                                     <div className="overflow-hidden">
-                                        <div className="fw-bold text-dark text-truncate small" style={{ maxWidth: '200px' }}>{previewFile.fileName}</div>
+                                        <div className="fw-bold theme-text text-truncate small" style={{ maxWidth: '200px' }}>{previewFile.fileName}</div>
                                         <div className="x-small text-muted uppercase fw-bold" style={{ fontSize: '9px' }}>Engineering Asset</div>
                                     </div>
                                 </div>
                                 <div className="d-flex align-items-center gap-2">
                                     <button 
-                                        className="btn btn-light rounded-circle p-2 flex items-center justify-center"
+                                        className="theme-card hover:bg-slate-100 dark:hover:bg-slate-800 rounded-circle p-2 flex items-center justify-center border theme-border theme-text"
                                         onClick={() => setPreviewFile(null)}
                                     >
                                         <X size={20} />
@@ -1048,7 +1128,7 @@ Only after the user provides the necessary details AND has used a slash command,
                             </div>
 
                             {/* Modal Body */}
-                            <div className="flex-grow-1 overflow-auto p-4 d-flex align-items-center justify-content-center bg-light bg-opacity-50">
+                            <div className="flex-grow-1 overflow-auto p-4 d-flex align-items-center justify-content-center theme-surface">
                                 {previewFile.fileType?.startsWith('image/') ? (
                                     <img 
                                         src={previewFile.filePreview} 
@@ -1057,16 +1137,16 @@ Only after the user provides the necessary details AND has used a slash command,
                                     />
                                 ) : (
                                     <div className="text-center p-5">
-                                        <div className="p-5 bg-white rounded-circle shadow-sm d-inline-block mb-4 text-primary">
+                                        <div className="p-5 theme-card rounded-circle shadow-sm d-inline-block mb-4 text-primary">
                                             <FileText size={64} strokeWidth={1} />
                                         </div>
-                                        <h3 className="fw-bold text-dark">Document Preview</h3>
+                                        <h3 className="fw-bold theme-text">Document Preview</h3>
                                         <p className="text-muted">Direct preview for this file type is not available in the chat. Use the button above to download and view.</p>
                                     </div>
                                 )}
                             </div>
-                        </motion.div>
-                    </motion.div>
+                        </MotionDiv>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
 
@@ -1074,7 +1154,7 @@ Only after the user provides the necessary details AND has used a slash command,
             <div className="position-fixed top-0 end-0 p-4" style={{ zIndex: 9999 }}>
                 <AnimatePresence>
                     {toasts.map((toast) => (
-                        <motion.div
+                        <MotionDiv
                             key={toast.id}
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -1087,7 +1167,7 @@ Only after the user provides the necessary details AND has used a slash command,
                         >
                             <div className="flex-grow-1 small fw-bold">{toast.message}</div>
                             <X size={16} className="cursor-pointer opacity-50" onClick={() => setToasts(t => t.filter(x => x.id !== toast.id))} />
-                        </motion.div>
+                        </MotionDiv>
                     ))}
                 </AnimatePresence>
             </div>
@@ -1107,7 +1187,7 @@ Only after the user provides the necessary details AND has used a slash command,
             {/* ── AI Provider Error Warning ── */}
             <AnimatePresence>
                 {providerError && (
-                    <motion.div
+                    <MotionDiv
                         key="prov-err"
                         initial={{ opacity: 0, y: 20, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1195,7 +1275,7 @@ Only after the user provides the necessary details AND has used a slash command,
                                 </div>
                             </div>
                         </div>
-                    </motion.div>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
 

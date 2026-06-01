@@ -1,4 +1,5 @@
 import { getAICompletion } from './aiService';
+import { parseAIJSON } from './jsonUtils';
 
 /**
  * Generates a "Blueprint" (Table of Contents) for the report.
@@ -30,12 +31,11 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'z-ai/glm-4.7-flash', actionType: 'report' }
+        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'report' }
     );
 
     try {
-        const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleaned);
+        return parseAIJSON(response);
     } catch (e) {
         console.error("Blueprint Parse Error:", e);
         throw new Error("Failed to generate report structure.");
@@ -71,7 +71,7 @@ OUTPUT: Return ONLY the raw plain text content for this section. No Markdown, no
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'z-ai/glm-4.7-flash', actionType: 'report' }
+        { model: 'z-ai/glm-4.5', actionType: 'report' }
     );
 
     return content.trim();

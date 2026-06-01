@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, RefreshCw, Zap, Cpu, BookOpen, History, MessageSquare, Plus } from 'lucide-react';
+import { Send, Bot, User, Zap, Cpu, BookOpen, History, MessageSquare, Plus, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getAICompletion } from '../../utils/aiService';
 import { sanitizeInput, validateUserIntent } from '../../utils/security';
 import MermaidRenderer from './MermaidRenderer';
+
+const MotionDiv = motion.div;
 
 const SocraticChat = ({ profile }) => {
     const [sessions, setSessions] = useState(() => {
@@ -241,107 +242,124 @@ You must guide the student through the **4-Step Engineering Process** for every 
     ];
 
     return (
-        <div className="d-flex flex-column flex-grow-1 overflow-hidden position-relative" style={{ height: 'calc(100vh - 80px)' }}>
-            <div className="d-flex flex-grow-1 overflow-hidden position-relative">
+        <div className="zth-socratic d-flex flex-column flex-grow-1 overflow-hidden position-relative theme-page">
+            <div className="zth-socratic-body d-flex flex-grow-1 overflow-hidden position-relative">
                 <AnimatePresence>
                     {showHistory && (
-                        <motion.div
+                        <>
+                        <MotionDiv
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowHistory(false)}
+                            className="zth-history-backdrop"
+                        />
+                        <MotionDiv
                             initial={{ x: -300, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: -300, opacity: 0 }}
-                            className="position-absolute h-100 bg-white shadow p-3"
-                            style={{ width: '280px', zIndex: 20, left: 0, top: 0, borderRight: '1px solid #eee' }}
+                            className="zth-journey-panel"
                         >
-                            <div className="d-flex justify-content-between align-items-center mb-4">
-                                <h6 className="fw-bold mb-0">Journeys</h6>
-                                <button onClick={() => startNewSession()} className="btn btn-sm btn-primary rounded-pill d-flex align-items-center gap-2">
-                                    <Plus size={14} /> New
+                            <div className="zth-journey-header">
+                                <div>
+                                    <h6>Journeys</h6>
+                                    <span>{sessions.length} saved paths</span>
+                                </div>
+                                <button onClick={() => setShowHistory(false)} className="zth-mini-icon" aria-label="Close journeys">
+                                    <X size={15} />
                                 </button>
                             </div>
-                            <div className="d-flex flex-column gap-2 overflow-auto" style={{ maxHeight: '80%' }}>
+                            <button onClick={() => startNewSession()} className="zth-journey-new">
+                                    <Plus size={14} /> New
+                            </button>
+                            <div className="zth-journey-list custom-scrollbar">
                                 {sessions.map(session => (
                                     <button
                                         key={session.id}
                                         onClick={() => loadSession(session)}
-                                        className={`btn text-start p-3 rounded-3 border-0 d-flex align-items-center gap-3 transition-colors ${activeSessionId === session.id ? 'bg-primary text-white shadow-sm' : 'bg-light'}`}
+                                        className={`zth-journey-item ${activeSessionId === session.id ? 'is-active' : ''}`}
                                     >
-                                        <MessageSquare size={16} className="flex-shrink-0" />
-                                        <div className="text-truncate" style={{ fontSize: '0.9rem' }}>
-                                            {session.title || 'New Session'}
-                                            <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>
-                                                {new Date(session.timestamp).toLocaleDateString()}
-                                            </div>
-                                        </div>
+                                        <span><MessageSquare size={16} /></span>
+                                        <strong>{session.title || 'New Session'}</strong>
+                                        <small>{new Date(session.timestamp).toLocaleDateString()}</small>
                                     </button>
                                 ))}
                             </div>
-                        </motion.div>
+                        </MotionDiv>
+                        </>
                     )}
                 </AnimatePresence>
 
-                <div className="flex-grow-1 overflow-auto px-3 pb-3" ref={scrollContainerRef}>
-                    <div className="container" style={{ maxWidth: '800px', paddingTop: '1rem' }}>
+                <div className="zth-socratic-scroll flex-grow-1 overflow-auto custom-scrollbar" ref={scrollContainerRef}>
+                    <div className="zth-socratic-stream">
                         <AnimatePresence>
                             {messages.map((msg, idx) => (
-                                <motion.div
+                                <MotionDiv
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     key={idx}
-                                    className={`d-flex gap-3 mb-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+                                    className={`zth-socratic-message ${msg.role === 'user' ? 'is-user' : 'is-assistant'} ${msg.isWarning ? 'is-warning' : ''}`}
                                 >
-                                    <div className={`rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0 ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-primary border'}`} style={{ width: 45, height: 45 }}>
+                                    <div className="zth-socratic-avatar">
                                         {msg.role === 'user' ? <User size={22} /> : <Bot size={26} />}
                                     </div>
                                     <div
-                                        className={`p-4 rounded-4 shadow-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-dark border'}`}
-                                        style={{ maxWidth: '85%' }}
+                                        className="zth-socratic-card"
                                     >
-                                        <ReactMarkdown components={{
-                                            code({ inline, className, children, ...props }) {
-                                                const match = /language-(\w+)/.exec(className || '');
-                                                const language = match ? match[1] : '';
-                                                const codeText = String(children).replace(/\n$/, '');
-                                                if (language === 'mermaid' && !inline) {
-                                                    const diagramId = `diag-${idx}-${Math.random().toString(36).slice(2, 6)}`;
-                                                    const proficiency = estimateProficiency(messages.slice(0, idx + 1));
-                                                    return (
-                                                        <MermaidRenderer
-                                                            code={codeText}
-                                                            diagramId={diagramId}
-                                                            proficiency={proficiency}
-                                                            theme="light"
-                                                        />
+                                        {msg.isLoading ? (
+                                            <div className="zth-socratic-dots" aria-label="Personalizing start">
+                                                <span />
+                                                <span />
+                                                <span />
+                                            </div>
+                                        ) : (
+                                            <ReactMarkdown components={{
+                                                code({ inline, className, children, ...props }) {
+                                                    const match = /language-(\w+)/.exec(className || '');
+                                                    const language = match ? match[1] : '';
+                                                    const codeText = String(children).replace(/\n$/, '');
+                                                    if (language === 'mermaid' && !inline) {
+                                                        const diagramId = `diag-${idx}-${Math.random().toString(36).slice(2, 6)}`;
+                                                        const proficiency = estimateProficiency(messages.slice(0, idx + 1));
+                                                        return (
+                                                            <MermaidRenderer
+                                                                code={codeText}
+                                                                diagramId={diagramId}
+                                                                proficiency={proficiency}
+                                                                theme="light"
+                                                            />
+                                                        );
+                                                    }
+                                                    return !inline ? (
+                                                        <pre className="zth-code-block">
+                                                            <code {...props}>{children}</code>
+                                                        </pre>
+                                                    ) : (
+                                                        <code className="zth-inline-code" {...props}>{children}</code>
                                                     );
                                                 }
-                                                return !inline ? (
-                                                    <pre className="bg-dark text-white p-3 rounded-3 my-2 overflow-auto">
-                                                        <code {...props}>{children}</code>
-                                                    </pre>
-                                                ) : (
-                                                    <code className="bg-light text-primary px-1 rounded" {...props}>{children}</code>
-                                                );
-                                            }
-                                        }}>{msg.content}</ReactMarkdown>
+                                            }}>{msg.content}</ReactMarkdown>
+                                        )}
                                     </div>
-                                </motion.div>
+                                </MotionDiv>
                             ))}
                         </AnimatePresence>
 
                         {(loading || isGeneratingStart) && !messages.some(m => m.isLoading) && (
-                            <motion.div
+                            <MotionDiv
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="d-flex gap-3 mb-4"
+                                className="zth-socratic-message is-assistant"
                             >
-                                <div className="rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0 bg-white text-primary border" style={{ width: 45, height: 45 }}>
+                                <div className="zth-socratic-avatar">
                                     <Bot size={26} />
                                 </div>
-                                <div className="p-4 rounded-4 shadow-sm bg-white text-dark border d-flex align-items-center gap-1">
-                                    <span className="spinner-grow spinner-grow-sm text-primary" role="status" style={{ width: '8px', height: '8px' }}></span>
-                                    <span className="spinner-grow spinner-grow-sm text-primary" role="status" style={{ width: '8px', height: '8px', animationDelay: '0.2s' }}></span>
-                                    <span className="spinner-grow spinner-grow-sm text-primary" role="status" style={{ width: '8px', height: '8px', animationDelay: '0.4s' }}></span>
+                                <div className="zth-socratic-card is-thinking">
+                                    <span />
+                                    <span />
+                                    <span />
                                 </div>
-                            </motion.div>
+                            </MotionDiv>
                         )}
                         <div ref={messagesEndRef} />
                     </div>
@@ -349,25 +367,28 @@ You must guide the student through the **4-Step Engineering Process** for every 
             </div>
 
             {/* Input bar */}
-            <div className="p-3 bg-white border-top">
-                <div className="container" style={{ maxWidth: '800px' }}>
-                    <div className="d-flex gap-2 justify-content-center pb-3 overflow-x-auto">
+            <div className="zth-socratic-composer">
+                <div className="zth-socratic-composer-inner">
+                    <div className="zth-socratic-toolbar">
+                        <button type="button" onClick={() => setShowHistory(true)} className="zth-chip is-tool">
+                            <History size={15} /> Journeys
+                        </button>
                         {chips.map((chip, idx) => (
-                            <button key={idx} onClick={chip.action} className="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 bg-white shadow-sm">
+                            <button key={idx} onClick={chip.action} className="zth-chip">
+                                {chip.icon}
                                 {chip.label}
                             </button>
                         ))}
                     </div>
-                    <div className="bg-white rounded-pill border p-2 d-flex align-items-center shadow-sm">
+                    <div className="zth-socratic-input">
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                             placeholder="Ask the Socratic Tutor a question..."
-                            className="form-control border-0 shadow-none bg-transparent ps-3 text-dark"
                         />
-                        <button onClick={() => handleSend()} className="btn btn-primary rounded-circle p-0 d-flex align-items-center justify-content-center" style={{ width: 44, height: 44 }}>
+                        <button onClick={() => handleSend()} disabled={!input.trim() || loading || isGeneratingStart} aria-label="Send Socratic message">
                             <Send size={20} />
                         </button>
                     </div>

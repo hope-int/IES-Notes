@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { getPuterAuthState } from '../../utils/puterInit';
 
+const Motion = motion;
+
 export default function PuterUsageWidget() {
     const [usageData, setUsageData] = useState(null);
     const [history, setHistory] = useState([]);
@@ -296,7 +298,7 @@ export default function PuterUsageWidget() {
                             <div style={{ height: '18px' }} className="mt-2 d-flex align-items-center justify-content-center text-center">
                                 <AnimatePresence mode="wait">
                                     {hoveredCell ? (
-                                        <motion.span 
+                                        <Motion.span 
                                             key={hoveredCell.dateStr}
                                             initial={{ opacity: 0, y: 4 }}
                                             animate={{ opacity: 1, y: 0 }}
@@ -305,7 +307,7 @@ export default function PuterUsageWidget() {
                                             style={{ fontSize: '0.75rem' }}
                                         >
                                             {hoveredCell.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: {hoveredCell.count} API call{hoveredCell.count !== 1 ? 's' : ''}
-                                        </motion.span>
+                                        </Motion.span>
                                     ) : (
                                         <span className="text-muted small" style={{ fontSize: '0.7rem' }}>
                                             Hover over cells to see daily request breakdown
@@ -335,7 +337,7 @@ export default function PuterUsageWidget() {
                                 <div className="overflow-hidden">
                                     <div className="small text-muted fw-bold text-uppercase" style={{ fontSize: '0.55rem' }}>Active Engine</div>
                                     <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.85rem' }}>
-                                        GLM 4.7 Flash
+                                        GLM 4.5
                                     </div>
                                 </div>
                             </div>

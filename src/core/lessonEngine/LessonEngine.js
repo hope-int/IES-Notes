@@ -2,6 +2,7 @@ import { ragEngine } from '../rag/RAGEngine';
 import { getAICompletion } from '../../utils/aiService';
 import { queueEngine } from '../queue/QueueEngine';
 import { useLearningSessionStore } from '../../stores/useLearningSessionStore';
+import { parseAIJSON } from '../../utils/jsonUtils';
 
 class LessonEngine {
     async buildSession(topic, profile = {}) {
@@ -44,26 +45,11 @@ Return ONLY the raw JSON array. Start with [ and end with ]. Do not include mark
             ], {
                 actionType: 'compiler',
                 jsonMode: true,
+                model: 'z-ai/glm-4.5',
                 temperature: 0.2
             });
 
-            // Parse response JSON safely
-            let lessonNodes = [];
-            try {
-                let cleaned = response.trim();
-                if (cleaned.startsWith('```')) {
-                    cleaned = cleaned.replace(/^```json\s*/, '').replace(/```$/, '').trim();
-                }
-                lessonNodes = JSON.parse(cleaned);
-            } catch (err) {
-                console.error("Failed to parse JSON response, attempting regex recovery", err);
-                const match = response.match(/\[\s*\{[\s\S]*\}\s*\]/);
-                if (match) {
-                    lessonNodes = JSON.parse(match[0]);
-                } else {
-                    throw new Error("Invalid educational sequence format returned by AI.");
-                }
-            }
+            const lessonNodes = parseAIJSON(response);
 
             // Convert lesson nodes to queue engine items
             const queueItems = lessonNodes.map((node, index) => {
@@ -108,7 +94,7 @@ Return ONLY the raw JSON array. Start with [ and end with ]. Do not include mark
     }
 
     // Dynamic adaptation flow (Interruption concept revision)
-    async injectAnalogiesOrPrerequisites(concept, query) {
+    async injectAnalogiesOrPrerequisites(concept) {
         // Triggered when student answers a quiz wrong or requests clarification
         console.log(`Adapting learning path for: ${concept}`);
         
@@ -128,10 +114,11 @@ Respond in strict JSON object format:
             ], {
                 actionType: 'compiler',
                 jsonMode: true,
+                model: 'z-ai/glm-4.5',
                 temperature: 0.7
             });
 
-            const data = JSON.parse(response.trim().replace(/^```json\s*/, '').replace(/```$/, ''));
+            const data = parseAIJSON(response);
             
             const explanationItems = [
                 {

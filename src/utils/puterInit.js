@@ -68,8 +68,16 @@ const waitForPuterGlobal = (timeoutMs = PUTER_READY_TIMEOUT_MS) =>
  * @returns {Promise<void>}
  */
 export const ensurePuterReady = (opts = {}) => {
+    if (window.puter) {
+        window.puter.quiet = true;
+        return Promise.resolve();
+    }
     if (_readyPromise) return _readyPromise;
-    _readyPromise = waitForPuterGlobal(opts.timeoutMs ?? PUTER_READY_TIMEOUT_MS);
+    _readyPromise = waitForPuterGlobal(opts.timeoutMs ?? PUTER_READY_TIMEOUT_MS)
+        .catch((error) => {
+            _readyPromise = null;
+            throw error;
+        });
     return _readyPromise;
 };
 

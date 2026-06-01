@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAICompletion } from '../../utils/aiService';
+import { parseAIJSON } from '../../utils/jsonUtils';
 
-const ProjectDesigner = ({ onBack }) => {
+const Motion = motion;
+
+const ProjectDesigner = () => {
     // REQUIRED STATE
     const [step, setStep] = useState(1); // 1: Config, 2: IDE
     const [isOrchestrating, setIsOrchestrating] = useState(false);
@@ -62,12 +65,7 @@ const ProjectDesigner = ({ onBack }) => {
 
     const handleAiCall = async (prompt, type) => {
         try {
-            let targetModel = 'z-ai/glm-4.7-flash';
-            if (type === 'code') {
-                targetModel = 'poolside/laguna-m.1:free';
-            } else if (type === 'slide') {
-                targetModel = 'poolside/laguna-xs.2:free';
-            }
+            const targetModel = 'z-ai/glm-4.5';
 
             const response = await getAICompletion([
                 { role: 'user', content: prompt }
@@ -77,8 +75,7 @@ const ProjectDesigner = ({ onBack }) => {
             });
             if (type === 'slide') {
                 try {
-                    const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
-                    return JSON.parse(cleaned);
+                    return parseAIJSON(response);
                 } catch (e) {
                     console.error("Slide JSON Parse Error:", e);
                     return [];
@@ -153,7 +150,7 @@ const ProjectDesigner = ({ onBack }) => {
 
             <AnimatePresence mode="wait">
                 {step === 1 ? (
-                    <motion.div
+                    <Motion.div
                         key="config"
                         variants={containerVariants}
                         initial="hidden"
@@ -254,9 +251,9 @@ const ProjectDesigner = ({ onBack }) => {
                                 </button>
                             </div>
                         </div>
-                    </motion.div>
+                    </Motion.div>
                 ) : (
-                    <motion.div
+                    <Motion.div
                         key="ide"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -286,13 +283,13 @@ const ProjectDesigner = ({ onBack }) => {
                                     <span className="text-xs font-bold text-slate-500 truncate max-w-[150px]">{formData.topic}</span>
                                 </div>
 
-                                <motion.button
+                                <Motion.button
                                     whileTap={{ scale: 0.95 }}
                                     className="p-2 bg-slate-900 text-white rounded-xl shadow-lg shadow-slate-200 flex items-center gap-2"
                                 >
                                     <Icons.Download size={18} />
                                     {!isMobile && <span className="text-xs font-black uppercase tracking-widest">Export</span>}
-                                </motion.button>
+                                </Motion.button>
                             </div>
                         </header>
 
@@ -303,7 +300,7 @@ const ProjectDesigner = ({ onBack }) => {
                                 {showExplorer && (
                                     <>
                                         {isMobile && (
-                                            <motion.div
+                                            <Motion.div
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 exit={{ opacity: 0 }}
@@ -311,7 +308,7 @@ const ProjectDesigner = ({ onBack }) => {
                                                 className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"
                                             />
                                         )}
-                                        <motion.aside
+                                        <Motion.aside
                                             initial={isMobile ? { x: '-100%' } : { width: 0, opacity: 0 }}
                                             animate={isMobile ? { x: 0 } : { width: 300, opacity: 1 }}
                                             exit={isMobile ? { x: '-100%' } : { width: 0, opacity: 0 }}
@@ -355,7 +352,7 @@ const ProjectDesigner = ({ onBack }) => {
                                                     </button>
                                                 ))}
                                             </div>
-                                        </motion.aside>
+                                        </Motion.aside>
                                     </>
                                 )}
                             </AnimatePresence>
@@ -433,9 +430,9 @@ const ProjectDesigner = ({ onBack }) => {
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col items-center gap-6 text-slate-300">
-                                                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
+                                                            <Motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}>
                                                                 <Icons.LayoutTemplate size={60} className="opacity-20 text-indigo-600" />
-                                                            </motion.div>
+                                                            </Motion.div>
                                                             <p className="font-black text-sm md:text-xl uppercase tracking-[0.2em] text-slate-400">Synthesizing Visuals...</p>
                                                         </div>
                                                     )}
@@ -483,7 +480,7 @@ const ProjectDesigner = ({ onBack }) => {
                                 {showCoPilot && (
                                     <>
                                         {isMobile && (
-                                            <motion.div
+                                            <Motion.div
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 exit={{ opacity: 0 }}
@@ -491,7 +488,7 @@ const ProjectDesigner = ({ onBack }) => {
                                                 className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40"
                                             />
                                         )}
-                                        <motion.aside
+                                        <Motion.aside
                                             initial={isMobile ? { x: '100%' } : { width: 0, opacity: 0 }}
                                             animate={isMobile ? { x: 0 } : { width: 340, opacity: 1 }}
                                             exit={isMobile ? { x: '100%' } : { width: 0, opacity: 0 }}
@@ -537,12 +534,12 @@ const ProjectDesigner = ({ onBack }) => {
                                                     </button>
                                                 </div>
                                             </div>
-                                        </motion.aside>
+                                        </Motion.aside>
                                     </>
                                 )}
                             </AnimatePresence>
                         </div>
-                    </motion.div>
+                    </Motion.div>
                 )}
             </AnimatePresence>
         </div>

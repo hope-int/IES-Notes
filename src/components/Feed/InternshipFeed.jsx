@@ -11,7 +11,9 @@ import UserAvatar from '../UserAvatar';
 import { getInternshipPosts, getLikedPostIds, toggleLikePostLocal, reportInternshipPost } from '../../utils/internshipService';
 import { getAICompletion } from '../../utils/aiService';
 
-export default function InternshipFeed({ studentProfile, onBack }) {
+const MotionDiv = motion.div;
+
+export default function InternshipFeed({ studentProfile }) {
     const navigate = useNavigate();
     const [posts, setPosts] = useState([]);
     const [likedIds, setLikedIds] = useState([]);
@@ -20,14 +22,10 @@ export default function InternshipFeed({ studentProfile, onBack }) {
     const [activeFilter, setActiveFilter] = useState('For You'); // "For You", "All", or specific tags
     const [selectedPost, setSelectedPost] = useState(null); // For fullscreen poster view
     const [toastMessage, setToastMessage] = useState(null);
-    const [timeTick, setTimeTick] = useState(Date.now());
+    const [, setTimeTick] = useState(Date.now());
 
     // Double tap animation tracker
     const [likePulseId, setLikePulseId] = useState(null);
-
-    // Scroll header and bottom nav visibility tracker
-    const [showHeader, setShowHeader] = useState(true);
-    const [lastScrollY, setLastScrollY] = useState(0);
 
     // Disclaimer states
     const [disclaimerAction, setDisclaimerAction] = useState(null);
@@ -63,26 +61,6 @@ export default function InternshipFeed({ studentProfile, onBack }) {
         }, 30000);
         return () => clearInterval(timer);
     }, [studentProfile]);
-
-    useEffect(() => {
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-            if (currentScrollY > lastScrollY && currentScrollY > 50) {
-                setShowHeader(false);
-                window.dispatchEvent(new CustomEvent('hope_hide_bottom_nav', { detail: true }));
-            } else {
-                setShowHeader(true);
-                window.dispatchEvent(new CustomEvent('hope_hide_bottom_nav', { detail: false }));
-            }
-            setLastScrollY(currentScrollY);
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-            window.dispatchEvent(new CustomEvent('hope_hide_bottom_nav', { detail: false }));
-        };
-    }, [lastScrollY]);
 
     const normalizeWebLink = (url) => {
         const trimmed = (url || '').trim();
@@ -321,15 +299,12 @@ Rules:
 
     return (
         <div className="min-vh-100" style={{ background: 'var(--bg-main, #f8fafc)' }}>
-            {/* Sticky LinkedIn Top Header */}
             <header 
                 className="sticky-top bg-white border-bottom py-2 shadow-sm" 
                 style={{ 
                     zIndex: 1020, 
                     backdropFilter: 'blur(10px)', 
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    transform: showHeader ? 'translateY(0)' : 'translateY(-100%)',
-                    transition: 'transform 0.3s ease-in-out'
+                    background: 'var(--bg-surface-translucent)'
                 }}
             >
                 <div className="container-xl d-flex align-items-center justify-content-between px-3" style={{ maxWidth: '1200px' }}>
@@ -513,7 +488,7 @@ Rules:
                                 {filteredPosts.map(post => {
                                     const isLiked = likedIds.includes(post.id);
                                     return (
-                                        <motion.div
+                                        <MotionDiv
                                             key={post.id}
                                             layout
                                             initial={{ opacity: 0, y: 30 }}
@@ -568,7 +543,7 @@ Rules:
                                                 {/* Double Tap Heart Animation */}
                                                 <AnimatePresence>
                                                     {likePulseId === post.id && (
-                                                        <motion.div 
+                                                        <MotionDiv 
                                                             initial={{ scale: 0, opacity: 0 }}
                                                             animate={{ scale: [0, 1.2, 1], opacity: [0, 0.9, 0] }}
                                                             exit={{ opacity: 0 }}
@@ -576,7 +551,7 @@ Rules:
                                                             className="position-absolute text-white"
                                                         >
                                                             <Heart size={80} fill="white" className="text-danger filter-drop-shadow" />
-                                                        </motion.div>
+                                                        </MotionDiv>
                                                     )}
                                                 </AnimatePresence>
 
@@ -719,7 +694,7 @@ Rules:
                                                     </div>
                                                 )}
                                             </div>
-                                        </motion.div>
+                                        </MotionDiv>
                                     );
                                 })}
                             </div>
@@ -771,7 +746,7 @@ Rules:
                         style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1100 }}
                         onClick={() => setSelectedPost(null)}
                     >
-                        <motion.div 
+                        <MotionDiv 
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
@@ -792,7 +767,7 @@ Rules:
                                     Close Poster
                                 </button>
                             </div>
-                        </motion.div>
+                        </MotionDiv>
                     </div>
                 )}
             </AnimatePresence>
@@ -800,7 +775,7 @@ Rules:
             {/* Custom toast notification */}
             <AnimatePresence>
                 {toastMessage && (
-                    <motion.div 
+                    <MotionDiv 
                         initial={{ opacity: 0, y: 50, x: '-50%' }}
                         animate={{ opacity: 1, y: 0, x: '-50%' }}
                         exit={{ opacity: 0, y: 20, x: '-50%' }}
@@ -808,7 +783,7 @@ Rules:
                         style={{ zIndex: 1200, fontSize: '13px' }}
                     >
                         {toastMessage}
-                    </motion.div>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
 
@@ -820,7 +795,7 @@ Rules:
                         style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1100 }}
                         onClick={() => setDisclaimerAction(null)}
                     >
-                        <motion.div 
+                        <MotionDiv 
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
@@ -849,7 +824,7 @@ Rules:
                                     Proceed
                                 </button>
                             </div>
-                        </motion.div>
+                        </MotionDiv>
                     </div>
                 )}
             </AnimatePresence>
@@ -862,7 +837,7 @@ Rules:
                         style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1100 }}
                         onClick={() => setReportingPost(null)}
                     >
-                        <motion.div 
+                        <MotionDiv 
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
@@ -931,7 +906,7 @@ Rules:
                                     </button>
                                 </div>
                             </form>
-                        </motion.div>
+                        </MotionDiv>
                     </div>
                 )}
             </AnimatePresence>
@@ -939,7 +914,7 @@ Rules:
             {/* Ask AI Floating Chat Box */}
             <AnimatePresence>
                 {aiChatPost && (
-                    <motion.div 
+                    <MotionDiv 
                         initial={{ opacity: 0, y: 50, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 50, scale: 0.95 }}
@@ -1036,7 +1011,7 @@ Rules:
                                 <Send size={16} />
                             </button>
                         </form>
-                    </motion.div>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
         </div>

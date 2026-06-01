@@ -889,15 +889,15 @@ function App() {
                                       <small className="text-uppercase fw-bold text-secondary ls-wide d-block mb-3" style={{ fontSize: '11px' }}>Quick Access Studio</small>
                                       <div className="row g-2">
                                         <div className="col-6">
-                                          <button onClick={() => navigate('/compiler')} className="btn btn-light w-100 rounded-4 p-3 d-flex flex-column align-items-center gap-2 border-0 shadow-sm">
-                                            <Terminal size={24} className="text-dark" />
-                                            <span className="small fw-bold">J-Compiler</span>
+                                          <button onClick={() => navigate('/compiler')} className="btn theme-card border theme-border theme-text w-100 rounded-4 p-3 d-flex flex-column align-items-center gap-2 shadow-sm transition-all hover:scale-[1.02]">
+                                            <Terminal size={24} className="theme-text" />
+                                            <span className="small fw-bold theme-text">J-Compiler</span>
                                           </button>
                                         </div>
                                         <div className="col-6">
-                                          <button onClick={() => navigate('/ai-chat')} className="btn btn-light w-100 rounded-4 p-3 d-flex flex-column align-items-center gap-2 border-0 shadow-sm">
+                                          <button onClick={() => navigate('/ai-chat')} className="btn theme-card border theme-border theme-text w-100 rounded-4 p-3 d-flex flex-column align-items-center gap-2 shadow-sm transition-all hover:scale-[1.02]">
                                             <Bot size={24} className="text-primary" />
-                                            <span className="small fw-bold">AI Chat</span>
+                                            <span className="small fw-bold theme-text">AI Chat</span>
                                           </button>
                                         </div>
                                       </div>
@@ -1097,7 +1097,7 @@ function App() {
           }
           {/* Floating Navigation Bar - Global */}
           {
-            !showProfile && location.pathname !== '/feed' && location.pathname !== '/community' && location.pathname !== '/compiler' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && location.pathname !== '/assignment' && (
+            !showProfile && location.pathname !== '/feed' && location.pathname !== '/community' && location.pathname !== '/compiler' && location.pathname !== '/zero-to-hero' && location.pathname !== '/ai-chat' && location.pathname !== '/docs' && location.pathname !== '/sheets' && location.pathname !== '/presentation' && location.pathname !== '/report' && location.pathname !== '/roadmap' && location.pathname !== '/assignment' && (
               <div 
                 className="position-fixed bottom-0 start-0 w-100 p-4 d-flex justify-content-center" 
                 style={{ 
@@ -1111,20 +1111,20 @@ function App() {
                   whileHover={{
                     y: -10,
                     scale: 1.02,
-                    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+                    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.05)"
                   }}
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  className="clay-card rounded-pill p-2 d-flex gap-2 shadow-lg glass-panel"
-                  style={{ pointerEvents: 'auto', background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}
+                  className="apple-glass-nav rounded-pill p-2 d-flex gap-2 shadow-lg"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <button
                     onClick={() => {
                       navigate('/feed');
                       setActiveTab('feed');
                     }}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/feed' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+                    className={`btn rounded-pill px-3 px-md-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/feed' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
-                    <Briefcase size={20} /> {location.pathname === '/feed' && <span>Feed</span>}
+                    <Briefcase size={20} /> {location.pathname === '/feed' && <span className="d-none d-md-inline">Feed</span>}
                   </button>
 
                   <button
@@ -1140,34 +1140,30 @@ function App() {
                         fetchDepartments();
                       }
                     }}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' && location.pathname === '/' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+                    className={`btn rounded-pill px-3 px-md-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${activeTab === 'home' && location.pathname === '/' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
-                    <Home size={20} /> {activeTab === 'home' && location.pathname === '/' && <span>Home</span>}
+                    <Home size={20} /> {activeTab === 'home' && location.pathname === '/' && <span className="d-none d-md-inline">Home</span>}
                   </button>
 
                   <button
                     onClick={() => {
-                      if (!isPuterSignedIn) {
-                        setIsPuterAuthNeeded(true);
-                      } else {
-                        navigate('/ai-tutor');
-                      }
+                      navigate('/ai-tutor');
                     }}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname.startsWith('/ai-') ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+                    className={`btn rounded-pill px-3 px-md-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname.startsWith('/ai-') ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
                     <Sparkles size={20} />
                     {location.pathname.startsWith('/ai-') && (
-                      <span>
-                        {isPuterSignedIn ? "HOPE Studio" : "Unlock Studio"}
+                      <span className="d-none d-md-inline">
+                        Studio
                       </span>
                     )}
                   </button>
 
                   <button
                     onClick={() => navigate('/community')}
-                    className={`btn rounded-pill px-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/community' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
+                    className={`btn rounded-pill px-3 px-md-4 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${location.pathname === '/community' ? 'bg-primary text-white shadow-lg' : 'text-dark hover-bg-light opacity-75'} `}
                   >
-                    <MessageCircle size={20} /> {location.pathname === '/community' && <span>Community</span>}
+                    <MessageCircle size={20} /> {location.pathname === '/community' && <span className="d-none d-md-inline">Community</span>}
                   </button>
                 </motion.div>
               </div>
@@ -1181,4 +1177,3 @@ function App() {
 }
 
 export default App;
-

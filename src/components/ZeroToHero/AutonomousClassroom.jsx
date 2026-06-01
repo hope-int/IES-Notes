@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Play, Pause } from 'lucide-react';
+import { Zap, Play, Pause, UploadCloud, X, Radio, BarChart3, Settings2, Signal, TimerReset } from 'lucide-react';
 import Whiteboard from '../../core/whiteboard/Whiteboard';
 import InteractionEngine from '../../core/interactions/InteractionEngine';
 import CognitiveDashboard from '../../core/analytics/CognitiveDashboard';
@@ -7,7 +7,6 @@ import { queueEngine } from '../../core/queue/QueueEngine';
 import { audioManager } from '../../core/audio/AudioManager';
 import { personalizationEngine } from '../../core/personalization/PersonalizationEngine';
 import { useLearningSessionStore } from '../../stores/useLearningSessionStore';
-import { useQueueStore } from '../../stores/useQueueStore';
 import { useInteractionStore } from '../../stores/useInteractionStore';
 import { useWhiteboardStore } from '../../stores/useWhiteboardStore';
 import { eventBus } from '../../core/events/EventBus';
@@ -193,29 +192,30 @@ const AutonomousClassroom = ({ profile }) => {
     };
 
     return (
-        <div className="flex-grow-1 overflow-auto p-4 custom-scrollbar" style={{ height: 'calc(100vh - 80px)' }}>
-            <div className="container-fluid max-w-7xl">
+        <div className="zth-classroom flex-grow-1 overflow-auto custom-scrollbar theme-page">
+            <div className="zth-classroom-inner">
 
                 {/* Control Bar & Document Ingestion */}
-                <div className="bg-white border rounded-4 p-4 shadow-sm mb-4">
-                    <div className="row g-3 align-items-center">
-                        <div className="col-lg-4">
-                            <label className="form-label small fw-bold text-secondary text-uppercase mb-1">Target Concept or Topic</label>
+                <div className="zth-runtime-control">
+                    <div className="zth-runtime-control-grid">
+                        <div className="zth-field-group zth-topic-field">
+                            <label>Target Concept or Topic</label>
                             <input
                                 type="text"
                                 value={topicInput}
                                 onChange={(e) => setTopicInput(e.target.value)}
                                 placeholder={uploadedFileName ? `Learn from ${uploadedFileName}` : 'e.g. Logic Gates, Heap Sort...'}
-                                className="form-control border-1 rounded-3 px-3 py-2 bg-light text-dark font-medium"
+                                className="theme-input"
                                 disabled={isUploading}
                             />
                         </div>
 
-                        <div className="col-lg-3">
-                            <label className="form-label small fw-bold text-secondary text-uppercase mb-1">Document Context</label>
-                            <div className="d-flex align-items-center gap-2">
-                                <label className="btn btn-outline-secondary rounded-3 px-3 py-2 w-100 text-truncate d-flex align-items-center justify-content-center gap-2 cursor-pointer mb-0 font-medium" style={{ fontSize: '0.9rem' }}>
-                                    <span>{isUploading ? 'Ingesting...' : uploadedFileName ? `📄 ${uploadedFileName.slice(0, 12)}...` : '📤 Upload Doc'}</span>
+                        <div className="zth-field-group">
+                            <label>Document Context</label>
+                            <div className="zth-upload-row">
+                                <label className="zth-upload-button">
+                                    <UploadCloud size={17} />
+                                    <span>{isUploading ? 'Ingesting...' : uploadedFileName ? uploadedFileName : 'Upload document'}</span>
                                     <input
                                         type="file"
                                         accept=".pdf,.txt,.md,.csv"
@@ -227,34 +227,33 @@ const AutonomousClassroom = ({ profile }) => {
                                 {uploadedFileName && (
                                     <button
                                         onClick={() => { setUploadedChunks([]); setUploadedFileName(''); }}
-                                        className="btn btn-outline-danger px-2 py-2 rounded-3 d-flex align-items-center justify-content-center"
+                                        className="zth-clear-file"
                                         title="Clear document context"
-                                    >✕</button>
+                                    >
+                                        <X size={16} />
+                                    </button>
                                 )}
                             </div>
                         </div>
 
-                        <div className="col-lg-3">
-                            <div className="px-2">
-                                <div className="d-flex justify-content-between align-items-center mb-1">
-                                    <label className="form-label small fw-bold text-secondary text-uppercase mb-0">Class Duration</label>
-                                    <span className="badge bg-primary rounded-pill font-mono">{classDuration} min</span>
-                                </div>
-                                <input
-                                    type="range" min="3" max="30" step="1"
-                                    value={classDuration}
-                                    onChange={(e) => setClassDuration(parseInt(e.target.value))}
-                                    className="form-range w-100"
-                                    disabled={isUploading}
-                                />
+                        <div className="zth-field-group">
+                            <div className="zth-range-label">
+                                <label>Class Duration</label>
+                                <span><TimerReset size={13} />{classDuration} min</span>
                             </div>
+                            <input
+                                type="range" min="3" max="30" step="1"
+                                value={classDuration}
+                                onChange={(e) => setClassDuration(parseInt(e.target.value))}
+                                className="form-range zth-range"
+                                disabled={isUploading}
+                            />
                         </div>
 
-                        <div className="col-lg-2">
-                            <label className="form-label d-none d-lg-block mb-1">&nbsp;</label>
+                        <div className="zth-field-action">
                             <button
                                 onClick={handleStartRuntimeSession}
-                                className="btn btn-primary rounded-3 w-100 py-2 fw-bold text-white shadow-sm d-flex align-items-center justify-content-center gap-2"
+                                className="zth-start-live"
                                 disabled={isUploading || (!topicInput.trim() && !uploadedFileName)}
                             >
                                 <Zap size={16} />
@@ -265,8 +264,8 @@ const AutonomousClassroom = ({ profile }) => {
                 </div>
 
                 {/* Sub Control Bar: Pacing & Status */}
-                <div className="bg-white border rounded-4 p-3 shadow-sm mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                    <div className="d-flex align-items-center gap-2">
+                <div className="zth-runtime-status">
+                    <div className="zth-status-left">
                         <button
                             onClick={() => {
                                 if (queueEngine.status$.value === 'running') {
@@ -277,72 +276,71 @@ const AutonomousClassroom = ({ profile }) => {
                                     runtimeTimelineController.start();
                                 }
                             }}
-                            className="btn btn-outline-primary rounded-circle p-2 d-flex align-items-center justify-content-center"
-                            style={{ width: 40, height: 40 }}
+                            className="zth-play-button"
                             disabled={sessionStatus === 'idle' || sessionStatus === 'compiling' || sessionStatus === 'failed'}
                         >
                             {sessionStatus === 'running' ? <Pause size={18} /> : <Play size={18} />}
                         </button>
-                        <span className="fw-semibold text-slate-700 capitalize">Status: {sessionStatus}</span>
+                        <span><Radio size={15} />Status: {sessionStatus}</span>
                     </div>
-                    <div className="d-flex align-items-center gap-3">
-                        <span className="text-slate-600 small text-semibold text-nowrap">Pacing Rate: {pacingMultiplier}x</span>
+                    <div className="zth-pacing">
+                        <span><Signal size={15} />Pacing Rate: {pacingMultiplier}x</span>
                         <input
                             type="range" min="0.5" max="2.0" step="0.1"
                             value={pacingMultiplier}
                             onChange={(e) => handlePacingChange(parseFloat(e.target.value))}
-                            className="form-range"
-                            style={{ width: 100 }}
+                            className="form-range zth-range"
                             disabled={sessionStatus === 'idle' || sessionStatus === 'compiling' || sessionStatus === 'failed'}
                         />
                     </div>
                 </div>
 
                 {/* Core Workspace Grid */}
-                <div className="row g-4">
+                <div className="zth-runtime-grid">
                     {/* Left: Whiteboard + Subtitles */}
-                    <div className="col-lg-7">
-                        <div className="d-flex flex-column gap-3">
+                    <div className="zth-runtime-left">
+                        <div className="zth-whiteboard-shell">
                             <Whiteboard width={700} height={420} />
-                            <div className="bg-white border rounded-4 p-4 shadow-sm relative min-h-[100px] border-primary border-opacity-10">
-                                <div className="absolute top-0 left-0 mt-[-10px] ml-4 bg-primary text-white text-xs px-2 py-1 rounded-full font-mono fw-bold">
-                                    NARRATOR VOICE
-                                </div>
-                                <p className="lead fw-semibold text-slate-800 m-0">{subtitles}</p>
+                        </div>
+                        <div className="zth-narrator-card">
+                            <div>
+                                <Radio size={14} />
+                                Narrator Voice
                             </div>
+                            <p>{subtitles}</p>
                         </div>
                     </div>
 
                     {/* Right: Interaction + Analytics */}
-                    <div className="col-lg-5">
-                        <div className="d-flex flex-column gap-4">
+                    <div className="zth-runtime-right">
                             {activeInteraction ? (
                                 <InteractionEngine />
                             ) : (
-                                <div className="bg-white border rounded-4 p-5 text-center shadow-sm text-muted">
-                                    <div className="display-6 mb-3">📡</div>
-                                    <h6 className="fw-bold text-slate-700">Waiting for Concept Telemetry Probe</h6>
-                                    <p className="small mb-0">Quizzes, concept checks, and pacing signals will appear here dynamically as you listen to the session.</p>
+                                <div className="zth-probe-card">
+                                    <Signal size={34} />
+                                    <h6>Waiting for Concept Telemetry Probe</h6>
+                                    <p>Quizzes, concept checks, and pacing signals will appear here dynamically as you listen to the session.</p>
                                 </div>
                             )}
 
-                            <div className="d-flex justify-content-center bg-light p-1 rounded-3 border border-light-subtle">
+                            <div className="zth-runtime-tabs">
                                 <button
                                     onClick={() => setRightTab('telemetry')}
-                                    className={`btn btn-sm flex-grow-1 rounded-3 py-1 fw-bold transition-all border-0 ${rightTab === 'telemetry' ? 'bg-white text-primary shadow-sm' : 'text-secondary bg-transparent'}`}
+                                    className={rightTab === 'telemetry' ? 'is-active' : ''}
                                 >
-                                    📊 Telemetry
+                                    <BarChart3 size={15} />
+                                    Telemetry
                                 </button>
                                 <button
                                     onClick={() => setRightTab('diagnostics')}
-                                    className={`btn btn-sm flex-grow-1 rounded-3 py-1 fw-bold transition-all border-0 ${rightTab === 'diagnostics' ? 'bg-white text-primary shadow-sm' : 'text-secondary bg-transparent'}`}
+                                    className={rightTab === 'diagnostics' ? 'is-active' : ''}
                                 >
-                                    ⚙️ Diagnostics
+                                    <Settings2 size={15} />
+                                    Diagnostics
                                 </button>
                             </div>
 
                             {rightTab === 'telemetry' ? <CognitiveDashboard /> : <RuntimeDebugPanel />}
-                        </div>
                     </div>
                 </div>
 

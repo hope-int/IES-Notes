@@ -14,22 +14,23 @@ import RoadmapWizard from './RoadmapWizard';
 import MobileTimeline from './MobileTimeline';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../supabaseClient';
-import { Loader2, Menu, X, BrainCircuit, Target, Zap } from 'lucide-react';
+import { Loader2, Menu, BrainCircuit, Target, Zap, ArrowLeft, Activity, Layers, Sparkles } from 'lucide-react';
 
 
 
 // Basic hook for media queries
 const useMediaQuery = (query) => {
-    const [matches, setMatches] = useState(false);
+    const [matches, setMatches] = useState(() => (
+        typeof window !== 'undefined' ? window.matchMedia(query).matches : false
+    ));
+
     useEffect(() => {
         const media = window.matchMedia(query);
-        if (media.matches !== matches) {
-            setMatches(media.matches);
-        }
-        const listener = () => setMatches(media.matches);
-        window.addEventListener('resize', listener);
-        return () => window.removeEventListener('resize', listener);
-    }, [matches, query]);
+        const listener = (event) => setMatches(event.matches);
+        media.addEventListener('change', listener);
+        return () => media.removeEventListener('change', listener);
+    }, [query]);
+
     return matches;
 };
 
@@ -40,7 +41,7 @@ const RoadmapCanvas = () => {
     const defaultEdgeOptions = useMemo(() => ({
         type: 'smoothstep',
         animated: true,
-        style: { stroke: '#cbd5e1', strokeWidth: 2 },
+        style: { stroke: '#93c5fd', strokeWidth: 2 },
     }), []);
 
 
@@ -101,7 +102,7 @@ const RoadmapCanvas = () => {
     }, [profile, setNodes, setEdges]);
 
     // DB Sync Helper
-    const saveRoadmapToDB = async (currentNodes, currentEdges, currentMetadata = null) => {
+    const saveRoadmapToDB = useCallback(async (currentNodes, currentEdges, currentMetadata = null) => {
         if (!profile?.id) return;
         try {
             const { error } = await supabase
@@ -118,7 +119,7 @@ const RoadmapCanvas = () => {
         } catch (err) {
             console.error("Unknown error saving to DB:", err);
         }
-    };
+    }, [metadata, profile?.id]);
 
     // Handle Wizard Completion
     const handleRoadmapGenerated = useCallback(async (data) => {
@@ -130,7 +131,7 @@ const RoadmapCanvas = () => {
 
         // Persist to DB immediately
         await saveRoadmapToDB(data.nodes, data.edges, data._metadata);
-    }, [profile, setNodes, setEdges]);
+    }, [saveRoadmapToDB, setNodes, setEdges]);
 
 
     // Handle Node Click
@@ -179,31 +180,38 @@ const RoadmapCanvas = () => {
         setSelectedNode(null);
 
         // Save new state offline/online
-        setImmediate(() => saveRoadmapToDB(nextNodes, edges));
+        setTimeout(() => saveRoadmapToDB(nextNodes, edges), 0);
 
-    }, [edges, setNodes]);
+    }, [edges, saveRoadmapToDB, setNodes]);
 
     if (isCheckingDB) {
         return (
-            <div className="w-full h-screen flex flex-col items-center justify-center bg-[var(--bg-page)] text-[var(--text-main)]">
-                <Loader2 className="w-12 h-12 text-[var(--primary-accent)] animate-spin mb-4" />
-                <h2 className="text-xl font-bold">Synchronizing Neuro-Link...</h2>
-                <p className="text-sm text-[var(--text-muted)] mt-2">Checking for saved learning paths.</p>
+            <div className="roadmap-loading">
+                <div className="roadmap-loading-mark">
+                    <Loader2 className="animate-spin" size={30} />
+                </div>
+                <h2>Syncing Study Roadmap</h2>
+                <p>Checking your saved learning path.</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col transition-colors duration-300 overflow-hidden relative">
+        <div className="roadmap-shell">
+            <div className="roadmap-ambient" aria-hidden="true">
+                <span className="roadmap-ambient-grid" />
+                <span className="roadmap-ambient-glare" />
+            </div>
+
             {isWizardOpen ? (
                 <RoadmapWizard onRoadmapGenerated={handleRoadmapGenerated} />
             ) : (
                 <>
 
                     {/* Sticky Header with Progress */}
-                    <header className="sticky top-0 z-40 h-20 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex flex-col shadow-sm">
-                        <div className="flex-1 flex items-center justify-between px-4 md:px-6">
-                            <div className="flex items-center gap-3">
+                    <header className="roadmap-header">
+                        <div className="roadmap-header-inner">
+                            <div className="roadmap-title-group">
                                 <button
                                     onClick={() => {
                                         if (isMobile) {
@@ -212,34 +220,38 @@ const RoadmapCanvas = () => {
                                             setIsSidebarOpen(!isSidebarOpen);
                                         }
                                     }}
-                                    className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+                                    className="roadmap-icon-button"
+                                    aria-label={isMobile ? 'Back' : 'Toggle roadmap panel'}
                                 >
-                                    {isMobile ? <X size={20} /> : <Menu size={20} />}
+                                    {isMobile ? <ArrowLeft size={20} /> : <Menu size={20} />}
                                 </button>
-                                <div className="flex flex-col">
-                                    <h1 className="text-lg font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent truncate max-w-[200px] md:max-w-xs flex items-center gap-2">
-                                        <BrainCircuit className="w-5 h-5 text-indigo-600" />
-                                        Neuro-Link Curriculum
-                                    </h1>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest -mt-1 hidden md:block">
+                                <div className="roadmap-brand-mark">
+                                    <BrainCircuit size={20} />
+                                </div>
+                                <div className="roadmap-title-copy">
+                                    <h1>Study Roadmap Engine</h1>
+                                    <span>
                                         {profile?.full_name ? `${profile.full_name}'s Adaptive Path` : 'Active Session'}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
-                                <div className="hidden md:flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Mastery Level</span>
-                                        <span className="text-sm font-black text-indigo-600">{globalProgress}%</span>
-                                    </div>
-                                    <Target className="w-4 h-4 text-indigo-400" />
+                            <div className="roadmap-header-actions">
+                                <div className="roadmap-master-chip">
+                                    <span>Mastery</span>
+                                    <strong>{globalProgress}%</strong>
+                                    <Target size={16} />
+                                </div>
+                                <div className="roadmap-master-chip is-muted">
+                                    <span>Nodes</span>
+                                    <strong>{completedCount}/{totalCount}</strong>
+                                    <Layers size={16} />
                                 </div>
                                 <button
                                     onClick={() => setIsWizardOpen(true)}
-                                    className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center gap-2"
+                                    className="roadmap-primary-action"
                                 >
-                                    <Zap className="w-4 h-4 text-yellow-400 fill-current" />
+                                    <Zap size={16} />
                                     <span className="hidden sm:inline">Re-Calibrate</span>
                                     <span className="sm:hidden">Reset</span>
                                 </button>
@@ -247,57 +259,64 @@ const RoadmapCanvas = () => {
                         </div>
 
                         {/* Header Progress Bar */}
-                        <div className="h-1 w-full bg-slate-100 overflow-hidden">
+                        <div className="roadmap-progress-track">
                             <div
-                                className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-1000 ease-out"
+                                className="roadmap-progress-fill"
                                 style={{ width: `${globalProgress}%` }}
                             />
                         </div>
                     </header>
 
                     {/* Main Content Area */}
-                    <main className="flex-1 relative flex">
+                    <main className="roadmap-workspace">
 
                         {/* Desktop Sidebar */}
                         {!isMobile && (
                             <div className={`
-                                flex-shrink-0 flex-col bg-white border-r border-slate-200 z-30 p-6 transition-all duration-300 ease-in-out
-                                ${isSidebarOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 overflow-hidden px-0 border-r-0'}
+                                roadmap-side-panel
+                                ${isSidebarOpen ? 'is-open' : ''}
                             `}>
-                                <button onClick={() => window.history.back()} className="mb-6 flex w-max items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
-                                    ← Back to Dashboard
+                                <button onClick={() => window.history.back()} className="roadmap-back-link">
+                                    <ArrowLeft size={16} /> Back to Dashboard
                                 </button>
 
-                                <div className="flex flex-col flex-1">
-                                    <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                                        Welcome to your interactive skill tree. Unlock nodes to master your engineering goal.
-                                    </p>
+                                <div className="roadmap-side-content">
+                                    <div className="roadmap-side-hero">
+                                        <Sparkles size={18} />
+                                        <span>Adaptive study path</span>
+                                        <p>Unlock nodes, finish focused tasks, and keep your learning sequence visible.</p>
+                                    </div>
+
+                                    <div className="roadmap-side-stats">
+                                        <div>
+                                            <span>Completed</span>
+                                            <strong>{completedCount}</strong>
+                                        </div>
+                                        <div>
+                                            <span>Total</span>
+                                            <strong>{totalCount}</strong>
+                                        </div>
+                                    </div>
 
                                     {/* Diagnostic Info Section */}
                                     {metadata && (
-                                        <div className="mt-auto pt-6 border-t border-slate-100">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">System Diagnostics</span>
+                                        <div className="roadmap-diagnostics">
+                                            <div className="roadmap-diagnostics-title">
+                                                <Activity size={15} />
+                                                <span>Generation Signal</span>
                                             </div>
-                                            <div className="space-y-3">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">AI Engine</span>
-                                                    <span className="text-xs font-bold text-slate-700">{metadata.provider}</span>
+                                            <div className="roadmap-diagnostics-list">
+                                                <div>
+                                                    <span>AI Engine</span>
+                                                    <strong>{metadata.provider}</strong>
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">Model</span>
-                                                    <span className="text-xs font-mono text-slate-600 truncate">{metadata.model || 'Standard'}</span>
+                                                <div>
+                                                    <span>Model</span>
+                                                    <strong>{metadata.model || 'Standard'}</strong>
                                                 </div>
-                                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[9px] text-slate-400 uppercase font-bold">Latency</span>
-                                                        <span className="text-xs font-bold text-indigo-600">{metadata.latency?.toFixed(2)}s</span>
-                                                    </div>
-                                                    <div className="flex flex-col text-right">
-                                                        <span className="text-[9px] text-slate-400 uppercase font-bold">Nodes</span>
-                                                        <span className="text-xs font-bold text-purple-600">{metadata.nodeCount}</span>
-                                                    </div>
+                                                <div className="roadmap-diagnostic-grid">
+                                                    <span>{metadata.latency?.toFixed(2) || '--'}s</span>
+                                                    <span>{metadata.nodeCount || totalCount} nodes</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -308,28 +327,34 @@ const RoadmapCanvas = () => {
 
 
                         {/* Adaptive Canvas */}
-                        <div className="flex-1 h-[calc(100vh-4rem)] relative">
+                        <div className="roadmap-canvas-stage">
                             {isMobile ? (
-                                <div className="h-full overflow-y-auto">
+                                <div className="roadmap-mobile-frame">
                                     <MobileTimeline nodes={nodes} onSelectNode={setSelectedNode} />
                                 </div>
                             ) : (
-                                <ReactFlow
-                                    nodes={nodes}
-                                    edges={edges}
-                                    onNodesChange={onNodesChange}
-                                    onEdgesChange={onEdgesChange}
-                                    nodeTypes={nodeTypes}
-                                    edgeTypes={edgeTypes}
-                                    onNodeClick={onNodeClick}
-                                    fitView
-                                    fitViewOptions={{ padding: 0.5 }}
-                                    defaultEdgeOptions={defaultEdgeOptions}
+                                <div className="roadmap-flow-wrap">
+                                    <ReactFlow
+                                        nodes={nodes}
+                                        edges={edges}
+                                        onNodesChange={onNodesChange}
+                                        onEdgesChange={onEdgesChange}
+                                        nodeTypes={nodeTypes}
+                                        edgeTypes={edgeTypes}
+                                        onNodeClick={onNodeClick}
+                                        fitView
+                                        fitViewOptions={{ padding: 0.5 }}
+                                        defaultEdgeOptions={defaultEdgeOptions}
 
-                                >
-                                    <Background color="#cbd5e1" gap={20} size={1} variant="dots" className="opacity-40" />
-                                    <Controls className="bg-white border border-slate-200 shadow-sm rounded-lg text-slate-600 space-y-1" />
-                                </ReactFlow>
+                                    >
+                                        <Background color="#bfdbfe" gap={22} size={1} variant="dots" className="roadmap-flow-background" />
+                                        <Controls className="roadmap-flow-controls" />
+                                    </ReactFlow>
+                                    <div className="roadmap-canvas-hint">
+                                        <BrainCircuit size={15} />
+                                        <span>Click an unlocked node to open study tasks</span>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </main>

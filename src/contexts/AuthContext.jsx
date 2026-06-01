@@ -130,6 +130,13 @@ export function AuthProvider({ children }) {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
+        if (window.puter?.auth?.isSignedIn()) {
+            try {
+                window.puter.auth.signOut();
+            } catch (e) {
+                console.warn("Puter signOut failed:", e);
+            }
+        }
         localStorage.removeItem('hope_student_profile');
         setShowAdmin(false);
         setUserProfile(null);

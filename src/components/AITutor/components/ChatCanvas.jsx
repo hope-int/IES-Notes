@@ -12,6 +12,8 @@ import 'katex/dist/katex.min.css';
 import JCompilerWorkbench from './JCompilerWorkbench';
 
 const ChatMessageContext = React.createContext(null);
+const MotionDiv = motion.div;
+const MotionButton = motion.button;
 
 const CodeBlockWrapper = ({ codeContent, language }) => {
     const { idx, simulationResults, simulatingKey, onStarterClick, streaming } = React.useContext(ChatMessageContext);
@@ -46,8 +48,8 @@ const InlineCode = ({ className, children, ...props }) => {
         <code
             className={`${className} px-2 py-0.5 rounded fw-bold font-monospace`}
             style={{
-                backgroundColor: role === 'user' ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
-                color: role === 'user' ? '#fff' : '#003366',
+                backgroundColor: role === 'user' ? 'rgba(255,255,255,0.1)' : 'var(--bg-surface)',
+                color: role === 'user' ? '#fff' : 'var(--primary)',
                 fontSize: '13px'
             }}
             {...props}
@@ -58,7 +60,7 @@ const InlineCode = ({ className, children, ...props }) => {
 };
 
 const chatMarkdownComponents = {
-    code: ({ node, inline, className, children, ...props }) => {
+    code: ({ inline, className, children, ...props }) => {
         const match = /language-(\w+)/.exec(className || '');
         const language = match ? match[1] : '';
 
@@ -81,93 +83,74 @@ const chatMarkdownComponents = {
 
 const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, simulationResults, simulatingKey, onRegenerate }) => {
     return (
-        <div className="flex-grow-1 overflow-auto custom-scrollbar relative" style={{ background: '#fcfdfe' }}>
-            {/* Engineering Grid Background */}
-            <div className="position-absolute top-0 start-0 w-100 h-100 pointer-events-none"
-                style={{
-                    backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
-                    backgroundSize: '40px 40px',
-                    zIndex: 0,
-                    opacity: 0.02
-                }}
-            />
-
-            <div className="container mx-auto px-2 py-4 md:px-4 md:py-5" style={{ maxWidth: '850px', position: 'relative', zIndex: 1 }}>
+        <div className="ai-chat-canvas flex-grow-1 overflow-auto custom-scrollbar relative chat-workspace chat-grid">
+            <div className="ai-chat-stream container mx-auto px-2 py-4 md:px-4 md:py-5">
                 <AnimatePresence mode="popLayout">
                     {messages.length === 0 ? (
-                        <motion.div
+                        <MotionDiv
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="d-flex flex-column align-items-center justify-content-center min-vh-50 text-center mt-5"
+                            className="ai-chat-empty"
                         >
-                            <div className="mb-4 bg-opacity-10 p-5 rounded-circle shadow-sm border border-opacity-10" style={{ backgroundColor: '#f0f5fa', color: '#003366', borderColor: '#003366' }}>
+                            <div className="ai-chat-empty-mark">
                                 <Bot size={64} strokeWidth={1} />
                             </div>
-                            <h2 className="fw-bold mb-2 display-6" style={{ letterSpacing: '-1px', color: '#003366' }}>
-                                Engineering Workbench
-                            </h2>
-                            <p className="text-muted fs-5 mb-5 mx-auto" style={{ maxWidth: '500px' }}>
-                                Ask deep questions, upload datasets, and simulate logic chains with the HOPE Studio core.
-                            </p>
+                            <span className="ai-chat-kicker">HOPE Studio Core</span>
+                            <h2>Engineering Workbench</h2>
+                            <p>Ask deep questions, upload context, and turn rough academic prompts into usable engineering output.</p>
 
-                            <div className="row g-3 w-100 px-3 mt-4" style={{ maxWidth: '750px' }}>
+                            <div className="ai-starter-grid">
                                 {[
                                     { icon: Sparkles, title: "Deep Explanation", desc: "Complex concept breakdown", prompt: "Explain the governing equations of [Topic] in-depth." },
                                     { icon: Code, title: "Engine Simulation", desc: "J-Compiler Logic Flow", prompt: "Write and simulate the control logic for [System] in Python." },
                                     { icon: FileText, title: "Syllabus Query", desc: "Context-aware research", prompt: "Summarize the key exam objectives for [Module] from my syllabus." }
                                 ].map((starter, i) => (
-                                    <div key={i} className="col-md-4">
-                                        <motion.div
-                                            whileHover={{ y: -5, scale: 1.02 }}
-                                            onClick={() => onStarterClick(starter.prompt)}
-                                            className="p-4 h-100 d-flex flex-column align-items-center gap-3 cursor-pointer text-center bg-white border border-light shadow-sm rounded-4"
-                                        >
-                                            <div className="p-3 rounded-circle flex items-center justify-center" style={{ backgroundColor: '#f0f5fa', color: '#003366' }}>
-                                                <starter.icon size={24} />
-                                            </div>
-                                            <div>
-                                                <div className="fw-bold text-dark small mb-1">{starter.title}</div>
-                                                <div className="text-muted x-small opacity-75">{starter.desc}</div>
-                                            </div>
-                                            <ChevronRight size={14} className="mt-auto text-muted opacity-50" />
-                                        </motion.div>
-                                    </div>
+                                    <MotionButton
+                                        type="button"
+                                        key={i}
+                                        whileHover={{ y: -5, scale: 1.02 }}
+                                        onClick={() => onStarterClick(starter.prompt)}
+                                        className="ai-starter-card"
+                                    >
+                                        <span className="ai-starter-icon">
+                                            <starter.icon size={22} />
+                                        </span>
+                                        <span>
+                                            <strong>{starter.title}</strong>
+                                            <small>{starter.desc}</small>
+                                        </span>
+                                        <ChevronRight size={14} />
+                                    </MotionButton>
                                 ))}
                             </div>
-                        </motion.div>
+                        </MotionDiv>
                     ) : (
                         messages.map((msg, idx) => (
-                            <motion.div
+                            <MotionDiv
                                 key={idx}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="mb-8 last:mb-0 max-w-full overflow-hidden"
+                                className={`ai-message-frame ${msg.role === 'user' ? 'is-user' : 'is-assistant'}`}
                             >
-                                <div className={`d-flex flex-column ${msg.role === 'user' ? 'align-items-end' : 'align-items-start'} w-100`}>
+                                <div className="ai-message-row">
                                     {/* Role Indicator */}
-                                    <div className="d-flex align-items-center gap-2 mb-2 px-1">
+                                    <div className="ai-message-meta">
                                         {msg.role === 'assistant' && (
-                                            <div className="p-1 rounded-full bg-gray-50 border shadow-sm flex items-center justify-center">
-                                                <Bot size={12} className="text-primary" />
+                                            <div className="ai-message-avatar">
+                                                <Bot size={13} />
                                             </div>
                                         )}
-                                        <span className="x-small fw-bold text-muted uppercase tracking-wider" style={{ fontSize: '9px' }}>
-                                            {msg.role === 'user' ? 'Justin (Lead Engineer)' : 'HOPE Systems'}
+                                        <span>
+                                            {msg.role === 'user' 
+                                                ? (profile?.full_name ? `${profile.full_name} (${profile.id ? profile.id.slice(0, 10) : 'Lead Engineer'})` : 'Justin (Lead Engineer)') 
+                                                : 'HOPE Systems'
+                                            }
                                         </span>
                                     </div>
 
                                     {/* Message Bubble */}
                                     <div
-                                        className={`p-0 md:p-3 ${msg.role === 'user'
-                                            ? 'p-4 rounded-xl shadow-sm text-white'
-                                            : 'w-full max-w-full bg-transparent border-0 shadow-none'
-                                            }`}
-                                        style={{
-                                            maxWidth: msg.role === 'user' ? '85%' : '100%',
-                                            backgroundColor: msg.role === 'user' ? 'rgba(0, 51, 102, 0.9)' : 'transparent',
-                                            lineHeight: '1.8',
-                                            paddingRight: msg.role === 'assistant' ? '2rem' : undefined
-                                        }}
+                                        className={`ai-message-bubble ${msg.role === 'user' ? 'is-user' : 'is-assistant'} ${msg.streaming ? 'is-streaming' : ''}`}
                                     >
                                         {(() => {
                                             const hasAttachment = msg.content.includes('[[PDF_ATTACHMENT]]');
@@ -179,7 +162,7 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                 <div className="message-content">
                                                     {/* User Attachments Rendering */}
                                                     {msg.role === 'user' && msg.filePreview && (
-                                                        <motion.div 
+                                                        <MotionDiv
                                                             initial={{ opacity: 0, scale: 0.95 }}
                                                             animate={{ opacity: 1, scale: 1 }}
                                                             whileHover={{ scale: 1.01 }}
@@ -188,18 +171,14 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                                 fileType: msg.fileType,
                                                                 filePreview: msg.filePreview
                                                             })}
-                                                            className="mb-3 rounded-xl overflow-hidden border border-white border-opacity-20 shadow-sm cursor-pointer" 
-                                                            style={{ 
-                                                                maxHeight: '280px',
-                                                                width: 'fit-content'
-                                                            }}
+                                                            className="ai-user-image-attachment"
                                                         >
                                                             <img src={msg.filePreview} alt="Attached Context" className="w-100 h-100 object-fit-contain bg-black bg-opacity-10" />
-                                                        </motion.div>
+                                                        </MotionDiv>
                                                     )}
                                                     
                                                     {msg.role === 'user' && msg.fileName && !msg.fileType?.startsWith('image/') && (
-                                                        <motion.div 
+                                                        <MotionDiv
                                                             initial={{ opacity: 0, x: -10 }}
                                                             animate={{ opacity: 1, x: 0 }}
                                                             whileHover={{ x: 2 }}
@@ -208,21 +187,20 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                                 fileType: msg.fileType,
                                                                 filePreview: msg.filePreview
                                                             })}
-                                                            className="mb-3 p-3 bg-white bg-opacity-10 rounded-xl border border-white border-opacity-20 d-flex align-items-center gap-3 transition-all hover:bg-opacity-20 cursor-pointer"
-                                                            style={{ maxWidth: '320px' }}
+                                                            className="ai-user-file-attachment"
                                                         >
-                                                            <div className="p-2 rounded-lg bg-white bg-opacity-20">
+                                                            <div>
                                                                 <FileText size={18} className="text-white" />
                                                             </div>
                                                             <div className="flex-grow-1 overflow-hidden">
-                                                                <div className="fw-bold small text-truncate text-white">{msg.fileName}</div>
-                                                                <div className="x-small text-white opacity-50 uppercase fw-bold" style={{ fontSize: '9px' }}>
+                                                                <strong>{msg.fileName}</strong>
+                                                                <small>
                                                                     {msg.pdfContextMeta
                                                                         ? `${msg.pdfContextMeta.pageCount || 0} pages extracted${msg.pdfContextMeta.ocrPages ? ` • ${msg.pdfContextMeta.ocrPages} OCR` : ''}`
                                                                         : 'Engineering Context'}
-                                                                </div>
+                                                                </small>
                                                             </div>
-                                                        </motion.div>
+                                                        </MotionDiv>
                                                     )}
                                                      <ChatMessageContext.Provider value={{
                                                          idx,
@@ -232,6 +210,13 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                          streaming: msg.streaming,
                                                          role: msg.role
                                                      }}>
+                                                         {msg.streaming && !displayContent.trim() && (
+                                                             <div className="ai-live-stream-skeleton" aria-hidden="true">
+                                                                 <span />
+                                                                 <span />
+                                                                 <span />
+                                                             </div>
+                                                         )}
                                                          <ReactMarkdown
                                                              remarkPlugins={[remarkGfm, remarkMath]}
                                                              rehypePlugins={[rehypeKatex]}
@@ -246,20 +231,19 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
                                                     )}
 
                                                     {hasAttachment && (
-                                                        <div className="my-4 p-4 border rounded-4 d-flex align-items-center justify-content-between shadow-sm bg-light bg-opacity-50">
+                                                        <div className="ai-document-card">
                                                             <div className="d-flex align-items-center gap-3">
-                                                                <div className="p-2 rounded-3 text-white flex items-center justify-center" style={{ backgroundColor: '#FF6600' }}>
+                                                                <div className="ai-document-icon">
                                                                     <FileText size={20} />
                                                                 </div>
                                                                 <div>
-                                                                    <div className="fw-bold text-dark small">HOPE Document</div>
-                                                                    <div className="text-muted x-small uppercase fw-bold" style={{ fontSize: '9px' }}>Ready for Engineering Review</div>
+                                                                    <strong>HOPE Document</strong>
+                                                                    <small>Ready for Engineering Review</small>
                                                                 </div>
                                                             </div>
                                                             <button
                                                                 onClick={() => onStarterClick('OPEN_DOC_VIEWER', msg.content)}
-                                                                className="btn btn-sm rounded-xl px-4 fw-bold shadow-sm"
-                                                                style={{ fontSize: '11px', backgroundColor: '#003366', color: 'white' }}
+                                                                className="ai-document-open"
                                                             >
                                                                 Open Studio
                                                             </button>
@@ -272,86 +256,57 @@ const ChatCanvas = ({ messages, profile, onStarterClick, onFileClick, loading, s
 
                                     {/* Actions Bar */}
                                     {msg.role === 'assistant' && (
-                                        <div className="flex items-center gap-3 mt-2 px-1 opacity-100 md:opacity-0 md:hover:opacity-100 transition-all">
+                                        <div className="ai-message-actions">
                                             <button
-                                                className="btn btn-link p-0 text-muted d-flex align-items-center gap-1 text-decoration-none"
+                                                className="ai-message-action"
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(msg.content);
                                                     // Trigger a local visual feedback if possible, but keep it simple
                                                 }}
                                                 title="Copy Content"
                                             >
-                                                <Copy size={12} /> <span style={{ fontSize: '10px', fontWeight: 'bold' }}>COPY</span>
+                                                <Copy size={12} /> <span>COPY</span>
                                             </button>
                                             <button
-                                                className="btn btn-link p-0 text-muted d-flex align-items-center gap-1 text-decoration-none"
+                                                className="ai-message-action"
                                                 onClick={() => onRegenerate(idx)}
                                                 title="Regenerate Response"
                                             >
-                                                <RefreshCw size={12} /> <span style={{ fontSize: '10px', fontWeight: 'bold' }}>REGENERATE</span>
+                                                <RefreshCw size={12} /> <span>REGENERATE</span>
                                             </button>
                                         </div>
                                     )}
                                 </div>
-                            </motion.div>
+                            </MotionDiv>
                         ))
                     )}
 
                     {/* Minimal Loading Indicator */}
                     {loading && !messages.some(msg => msg.streaming) && (
-                        <motion.div
+                        <MotionDiv
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="d-flex align-items-center gap-3 px-3 py-4"
+                            className="ai-thinking-row"
                         >
-                            <div className="p-2 rounded-circle bg-white border shadow-sm">
-                                <Bot size={18} className="text-primary" />
+                            <div className="ai-thinking-avatar">
+                                <Bot size={18} />
                             </div>
-                            <div className="d-flex gap-1 align-items-center">
-                                <span className="small text-muted fw-bold me-2">Thinking</span>
+                            <div className="ai-thinking-copy">
+                                <span>Thinking</span>
                                 {[0, 1, 2].map((i) => (
-                                    <motion.div
+                                    <MotionDiv
                                         key={i}
                                         animate={{ y: [0, -4, 0] }}
                                         transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
-                                        className="bg-primary rounded-circle"
-                                        style={{ width: 4, height: 4, backgroundColor: '#003366' }}
+                                        className="ai-thinking-dot"
                                     />
                                 ))}
                             </div>
-                        </motion.div>
+                        </MotionDiv>
                     )}
                 </AnimatePresence>
             </div>
 
-            <style>{`
-                .message-content blockquote {
-                    border-left: 4px solid #3b82f6;
-                    padding-left: 1.5rem;
-                    margin: 1.5rem 0;
-                    font-style: italic;
-                    color: #64748b;
-                }
-                .message-content table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin: 1.5rem 0;
-                    background: white;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-                }
-                .message-content th, .message-content td {
-                    border: 1px solid #f1f5f9;
-                    padding: 0.75rem 1rem;
-                    text-align: left;
-                }
-                .message-content th {
-                    background: #f8fafc;
-                    font-weight: 700;
-                    color: #334155;
-                }
-            `}</style>
         </div>
     );
 };

@@ -126,7 +126,7 @@ You will receive raw text, PDFs, or notes. You must ignore any noise/irrelevant 
             ],
             {
                 actionType: 'chat',
-                model: 'z-ai/glm-4.7-flash',
+                model: 'z-ai/glm-4.5',
                 max_tokens: 32000,
                 temperature: 0.4
             }

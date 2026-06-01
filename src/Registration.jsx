@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, GraduationCap, ChevronRight, Loader, LogIn, KeyRound, Check, X } from 'lucide-react';
+import {
+    User, GraduationCap, ChevronRight, Loader, LogIn, KeyRound, Check, X,
+    Cloud, BookOpen, Code2, BrainCircuit, Fingerprint, ArrowLeft, ShieldCheck, FileText
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { PrivacyPolicy, UserAgreement } from './assets/legalDocs';
 
+const MotionDiv = motion.div;
+const MotionButton = motion.button;
+
 export default function Registration({ onComplete }) {
-    const [step, setStep] = useState(1);
-    const [isLoginMode, setIsLoginMode] = useState(false);
+    const [step, setStep] = useState(1); // 1 = Puter Auth Welcome, 2 = Profile Setup, 3 = Legacy Secret UID Login
+    const [puterUser, setPuterUser] = useState(null);
     const [loginUid, setLoginUid] = useState('');
     const [loading, setLoading] = useState(false);
+    const [departmentsLoading, setDepartmentsLoading] = useState(false);
     const [departments, setDepartments] = useState([]);
     const [semesters, setSemesters] = useState([]);
     const [loginError, setLoginError] = useState(null);
@@ -36,12 +43,8 @@ export default function Registration({ onComplete }) {
         year: '1'
     });
 
-    useEffect(() => {
-        fetchDepartments();
-    }, []);
-
-    const fetchDepartments = async (retryCount = 0) => {
-        setLoading(true);
+    const fetchDepartments = useCallback(async (retryCount = 0) => {
+        setDepartmentsLoading(true);
         setInitialDataError(false);
 
         const deptPromise = (async () => {
@@ -73,14 +76,18 @@ export default function Registration({ onComplete }) {
 
             if (data) {
                 setDepartments(data);
-                setLoading(false);
+                setDepartmentsLoading(false);
             }
         } catch (error) {
             console.error('Supabase Initialization Failed:', error.message);
             setInitialDataError(true);
-            setLoading(false);
+            setDepartmentsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchDepartments();
+    }, [fetchDepartments]);
 
     const fetchSemesters = async (deptId) => {
         const semPromise = (async () => {
@@ -120,12 +127,6 @@ export default function Registration({ onComplete }) {
 
         let year = "1";
         if (sem) {
-            // Extract semester number from name if possible, or assume based on logic
-            // Assuming sem.name contains the number or we map it. 
-            // Better approach: if we have the order, or just simple math if names are "Semester 1", etc.
-            // Let's rely on the user input for now or try to parse `sem.name`
-
-            // Simple parsing: "Semester 3" -> 3. "S3" -> 3.
             const match = sem.name.match(/\d+/);
             if (match) {
                 const semNum = parseInt(match[0]);
@@ -139,6 +140,61 @@ export default function Registration({ onComplete }) {
             semester_name: sem?.name || '',
             year: year
         });
+    };
+
+    const handlePuterAuth = async () => {
+        setLoading(true);
+        setLoginError(null);
+        try {
+            if (!window.puter || !window.puter.auth) {
+                throw new Error("Puter SDK is not loaded yet. Please wait a moment.");
+            }
+
+            // 1. Trigger Puter Sign In
+            await window.puter.auth.signIn({ attempt_temp_user_creation: true });
+
+            if (!window.puter.auth.isSignedIn()) {
+                throw new Error("Puter Authentication was cancelled or failed.");
+            }
+
+            // 2. Get Puter User details
+            const pUser = await window.puter.auth.getUser();
+            if (!pUser || !pUser.uuid) {
+                throw new Error("Failed to retrieve Puter user details.");
+            }
+
+            setPuterUser(pUser);
+
+            // 3. Query profiles table by Puter UUID
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', pUser.uuid)
+                .maybeSingle();
+
+            if (error) {
+                console.error("Error looking up profile:", error);
+                throw new Error("Database connection error. Please try again.");
+            }
+
+            if (data) {
+                console.log("Puter profile found! Logging in...");
+                localStorage.setItem('hope_student_profile', JSON.stringify(data));
+                onComplete(data);
+            } else {
+                // Pre-fill setup form with Puter username
+                setFormData(prev => ({
+                    ...prev,
+                    full_name: pUser.username || ''
+                }));
+                setStep(2);
+            }
+        } catch (err) {
+            console.error("Puter Auth failed:", err);
+            setLoginError(err.message || "Failed to authenticate with Puter.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleLogin = async (e, retryCount = 0) => {
@@ -159,7 +215,6 @@ export default function Registration({ onComplete }) {
             const { data, error } = await Promise.race([loginPromise, timeoutPromise]);
 
             if (error) {
-                // If it's a fetch error or timeout and we haven't retried too much, try again once
                 if ((error.message?.includes('fetch') || error.message?.includes('timeout')) && retryCount < 4) {
                     console.log(`Login attempt failed, retrying... (${retryCount + 1}/5)`);
                     setLoginError(`Waking up server... attempt ${retryCount + 1}/5`);
@@ -170,12 +225,11 @@ export default function Registration({ onComplete }) {
             }
 
             if (!data) {
-                setLoginError("Account not found. Please check your UID or Register.");
+                setLoginError("Account not found. Please check your UID.");
                 setLoading(false);
                 return;
             }
 
-            // Save and Complete
             console.log("Login successful, saving profile...");
             localStorage.setItem('hope_student_profile', JSON.stringify(data));
             onComplete(data);
@@ -194,8 +248,8 @@ export default function Registration({ onComplete }) {
         setLoading(true);
 
         try {
-            // Generate a random UUID for the student since we aren't using Auth
-            const newId = crypto.randomUUID();
+            // Puter UUID is used as the profile ID
+            const newId = puterUser ? puterUser.uuid : crypto.randomUUID();
 
             const profileData = {
                 id: newId,
@@ -203,22 +257,21 @@ export default function Registration({ onComplete }) {
                 phone_number: formData.phone_number,
                 department: formData.department_name,
                 semester: formData.semester_name,
-                year: formData.year, // "1", "2", etc
-                department_id: formData.department_id, // Important for deep linking
-                semester_id: formData.semester_id,     // Important for deep linking
-                college: 'HOPE Community', // Default or add field if needed
+                year: formData.year,
+                department_id: formData.department_id,
+                semester_id: formData.semester_id,
+                college: 'HOPE Community',
                 is_admin: false,
                 created_at: new Date().toISOString()
             };
 
-            // 1. Insert into Supabase with timeout (Public insert allowed by our new SQL)
             const insertPromise = (async () => {
                 try { return await supabase.from('profiles').insert(profileData); }
                 catch (e) { return { error: e }; }
             })();
 
             const timeoutPromise = new Promise((resolve) =>
-                setTimeout(() => resolve({ error: new Error("Registration timeout. The system might be waking up or your DNS is blocked.") }), 20000)
+                setTimeout(() => resolve({ error: new Error("Registration timeout. Please check your network connection.") }), 20000)
             );
 
             const { error } = await Promise.race([insertPromise, timeoutPromise]);
@@ -228,10 +281,7 @@ export default function Registration({ onComplete }) {
                 throw error;
             }
 
-            // 2. Save to Local Storage
             localStorage.setItem('hope_student_profile', JSON.stringify(profileData));
-
-            // 3. Complete
             onComplete(profileData);
 
         } catch (error) {
@@ -242,155 +292,222 @@ export default function Registration({ onComplete }) {
     };
 
     return (
-        <div className="min-vh-100 d-flex align-items-center justify-content-center p-4 bg-light">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="clay-card p-4 p-md-5 w-100"
-                style={{ maxWidth: '500px' }}
-            >
-                <div className="text-center mb-5">
-                    <div className="bg-primary rounded-circle d-inline-flex p-3 mb-3 text-white shadow-sm">
-                        <GraduationCap size={32} />
-                    </div>
-                    <h2 className="fw-bold mb-2">Welcome to HOPE Edu Hub</h2>
-                    <p className="text-muted">
-                        {isLoginMode ? "Enter your Secret UID to continue." : "Set up your profile to get started."}
-                    </p>
+        <div className={`auth-fluid-page auth-cinematic-page auth-white-page theme-page auth-step-${step}`}>
+            <div className="auth-cinematic-dots" aria-hidden="true" />
+            <div className="auth-spotlight" aria-hidden="true" />
+            <div className="auth-fluid-motion" aria-hidden="true">
+                <span className="auth-color-field auth-color-field-one" />
+                <span className="auth-color-field auth-color-field-two" />
+                <span className="auth-color-field auth-color-field-three" />
+                <span className="auth-color-field auth-color-field-four" />
+            </div>
+            <div className="auth-glare-layer" aria-hidden="true" />
 
-                    <div className="d-flex justify-content-center gap-2 mt-3 p-1 bg-white rounded-pill border d-inline-flex">
-                        <button
-                            onClick={() => setIsLoginMode(false)}
-                            className={`btn btn-sm rounded-pill px-3 fw-bold ${!isLoginMode ? 'btn-secondary text-white' : 'text-muted'}`}
-                        >
-                            Register
-                        </button>
-                        <button
-                            onClick={() => setIsLoginMode(true)}
-                            className={`btn btn-sm rounded-pill px-3 fw-bold ${isLoginMode ? 'btn-primary text-white' : 'text-muted'}`}
-                        >
-                            Login
-                        </button>
-                    </div>
+            <nav className="auth-mini-nav" aria-label="Authentication modes">
+                <div className="auth-mini-brand">
+                    <span className="auth-mini-mark">
+                        <GraduationCap size={18} aria-hidden="true" />
+                    </span>
+                    <span>HOPE</span>
                 </div>
+                <div className={`auth-mini-actions ${step === 3 ? 'is-uid' : 'is-puter'}`}>
+                    <span className="auth-mini-liquid" aria-hidden="true" />
+                    <button
+                        type="button"
+                        className={step !== 3 ? 'is-active' : ''}
+                        onClick={() => { if (step !== 2) { setStep(1); setLoginError(null); } }}
+                        disabled={step === 2}
+                    >
+                        Puter
+                    </button>
+                    <button
+                        type="button"
+                        className={step === 3 ? 'is-active' : ''}
+                        onClick={() => { if (step !== 2) { setStep(3); setLoginError(null); } }}
+                        disabled={step === 2}
+                    >
+                        UID
+                    </button>
+                </div>
+            </nav>
 
-                {initialDataError ? (
-                    <div className="text-center py-5">
-                        <div className="mb-4 text-warning">
-                            <X className="mx-auto" size={48} />
+            <main className="auth-layout">
+                <section className="auth-story" aria-label="HOPE Studio access">
+                    <div className="auth-brand-lockup">
+                        <div className="auth-logo-wrap">
+                            <GraduationCap size={34} aria-hidden="true" />
                         </div>
-                        <h4 className="fw-bold mb-3">Connection Issue</h4>
-                        <p className="text-muted mb-4 small">We couldn't reach the system. Please check your internet and try again.</p>
-                        <button
-                            onClick={fetchDepartments}
-                            className="btn btn-primary rounded-pill px-5 py-3 fw-bold shadow-sm"
-                            style={{ backgroundColor: 'var(--primary-accent)' }}
-                        >
-                            Retry Connection
-                        </button>
+                        <div>
+                            <span className="auth-brand-label">HOPE Studio</span>
+                            <strong>Academic workspace</strong>
+                        </div>
                     </div>
-                ) : isLoginMode ? (
-                    <form onSubmit={handleLogin}>
-                        <div className="mb-4">
-                            <label className="fw-bold small text-muted mb-2">Secret UID</label>
-                            <div className="clay-input d-flex align-items-center p-3 gap-3">
-                                <KeyRound size={20} className="text-muted" />
-                                <input
-                                    required
-                                    className="border-0 bg-transparent w-100 fw-medium"
-                                    placeholder="Paste your UID here..."
-                                    value={loginUid}
-                                    onChange={e => setLoginUid(e.target.value)}
-                                />
+
+                    <div className="auth-story-copy">
+                        <h1>HOPE Edu Hub</h1>
+                        <p>Notes. AI. Projects.</p>
+                    </div>
+
+                    <div className="auth-prism" aria-hidden="true">
+                        <div className="auth-prism-glass">
+                            <div className="auth-prism-mark">
+                                <GraduationCap size={44} />
+                            </div>
+                            <span className="auth-prism-line auth-prism-line-one" />
+                            <span className="auth-prism-line auth-prism-line-two" />
+                        </div>
+                        <div className="auth-prism-chip auth-prism-chip-one"><BookOpen size={20} /></div>
+                        <div className="auth-prism-chip auth-prism-chip-two"><Code2 size={20} /></div>
+                        <div className="auth-prism-chip auth-prism-chip-three"><BrainCircuit size={20} /></div>
+                        <div className="auth-prism-chip auth-prism-chip-four"><Cloud size={20} /></div>
+                    </div>
+                </section>
+
+                <MotionDiv
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                    className="auth-action-panel w-100 transition-all"
+                >
+                    {initialDataError ? (
+                        <div className="auth-panel-content text-center">
+                            <div className="auth-panel-icon mx-auto text-warning">
+                                <X size={30} />
+                            </div>
+                            <h2 className="auth-title-sm">Connection issue</h2>
+                            <p className="auth-subtitle-sm">Catalog unavailable. Try again.</p>
+                            <button
+                                onClick={fetchDepartments}
+                                className={`auth-primary-action ${departmentsLoading ? 'is-disabled' : ''}`}
+                                disabled={departmentsLoading}
+                            >
+                                {departmentsLoading ? <Loader className="animate-spin" size={20} /> : 'Retry Connection'}
+                            </button>
+                        </div>
+                    ) : step === 1 ? (
+                        <div className="auth-panel-content">
+                            <div className="auth-panel-heading">
+                                <div className="auth-panel-icon">
+                                    <Fingerprint size={30} />
+                                </div>
+                                <span>Secure access</span>
+                                <h2>Welcome back</h2>
+                                <p>Puter account</p>
+                            </div>
+
+                            {/* Consent Checkboxes */}
+                            <div className="auth-consent">
+                                <label className="auth-check-row">
+                                    <div className="position-relative flex-shrink-0 mt-1">
+                                        <input
+                                            type="checkbox"
+                                            className="auth-checkbox"
+                                            checked={privacyAgreed}
+                                            onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                        />
+                                        <Check
+                                            size={12}
+                                            className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
+                                            style={{ opacity: privacyAgreed ? 1 : 0 }}
+                                            strokeWidth={4}
+                                        />
+                                    </div>
+                                    <span className="text-secondary small leading-relaxed select-none">
+                                        Agree to{' '}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); setActiveDocument('privacy'); }}
+                                            className="auth-inline-link"
+                                        >
+                                            Privacy Policy
+                                        </button>
+                                    </span>
+                                </label>
+
+                                <label className="auth-check-row">
+                                    <div className="position-relative flex-shrink-0 mt-1">
+                                        <input
+                                            type="checkbox"
+                                            className="auth-checkbox"
+                                            checked={termsAgreed}
+                                            onChange={(e) => setTermsAgreed(e.target.checked)}
+                                        />
+                                        <Check
+                                            size={12}
+                                            className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
+                                            style={{ opacity: termsAgreed ? 1 : 0 }}
+                                            strokeWidth={4}
+                                        />
+                                    </div>
+                                    <span className="text-secondary small leading-relaxed select-none">
+                                        Agree to{' '}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.preventDefault(); setActiveDocument('terms'); }}
+                                            className="auth-inline-link"
+                                        >
+                                            User Agreement
+                                        </button>
+                                    </span>
+                                </label>
                             </div>
 
                             {loginError && (
-                                <motion.div
+                                <MotionDiv
                                     initial={{ opacity: 0, height: 0 }}
                                     animate={{ opacity: 1, height: 'auto' }}
                                     className="alert alert-danger border-0 small py-2 mb-4 d-flex align-items-center gap-2"
                                     style={{ borderRadius: '12px' }}
                                 >
                                     <X size={16} /> {loginError}
-                                </motion.div>
+                                </MotionDiv>
+                            )}
+
+                            <MotionButton
+                                whileHover={{ scale: 1.01 }}
+                                whileTap={{ scale: 0.99 }}
+                                onClick={handlePuterAuth}
+                                disabled={loading || !allAgreed}
+                                className={`auth-primary-action ${(!allAgreed || loading) ? 'is-disabled' : ''}`}
+                            >
+                                {loading ? <Loader className="animate-spin" size={24} /> : (
+                                    <>
+                                        <Cloud size={20} />
+                                        Continue with Puter
+                                    </>
+                                )}
+                            </MotionButton>
+
+                            <div className="text-center mt-4">
+                                <p className="mb-0 text-muted fw-medium small">
+                                    Secret UID?
+                                    <button
+                                        onClick={() => { setStep(3); setLoginError(null); }}
+                                        className="auth-inline-link ms-2"
+                                    >
+                                        Legacy login
+                                    </button>
+                                </p>
+                            </div>
+                        </div>
+                    ) : step === 2 ? (
+                    // Step 2: Profile setup details
+                    <form onSubmit={handleSubmit} className="auth-panel-content">
+                        <div className="auth-panel-heading">
+                            <div className="auth-panel-icon">
+                                <User size={28} />
+                            </div>
+                            <span>Profile setup</span>
+                            <h2>Your profile</h2>
+                            <p>Department + semester</p>
+                            {puterUser?.username && (
+                                <div className="auth-connected-line">
+                                    <Check size={15} />
+                                    Connected as {puterUser.username}
+                                </div>
                             )}
                         </div>
 
-                        {/* Consent Checkboxes */}
-                        <div className="space-y-4 mb-4 text-start">
-                            <label className="d-flex align-items-start gap-3 w-100 mb-2 cursor-pointer group">
-                                <div className="position-relative flex-shrink-0 mt-1">
-                                    <input
-                                        type="checkbox"
-                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
-                                        style={{ width: '24px', height: '24px', backgroundColor: privacyAgreed ? 'purple' : 'transparent', borderColor: privacyAgreed ? 'purple' : '#ccc' }}
-                                        checked={privacyAgreed}
-                                        onChange={(e) => setPrivacyAgreed(e.target.checked)}
-                                    />
-                                    <Check
-                                        size={14}
-                                        className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
-                                        style={{ opacity: privacyAgreed ? 1 : 0 }}
-                                        strokeWidth={4}
-                                    />
-                                </div>
-                                <span className="text-secondary small leading-relaxed select-none">
-                                    I have read and agree to the{' '}
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); setActiveDocument('privacy'); }}
-                                        className="btn btn-link p-0 text-decoration-none fw-bold"
-                                        style={{ color: 'purple' }}
-                                    >
-                                        Privacy Policy
-                                    </button>
-                                </span>
-                            </label>
-
-                            <label className="d-flex align-items-start gap-3 w-100 mb-4 cursor-pointer group">
-                                <div className="position-relative flex-shrink-0 mt-1">
-                                    <input
-                                        type="checkbox"
-                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
-                                        style={{ width: '24px', height: '24px', backgroundColor: termsAgreed ? 'purple' : 'transparent', borderColor: termsAgreed ? 'purple' : '#ccc' }}
-                                        checked={termsAgreed}
-                                        onChange={(e) => setTermsAgreed(e.target.checked)}
-                                    />
-                                    <Check
-                                        size={14}
-                                        className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
-                                        style={{ opacity: termsAgreed ? 1 : 0 }}
-                                        strokeWidth={4}
-                                    />
-                                </div>
-                                <span className="text-secondary small leading-relaxed select-none">
-                                    I have read and agree to the{' '}
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.preventDefault(); setActiveDocument('terms'); }}
-                                        className="btn btn-link p-0 text-decoration-none fw-bold"
-                                        style={{ color: 'indigo' }}
-                                    >
-                                        User Agreement
-                                    </button>
-                                </span>
-                            </label>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading || !loginUid || !allAgreed}
-                            className={`btn w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 ${(!loginUid || !allAgreed) ? 'btn-secondary text-white-50' : 'btn-primary'}`}
-                        >
-                            {loading ? <Loader className="animate-spin" /> : (
-                                <>
-                                    Login <LogIn size={20} />
-                                </>
-                            )}
-                        </button>
-                    </form>
-                ) : (
-                    <form onSubmit={handleSubmit}>
                         <div className="mb-4">
                             <label className="fw-bold small text-muted mb-2">Phone Number</label>
                             <div className="clay-input d-flex align-items-center p-3 gap-3">
@@ -399,6 +516,7 @@ export default function Registration({ onComplete }) {
                                     required
                                     type="tel"
                                     className="border-0 bg-transparent w-100 fw-medium"
+                                    style={{ color: 'inherit', outline: 'none' }}
                                     placeholder="Enter your phone number"
                                     value={formData.phone_number}
                                     onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
@@ -413,6 +531,7 @@ export default function Registration({ onComplete }) {
                                 <input
                                     required
                                     className="border-0 bg-transparent w-100 fw-medium"
+                                    style={{ color: 'inherit', outline: 'none' }}
                                     placeholder="Enter your name"
                                     value={formData.full_name}
                                     onChange={e => setFormData({ ...formData, full_name: e.target.value })}
@@ -425,13 +544,14 @@ export default function Registration({ onComplete }) {
                                 <label className="fw-bold small text-muted mb-2">Department</label>
                                 <select
                                     required
-                                    className="clay-input w-100 p-3 bg-white border-0"
+                                    className="clay-input w-100 p-3"
                                     value={formData.department_id}
                                     onChange={handleDeptChange}
+                                    style={{ color: 'inherit' }}
                                 >
-                                    <option value="">Select Department</option>
+                                    <option value="" style={{ color: '#0f172a', background: '#ffffff' }}>Select Department</option>
                                     {departments.map(d => (
-                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                        <option key={d.id} value={d.id} style={{ color: '#0f172a', background: '#ffffff' }}>{d.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -441,13 +561,14 @@ export default function Registration({ onComplete }) {
                                 <select
                                     required
                                     disabled={!formData.department_id}
-                                    className="clay-input w-100 p-3 bg-white border-0"
+                                    className="clay-input w-100 p-3"
                                     value={formData.semester_id}
                                     onChange={handleSemChange}
+                                    style={{ color: 'inherit' }}
                                 >
-                                    <option value="">Select Sem</option>
+                                    <option value="" style={{ color: '#0f172a', background: '#ffffff' }}>Select Sem</option>
                                     {semesters.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                        <option key={s.id} value={s.id} style={{ color: '#0f172a', background: '#ffffff' }}>{s.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -456,69 +577,127 @@ export default function Registration({ onComplete }) {
                                 <label className="fw-bold small text-muted mb-2">Current Year</label>
                                 <select
                                     required
-                                    className="clay-input w-100 p-3 bg-white border-0"
+                                    className="clay-input w-100 p-3"
                                     value={formData.year}
                                     onChange={e => setFormData({ ...formData, year: e.target.value })}
+                                    style={{ color: 'inherit' }}
                                 >
-                                    {[1, 2, 3, 4].map(y => <option key={y} value={y}>{y}{y === 1 ? 'st' : y === 2 ? 'nd' : y === 3 ? 'rd' : 'th'} Year</option>)}
+                                    {[1, 2, 3, 4].map(y => <option key={y} value={y} style={{ color: '#0f172a', background: '#ffffff' }}>{y}{y === 1 ? 'st' : y === 2 ? 'nd' : y === 3 ? 'rd' : 'th'} Year</option>)}
                                 </select>
                             </div>
                         </div>
 
-                        {/* Consent Checkboxes */}
-                        <div className="space-y-4 mb-4 text-start">
-                            <label className="d-flex align-items-start gap-3 w-100 mb-2 cursor-pointer group">
+                        <button
+                            type="submit"
+                            disabled={loading || !formData.semester_id || !formData.full_name || !formData.phone_number}
+                            className={`auth-primary-action ${(!formData.semester_id || !formData.full_name || !formData.phone_number || loading) ? 'is-disabled' : ''}`}
+                        >
+                            {loading ? <Loader className="animate-spin" /> : (
+                                <>
+                                    Complete Setup <ChevronRight size={20} />
+                                </>
+                            )}
+                        </button>
+
+                        <div className="text-center mt-4">
+                            <button
+                                type="button"
+                                onClick={() => { setStep(1); setPuterUser(null); }}
+                                className="auth-back-link"
+                            >
+                                <ArrowLeft size={15} />
+                                Back
+                            </button>
+                        </div>
+                    </form>
+                ) : (
+                    // Step 3: Legacy UID Login
+                    <form onSubmit={handleLogin} className="auth-panel-content">
+                        <div className="auth-panel-heading">
+                            <div className="auth-panel-icon">
+                                <KeyRound size={28} />
+                            </div>
+                            <span>Legacy access</span>
+                            <h2>Secret UID</h2>
+                            <p>Paste your key</p>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="fw-bold small text-muted mb-2">Secret UID</label>
+                            <div className="clay-input d-flex align-items-center p-3 gap-3">
+                                <KeyRound size={20} className="text-muted" />
+                                <input
+                                    required
+                                    className="border-0 bg-transparent w-100 fw-medium"
+                                    style={{ color: 'inherit', outline: 'none' }}
+                                    placeholder="Paste your UID here..."
+                                    value={loginUid}
+                                    onChange={e => setLoginUid(e.target.value)}
+                                />
+                            </div>
+
+                            {loginError && (
+                                <MotionDiv
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    className="alert alert-danger border-0 small py-2 mb-4 d-flex align-items-center gap-2"
+                                    style={{ borderRadius: '12px' }}
+                                >
+                                    <X size={16} /> {loginError}
+                                </MotionDiv>
+                            )}
+                        </div>
+
+                        {/* Consent Checkboxes for Legacy UID */}
+                        <div className="auth-consent">
+                            <label className="auth-check-row">
                                 <div className="position-relative flex-shrink-0 mt-1">
                                     <input
                                         type="checkbox"
-                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
-                                        style={{ width: '24px', height: '24px', backgroundColor: privacyAgreed ? 'purple' : 'transparent', borderColor: privacyAgreed ? 'purple' : '#ccc' }}
+                                        className="auth-checkbox"
                                         checked={privacyAgreed}
                                         onChange={(e) => setPrivacyAgreed(e.target.checked)}
                                     />
                                     <Check
-                                        size={14}
+                                        size={12}
                                         className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
                                         style={{ opacity: privacyAgreed ? 1 : 0 }}
                                         strokeWidth={4}
                                     />
                                 </div>
                                 <span className="text-secondary small leading-relaxed select-none">
-                                    I have read and agree to the{' '}
+                                    Agree to{' '}
                                     <button
                                         type="button"
                                         onClick={(e) => { e.preventDefault(); setActiveDocument('privacy'); }}
-                                        className="btn btn-link p-0 text-decoration-none fw-bold"
-                                        style={{ color: 'purple' }}
+                                        className="auth-inline-link"
                                     >
                                         Privacy Policy
                                     </button>
                                 </span>
                             </label>
 
-                            <label className="d-flex align-items-start gap-3 w-100 mb-4 cursor-pointer group">
+                            <label className="auth-check-row">
                                 <div className="position-relative flex-shrink-0 mt-1">
                                     <input
                                         type="checkbox"
-                                        className="appearance-none rounded-circle border border-secondary transition-all cursor-pointer"
-                                        style={{ width: '24px', height: '24px', backgroundColor: termsAgreed ? 'purple' : 'transparent', borderColor: termsAgreed ? 'purple' : '#ccc' }}
+                                        className="auth-checkbox"
                                         checked={termsAgreed}
                                         onChange={(e) => setTermsAgreed(e.target.checked)}
                                     />
                                     <Check
-                                        size={14}
+                                        size={12}
                                         className="position-absolute top-50 start-50 translate-middle text-white pointer-events-none transition-opacity"
                                         style={{ opacity: termsAgreed ? 1 : 0 }}
                                         strokeWidth={4}
                                     />
                                 </div>
                                 <span className="text-secondary small leading-relaxed select-none">
-                                    I have read and agree to the{' '}
+                                    Agree to{' '}
                                     <button
                                         type="button"
                                         onClick={(e) => { e.preventDefault(); setActiveDocument('terms'); }}
-                                        className="btn btn-link p-0 text-decoration-none fw-bold"
-                                        style={{ color: 'indigo' }}
+                                        className="auth-inline-link"
                                     >
                                         User Agreement
                                     </button>
@@ -528,80 +707,119 @@ export default function Registration({ onComplete }) {
 
                         <button
                             type="submit"
-                            disabled={loading || !formData.semester_id || !formData.full_name || !formData.phone_number || !allAgreed}
-                            className={`btn w-100 py-3 rounded-pill fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 ${(!formData.semester_id || !formData.full_name || !formData.phone_number || !allAgreed) ? 'btn-secondary text-white-50' : 'btn-primary'}`}
-                            style={{ backgroundColor: (!formData.semester_id || !formData.full_name || !formData.phone_number || !allAgreed) ? '' : 'var(--primary-accent)' }}
+                            disabled={loading || !loginUid || !allAgreed}
+                            className={`auth-primary-action ${(!loginUid || !allAgreed || loading) ? 'is-disabled' : ''}`}
                         >
                             {loading ? <Loader className="animate-spin" /> : (
                                 <>
-                                    Sign In <ChevronRight size={20} />
+                                    Login <LogIn size={20} />
                                 </>
                             )}
                         </button>
 
+                        <div className="text-center mt-4">
+                            <button
+                                type="button"
+                                onClick={() => { setStep(1); setLoginError(null); }}
+                                className="auth-back-link"
+                            >
+                                <ArrowLeft size={15} />
+                                Back
+                            </button>
+                        </div>
                     </form>
                 )}
-            </motion.div>
+            </MotionDiv>
+            </main>
 
             {/* The Document View Modal */}
             <AnimatePresence>
                 {activeDocument && (
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 z-3"
-                        style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}
+                        className="auth-document-backdrop"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="auth-document-title"
                     >
-                        {/* Backdrop for the inner modal */}
                         <div
-                            className="position-absolute top-0 start-0 w-100 h-100"
+                            className="auth-document-dismiss"
                             onClick={() => setActiveDocument(null)}
                         />
 
-                        <motion.div
-                            initial={{ scale: 0.95, y: 20 }}
-                            animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.95, y: 20 }}
-                            className="position-relative bg-white w-100 rounded-4 shadow-lg d-flex flex-column overflow-hidden"
-                            style={{ maxWidth: '600px', maxHeight: '90vh' }}
+                        <MotionDiv
+                            initial={{ scale: 0.96, y: 22, opacity: 0 }}
+                            animate={{ scale: 1, y: 0, opacity: 1 }}
+                            exit={{ scale: 0.96, y: 22, opacity: 0 }}
+                            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                            className="auth-document-modal"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            {/* Header */}
-                            <div className="d-flex align-items-center justify-content-between p-4 border-bottom bg-light">
-                                <h4 className="fw-bold mb-0 text-dark">
-                                    {documents[activeDocument].title}
-                                </h4>
+                            <div className="auth-document-header">
+                                <div className="auth-document-title-group">
+                                    <div className="auth-document-icon">
+                                        {activeDocument === 'privacy' ? (
+                                            <ShieldCheck size={24} aria-hidden="true" />
+                                        ) : (
+                                            <FileText size={24} aria-hidden="true" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <span className="auth-document-kicker">
+                                            {activeDocument === 'privacy' ? 'Data protection' : 'Platform terms'}
+                                        </span>
+                                        <h3 id="auth-document-title">
+                                            {documents[activeDocument].title}
+                                        </h3>
+                                    </div>
+                                </div>
                                 <button
+                                    type="button"
                                     onClick={() => setActiveDocument(null)}
-                                    className="btn btn-light rounded-circle p-2 d-flex align-items-center justify-content-center"
+                                    className="auth-document-close"
+                                    aria-label="Close document"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            {/* Body */}
-                            <div className="p-4 overflow-auto prose prose-sm" style={{ maxHeight: '60vh', textAlign: 'left' }}>
-                                <ReactMarkdown>
-                                    {documents[activeDocument].content}
-                                </ReactMarkdown>
+                            <div className="auth-document-body">
+                                <div className="auth-document-scroll">
+                                    <ReactMarkdown
+                                        components={{
+                                            hr: () => <div className="auth-document-rule" />,
+                                        }}
+                                    >
+                                        {documents[activeDocument].content}
+                                    </ReactMarkdown>
+                                </div>
                             </div>
 
-                            {/* Footer */}
-                            <div className="p-4 border-top bg-light d-flex justify-content-end">
+                            <div className="auth-document-footer">
                                 <button
+                                    type="button"
+                                    onClick={() => setActiveDocument(null)}
+                                    className="auth-document-secondary"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => {
                                         if (activeDocument === 'privacy') setPrivacyAgreed(true);
                                         if (activeDocument === 'terms') setTermsAgreed(true);
                                         setActiveDocument(null);
                                     }}
-                                    className="btn btn-dark fw-bold px-4 py-2"
+                                    className="auth-document-accept"
                                 >
-                                    Accept & Close
+                                    <Check size={18} />
+                                    Accept
                                 </button>
                             </div>
-                        </motion.div>
-                    </motion.div>
+                        </MotionDiv>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
         </div >

@@ -20,7 +20,7 @@ When you upload PDFs or interact with the AI Tutor, your prompts and documents a
 **We DO NOT train our own models on your personal data.** The data you submit is used strictly for in-the-moment AI context so the tutor can provide accurate assignment help or course material simplification.
 
 **The Models Powering Your Education:**
-Depending on the task (e.g., complex coding vs. quick chatting), we route your queries to highly capable models including **NVIDIA Nemotron 3 Nano Omni**, **Poolside Laguna XS.2**, **Llama-3.3-70B**, **Llama-3.1-8B**, **Mixtral-8x7B**, and **Gemma2-9B**. We utilize dynamic routing to ensure the best performance.
+Depending on the task (e.g., complex coding vs. quick chatting), we route your queries to highly capable models including **Z.ai GLM 4.5**, **NVIDIA Nemotron 3 Nano Omni**, **Llama-3.3-70B**, **Llama-3.1-8B**, **Mixtral-8x7B**, and **Gemma2-9B**. We utilize dynamic routing to ensure the best performance.
 
 ## 3. Third-Party Sharing and Infrastructure
 We operate on a modern, secure cloud infrastructure. We **do not sell** your student data to advertisers or third-party brokers. However, evaluating your queries requires sharing data with our trusted infrastructure partners:

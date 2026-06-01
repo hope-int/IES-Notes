@@ -2,9 +2,9 @@ import { ragEngine } from '../rag/RAGEngine';
 import { getAICompletion } from '../../utils/aiService';
 import { audioManager } from '../audio/AudioManager';
 import { useLearningSessionStore } from '../../stores/useLearningSessionStore';
-import { useQueueStore } from '../../stores/useQueueStore';
 import { saveQueueState } from '../../utils/indexedDB';
 import { queueEngine } from '../queue/QueueEngine';
+import { parseAIJSON } from '../../utils/jsonUtils';
 
 class SessionCompiler {
     /**
@@ -73,35 +73,19 @@ Rules:
 `;
 
         let compiledData = null;
-        let isOfflineFallback = false;
-
         try {
             const response = await getAICompletion([
                 { role: 'user', content: systemPrompt }
             ], {
                 actionType: 'compiler',
                 jsonMode: true,
+                model: 'z-ai/glm-4.5',
                 temperature: 0.1
             });
 
-            try {
-                let cleaned = response.trim();
-                if (cleaned.startsWith('```')) {
-                    cleaned = cleaned.replace(/^```json\s*/, '').replace(/```$/, '').trim();
-                }
-                compiledData = JSON.parse(cleaned);
-            } catch (err) {
-                console.error("Failed to parse compiled lesson JSON, attempting regex recovery", err);
-                const match = response.match(/\{[\s\S]*\}/);
-                if (match) {
-                    compiledData = JSON.parse(match[0]);
-                } else {
-                    throw new Error("Invalid educational sequence format returned by Session Compiler AI.");
-                }
-            }
+            compiledData = parseAIJSON(response);
         } catch (error) {
             console.warn("AI Compilation Failed, falling back to local Offline Lesson Synthesis:", error.message || error);
-            isOfflineFallback = true;
             compiledData = this.generateOfflineLesson(topic, durationMinutes);
         }
 
@@ -414,7 +398,6 @@ Rules:
     async prebufferAudio(compiledData) {
         const { nodes, rootNodeId } = compiledData;
         let currentNode = nodes[rootNodeId];
-        let prefetchCount = 0;
 
         const bufferQueue = [];
         if (currentNode) {

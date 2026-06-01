@@ -36,7 +36,7 @@ ${text.slice(0, 15000)} // Limit context window if necessary
             [{ role: 'user', content: systemPrompt }],
             {
                 actionType: 'chat',
-                model: 'z-ai/glm-4.7-flash',
+                model: 'z-ai/glm-4.5',
                 max_tokens: 12000,
                 temperature: 0.7
             }

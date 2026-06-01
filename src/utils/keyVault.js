@@ -83,6 +83,7 @@ const getSecret = (ownerId, useLegacy = false) => {
 export const PROVIDER_MODELS = {
     puter: [
         { value: null,                                                 label: 'App Default',           badge: 'default' },
+        { value: 'z-ai/glm-4.5',                                       label: 'GLM 4.5',              badge: 'free' },
         { value: 'z-ai/glm-4.7-flash',                                 label: 'GLM 4.7 Flash',         badge: 'free' },
         { value: 'poolside/laguna-m.1:free',                           label: 'Laguna M.1',            badge: 'free' },
         { value: 'poolside/laguna-xs.2:free',                          label: 'Laguna XS.2',           badge: 'free' },
@@ -91,6 +92,7 @@ export const PROVIDER_MODELS = {
     ],
     openrouter: [
         { value: null,                                        label: 'App Default',              badge: 'default' },
+        { value: 'z-ai/glm-4.5',                              label: 'GLM 4.5',                  badge: 'paid' },
         { value: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', label: 'Nemotron 3 Nano Omni', badge: 'free' },
         { value: 'meta-llama/llama-3.1-8b-instruct:free',    label: 'Llama 3.1 8B',            badge: 'free' },
         { value: 'meta-llama/llama-3.3-70b-instruct:free',   label: 'Llama 3.3 70B',           badge: 'free' },

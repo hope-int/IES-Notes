@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Compass, Sparkles } from 'lucide-react';
 import { generateRoadmap } from '../../utils/roadmapAI';
 import MiniGameLoader from '../common/MiniGameLoader';
+
+const MotionDiv = motion.div;
 
 const RoadmapWizard = ({ onRoadmapGenerated }) => {
     const [step, setStep] = useState(1);
@@ -98,94 +100,93 @@ const RoadmapWizard = ({ onRoadmapGenerated }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white overflow-hidden">
+        <div className="roadmap-wizard">
             {/* Top Progress Bar */}
-            <div className="fixed top-0 left-0 right-0 h-1 bg-slate-100 z-50">
+            <div className="roadmap-wizard-progress">
                 <div
-                    className="h-full bg-indigo-600 transition-all duration-500 ease-out"
+                    className="roadmap-progress-fill"
                     style={{ width: `${(step / 5) * 100}%` }}
                 />
             </div>
 
-            {/* Global Background (Liquid Aura style) */}
-            <div className="absolute inset-0 z-0">
-                <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] rounded-full bg-indigo-50/50 blur-[120px]" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-purple-50/50 blur-[120px]" />
+            <div className="roadmap-ambient" aria-hidden="true">
+                <span className="roadmap-ambient-grid" />
+                <span className="roadmap-ambient-glare" />
             </div>
 
-            <motion.div
+            <MotionDiv
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-3xl h-full flex flex-col justify-center px-6 py-12 relative z-10"
+                className="roadmap-wizard-panel"
             >
 
-                <div className="mb-8 text-center relative z-10">
-                    <div className="inline-flex items-center justify-center p-3 mb-4 rounded-2xl bg-gradient-to-br from-purple-100 to-blue-50 text-purple-600 shadow-inner">
-                        <Sparkles className="w-8 h-8" />
+                <div className="roadmap-wizard-heading">
+                    <div className="roadmap-wizard-mark">
+                        <Sparkles size={26} />
                     </div>
-                    <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 mb-2">
-                        AI Roadmap Engine
-                    </h2>
-                    <p className="text-gray-500 font-medium">Diagnostic Setup</p>
+                    <span>Study Roadmap</span>
+                    <h2>Build Your Learning Path</h2>
                 </div>
 
                 {loading ? (
-                    <MiniGameLoader
-                        loadingText={loadingStep?.message || 'Connecting to Brain...'}
-                        subText={`Source: ${loadingStep?.provider || 'Primary Engine'} | Status: ${loadingStep?.step?.toUpperCase() || 'QUERYING'}`}
-                    />
+                    <div className="roadmap-wizard-loader">
+                        <MiniGameLoader
+                            loadingText={loadingStep?.message || 'Connecting to Brain...'}
+                            subText={`Source: ${loadingStep?.provider || 'Primary Engine'} | Status: ${loadingStep?.step?.toUpperCase() || 'QUERYING'}`}
+                        />
+                    </div>
 
                 ) : (
-                    <div className="relative z-10">
+                    <div className="roadmap-wizard-content">
                         {/* Step Indicator */}
-                        <div className="text-center mb-10">
-                            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Step {step} of 5</span>
+                        <div className="roadmap-step-row">
+                            <span><Compass size={15} /> Step {step} of 5</span>
+                            <strong>{Math.round((step / 5) * 100)}%</strong>
                         </div>
 
                         {/* Interactive Carousel Content */}
-                        <div className="min-h-[250px] relative">
+                        <div className="roadmap-question-stage">
                             <AnimatePresence mode="wait">
-                                <motion.div
+                                <MotionDiv
                                     key={step}
                                     initial={{ x: 50, opacity: 0 }}
                                     animate={{ x: 0, opacity: 1 }}
                                     exit={{ x: -50, opacity: 0 }}
                                     transition={{ duration: 0.3, ease: 'easeOut' }}
-                                    className="w-full"
+                                    className="roadmap-question-panel"
                                 >
-                                    <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-8 text-center leading-tight">
+                                    <h3>
                                         {currentQuestion.text}
                                     </h3>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="roadmap-option-grid">
                                         {currentQuestion.options.map((option, idx) => (
                                             <button
                                                 key={idx}
                                                 onClick={() => handleOptionSelect(option)}
-                                                className="bg-white border-2 border-slate-100 hover:border-indigo-400 hover:bg-slate-50 hover:shadow-lg focus:border-indigo-500 focus:bg-indigo-50 hover:-translate-y-1 rounded-2xl py-6 px-4 cursor-pointer transition-all text-center font-bold text-slate-700 active:scale-95 active:border-indigo-600 active:bg-indigo-50 flex flex-col items-center justify-center min-h-[100px]"
-                                                style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)' }}
+                                                className="roadmap-option-button"
                                             >
+                                                <CheckCircle2 size={18} />
                                                 {option}
                                             </button>
                                         ))}
                                     </div>
-                                </motion.div>
+                                </MotionDiv>
                             </AnimatePresence>
                         </div>
 
                         {step > 1 && (
-                            <div className="mt-8 text-center">
+                            <div className="roadmap-wizard-back">
                                 <button
                                     onClick={() => setStep(step - 1)}
-                                    className="text-gray-400 hover:text-gray-700 font-medium transition-colors text-sm"
                                 >
-                                    ← Go Back
+                                    <ArrowLeft size={16} /> Go Back
                                 </button>
                             </div>
                         )}
                     </div>
                 )}
-            </motion.div>
+            </MotionDiv>
         </div>
     );
 };

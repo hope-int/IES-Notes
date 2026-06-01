@@ -1,4 +1,5 @@
 import { getAICompletion } from './aiService';
+import { parseAIJSON } from './jsonUtils';
 
 /**
  * Analyzes an assignment prompt and generates a structured solution plan.
@@ -25,12 +26,11 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
+        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'assignment' }
     );
 
     try {
-        const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleaned);
+        return parseAIJSON(response);
     } catch (e) {
         console.error("Assignment Plan Parse Error:", e);
         throw new Error("Failed to analyze assignment.");
@@ -64,7 +64,7 @@ OUTPUT: Return ONLY the raw markdown/text solution for this step.
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
+        { model: 'z-ai/glm-4.5', actionType: 'assignment' }
     );
 
     return content.trim();
@@ -99,12 +99,12 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
+        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'assignment' }
     );
 
     try {
-        return JSON.parse(response.replace(/```json/g, '').replace(/```/g, '').trim());
-    } catch (e) {
+        return parseAIJSON(response);
+    } catch {
         return null; // Graceful failure for scoring
     }
 };
@@ -134,12 +134,11 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'z-ai/glm-4.7-flash', actionType: 'assignment' }
+        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'assignment' }
     );
 
     try {
-        const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleaned);
+        return parseAIJSON(response);
     } catch (e) {
         console.error("Code Solution Parse Error:", e);
         throw new Error("Failed to generate code solution.");

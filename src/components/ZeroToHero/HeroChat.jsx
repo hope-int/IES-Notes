@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, RefreshCw, History, Compass, Award } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Compass, Award, Sparkles } from 'lucide-react';
 import SocraticChat from './SocraticChat';
 import AutonomousClassroom from './AutonomousClassroom';
 
@@ -7,51 +7,59 @@ const HeroChat = ({ profile, onBack, onResetProfile }) => {
     const [activeTab, setActiveTab] = useState('socratic'); // 'socratic' | 'runtime'
 
     return (
-        <div className="d-flex flex-column vh-100" style={{ background: '#f8fafc' }}>
+        <div className="zth-shell d-flex flex-column vh-100">
+            <div className="zth-ambient" aria-hidden="true">
+                <span className="zth-ambient-grid" />
+                <span className="zth-ambient-glare" />
+            </div>
+
             {/* Header */}
-            <div className="p-3 bg-white border-bottom shadow-sm">
-                <div className="d-flex align-items-center justify-content-between">
-                    <div className="d-flex align-items-center gap-3">
+            <div className="zth-header">
+                <div className="zth-header-inner">
+                    <div className="zth-title-group">
                         <button
                             onClick={onBack}
-                            className="btn btn-outline-secondary rounded-circle p-2 d-flex align-items-center justify-content-center"
-                            style={{ width: 40, height: 40 }}
+                            className="zth-icon-button"
+                            aria-label="Back"
                         >
                             <ArrowLeft size={20} />
                         </button>
+                        <div className="zth-brand-mark">
+                            <Sparkles size={18} />
+                        </div>
                         <div>
-                            <h5 className="mb-0 fw-bold text-dark">HOPE Autonomous Educational Engine</h5>
-                            <small className="text-muted fw-medium">Zero-to-Hero Personalized Intelligence</small>
+                            <h5>HOPE Autonomous Educational Engine</h5>
+                            <small>Zero-to-Hero Personalized Intelligence</small>
                         </div>
                     </div>
 
                     {/* Navigation Tabs */}
-                    <div className="nav nav-pills bg-light p-1 rounded-pill">
+                    <div className="zth-tab-switcher" role="tablist" aria-label="Zero to Hero modes">
                         <button
+                            type="button"
                             onClick={() => setActiveTab('socratic')}
-                            className={`nav-link rounded-pill px-4 py-1 fw-semibold d-flex align-items-center gap-2 ${activeTab === 'socratic' ? 'active bg-primary text-white' : 'text-secondary bg-transparent border-0'}`}
+                            className={`zth-tab ${activeTab === 'socratic' ? 'is-active' : ''}`}
                         >
                             <Compass size={16} />
                             Socratic Chat
                         </button>
                         <button
+                            type="button"
                             onClick={() => setActiveTab('runtime')}
-                            className={`nav-link rounded-pill px-4 py-1 fw-semibold d-flex align-items-center gap-2 ${activeTab === 'runtime' ? 'active bg-primary text-white' : 'text-secondary bg-transparent border-0'}`}
+                            className={`zth-tab ${activeTab === 'runtime' ? 'is-active' : ''}`}
                         >
                             <Award size={16} />
                             Autonomous Classroom
                         </button>
                     </div>
 
-                    <div className="d-flex gap-2">
-                        <button
-                            onClick={onResetProfile}
-                            className="btn btn-outline-secondary rounded-circle p-2"
-                            style={{ width: 40, height: 40 }}
-                        >
-                            <RefreshCw size={18} />
-                        </button>
-                    </div>
+                    <button
+                        onClick={onResetProfile}
+                        className="zth-icon-button"
+                        aria-label="Reset Zero-to-Hero profile"
+                    >
+                        <RefreshCw size={18} />
+                    </button>
                 </div>
             </div>
 

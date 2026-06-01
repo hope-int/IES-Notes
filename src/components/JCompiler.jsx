@@ -131,7 +131,7 @@ export default function JCompiler() {
                 </div>
 
                 {/* Mode Toggle */}
-                <div className="clay-card p-1 d-flex gap-1 rounded-pill bg-white" style={{ border: '1px solid #e2e8f0' }}>
+                <div className="clay-card p-1 d-flex gap-1 rounded-pill bg-white" style={{ border: '1px solid var(--border-color)' }}>
                     <button
                         className={`btn btn-sm rounded-pill px-3 py-2 d-flex align-items-center gap-2 fw-bold transition-all ${mode === 'compiler' ? 'bg-primary text-white shadow-sm' : 'text-muted hover-bg-light'}`}
                         onClick={() => { setMode('compiler'); setInput(''); setOutput(null); }}
@@ -221,7 +221,7 @@ export default function JCompiler() {
                         </div>
 
                         {/* Editor Area with Line Numbers */}
-                        <div className="flex-grow-1 d-flex overflow-hidden" style={{ background: mode === 'compiler' ? '#1e1e1e' : '#ffffff' }}>
+                        <div className="flex-grow-1 d-flex overflow-hidden" style={{ background: mode === 'compiler' ? '#1e1e1e' : 'var(--bg-card)' }}>
                             {/* Line Number Gutter */}
                             <div
                                 ref={gutterRef}
@@ -232,7 +232,7 @@ export default function JCompiler() {
                                     fontSize: '13px',
                                     lineHeight: '1.6',
                                     color: mode === 'compiler' ? '#5c5c5c' : '#a0aec0',
-                                    background: mode === 'compiler' ? '#1a1a1a' : '#f8fafc',
+                                    background: mode === 'compiler' ? '#1a1a1a' : 'var(--bg-surface)',
                                     userSelect: 'none',
                                     overflowY: 'hidden'
                                 }}

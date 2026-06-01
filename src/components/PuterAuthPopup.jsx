@@ -139,8 +139,7 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                     initial={{ scale: 0.8, opacity: 0, y: 50 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.8, opacity: 0, y: -50 }}
-                    className="bg-white rounded-pill d-flex align-items-center justify-content-center gap-3 px-5 py-3 shadow-lg"
-                    style={{ border: '1px solid rgba(255,255,255,0.2)' }}
+                    className="theme-card rounded-pill d-flex align-items-center justify-content-center gap-3 px-5 py-3 shadow-lg border theme-border"
                 >
                     <div className="rounded-circle bg-success d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
                         <motion.div
@@ -153,7 +152,7 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                             </svg>
                         </motion.div>
                     </div>
-                    <div className="fw-bold fs-5 text-dark">Secure Channel Activated</div>
+                    <div className="fw-bold fs-5 theme-text">Secure Channel Activated</div>
                 </motion.div>
             </div>
         );
@@ -180,12 +179,12 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                 initial={{ scale: 0.95, opacity: 0, y: 10 }}
                 animate={error ? { x: [-10, 10, -10, 10, 0] } : { scale: 1, opacity: 1, y: 0 }}
                 transition={error ? { duration: 0.4 } : { duration: 0.3 }}
-                className="overflow-hidden d-flex flex-column flex-md-row position-relative"
+                className="overflow-hidden d-flex flex-column flex-md-row position-relative theme-card"
                 style={{ 
                     maxWidth: '850px', 
                     width: '100%',
-                    background: '#ffffff', // Clean white background for right side
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'var(--bg-card)', 
+                    border: '1px solid var(--border-color)',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.05) inset',
                     borderRadius: '32px', // Softer, more modern corners
                     zIndex: 1
@@ -318,7 +317,7 @@ export default function PuterAuthPopup({ onAuthComplete }) {
                                                 <button 
                                                     onClick={onCancel} 
                                                     tabIndex={0}
-                                                    className="btn btn-light px-4 py-3 fw-medium rounded-pill text-muted border w-100 w-sm-auto mt-2 mt-sm-0"
+                                                    className="btn theme-surface hover:bg-slate-100 dark:hover:bg-slate-800 px-4 py-3 fw-medium rounded-pill theme-text border theme-border w-100 w-sm-auto mt-2 mt-sm-0"
                                                 >
                                                     Skip
                                                 </button>

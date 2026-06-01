@@ -5,11 +5,14 @@ import { getOrderedProviders, getUserKey, getUserModel, initVault, sanitizeKey, 
 // Only called inside fetchPuter (lazy — on actual AI requests, not module load).
 import { ensurePuterReady } from './puterInit';
 import { logAIChatTelemetry } from './telemetry';
+import { parseAIJSON } from './jsonUtils';
 
-const PRIMARY_REASONING_MODEL = 'z-ai/glm-4.7-flash';
-const PUTER_CHAT_TUTOR_MODEL = 'z-ai/glm-4.7-flash';
-const PUTER_JCOMPILER_MODEL = 'z-ai/glm-4.7-flash';
+const GLM_45_MODEL = 'z-ai/glm-4.5';
+const PRIMARY_REASONING_MODEL = GLM_45_MODEL;
+const PUTER_CHAT_TUTOR_MODEL = GLM_45_MODEL;
+const PUTER_JCOMPILER_MODEL = GLM_45_MODEL;
 const PUTER_MODEL_LABELS = {
+    'z-ai/glm-4.5': 'GLM-4.5',
     'z-ai/glm-4.7-flash': 'GLM-4.7 Flash',
     'poolside/laguna-m.1:free': 'Laguna M.1',
     'poolside/laguna-xs.2:free': 'Laguna XS.2',
@@ -17,11 +20,138 @@ const PUTER_MODEL_LABELS = {
     'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 'Nemotron 3 Omni'
 };
 const PUTER_MODEL_OUTPUT_LIMITS = {
+    'z-ai/glm-4.5': 8192,
     'z-ai/glm-4.7-flash': 8192,
     'poolside/laguna-m.1:free': 8192,
     'poolside/laguna-xs.2:free': 8192,
     'z-ai/glm-4.6v-flash': 8192,
     'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 8192
+};
+
+const getPuterModelCaps = (modelId) =>
+    PUTER_FIRST_ROSTER.find(model => model.id === modelId)?.caps || [];
+
+const puterModelSupports = (modelId, cap) =>
+    modelId === 'default' || getPuterModelCaps(modelId).includes(cap);
+
+const contentPartHasImage = (part) => {
+    if (!part || typeof part !== 'object') return false;
+    return part.type === 'image_url' || part.type === 'input_image' || Boolean(part.image_url || part.image);
+};
+
+const messageHasImageContent = (message) =>
+    Array.isArray(message?.content) && message.content.some(contentPartHasImage);
+
+const messagesHaveStructuredContent = (messages = []) =>
+    messages.some(message => Array.isArray(message?.content));
+
+const messagesHaveImageContent = (messages = []) =>
+    messages.some(messageHasImageContent);
+
+const normalizePuterContentPart = (part) => {
+    if (typeof part === 'string') {
+        return { type: 'text', text: part };
+    }
+
+    if (!part || typeof part !== 'object') {
+        return null;
+    }
+
+    if (part.type === 'text') {
+        return { type: 'text', text: part.text || '' };
+    }
+
+    if (part.type === 'image_url' || part.image_url) {
+        const imageUrl = typeof part.image_url === 'string'
+            ? part.image_url
+            : part.image_url?.url;
+        return imageUrl
+            ? { type: 'image_url', image_url: { url: imageUrl } }
+            : null;
+    }
+
+    if (part.type === 'input_image' || part.image) {
+        const imageUrl = typeof part.image === 'string'
+            ? part.image
+            : part.image?.url;
+        return imageUrl
+            ? { type: 'image_url', image_url: { url: imageUrl } }
+            : null;
+    }
+
+    return null;
+};
+
+const appendTextToPuterMessage = (message, text, prepend = false) => {
+    if (!text.trim()) return message;
+
+    if (Array.isArray(message.content)) {
+        const textPart = { type: 'text', text };
+        return {
+            ...message,
+            content: prepend
+                ? [textPart, ...message.content]
+                : [...message.content, textPart]
+        };
+    }
+
+    return {
+        ...message,
+        content: prepend
+            ? `${text}\n\n${message.content || ''}`.trim()
+            : `${message.content || ''}\n\n${text}`.trim()
+    };
+};
+
+const getPuterContentText = (content) => {
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return String(content || '');
+    return content
+        .map(part => {
+            if (typeof part === 'string') return part;
+            if (part?.type === 'text') return part.text || '';
+            return '';
+        })
+        .filter(Boolean)
+        .join('\n');
+};
+
+const getPuterContentMedia = (content) => {
+    if (!Array.isArray(content)) return [];
+    return content
+        .map(part => {
+            if (!part || typeof part !== 'object') return null;
+            if (part.type === 'image_url' || part.image_url) {
+                return typeof part.image_url === 'string'
+                    ? part.image_url
+                    : part.image_url?.url;
+            }
+            if (part.type === 'input_image' || part.image) {
+                return typeof part.image === 'string'
+                    ? part.image
+                    : part.image?.url;
+            }
+            return null;
+        })
+        .filter(Boolean);
+};
+
+const buildPuterVisionRequest = (puterMessages) => {
+    const media = [];
+    const prompt = puterMessages
+        .map(message => {
+            media.push(...getPuterContentMedia(message.content));
+            const text = getPuterContentText(message.content).trim();
+            if (!text) return '';
+            return `[${String(message.role || 'user').toUpperCase()}]\n${text}`;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+
+    return {
+        prompt: prompt || 'Analyze the attached image.',
+        media: media.length === 1 ? media[0] : media
+    };
 };
 
 const getStreamText = (chunk) => {
@@ -45,6 +175,30 @@ const readOpenAIStream = async (response, onToken) => {
     let content = '';
     let finishReason = null;
 
+    const processEvent = (event) => {
+        const dataLines = event
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.startsWith('data:'))
+            .map(line => line.slice(5).trim());
+
+        for (const dataLine of dataLines) {
+            if (!dataLine || dataLine === '[DONE]') continue;
+            try {
+                const payload = JSON.parse(dataLine);
+                const choice = payload.choices?.[0];
+                const token = getStreamText(choice || payload);
+                if (token) {
+                    content += token;
+                    onToken?.(token, content);
+                }
+                if (choice?.finish_reason) finishReason = choice.finish_reason;
+            } catch {
+                // Ignore malformed keep-alive chunks.
+            }
+        }
+    };
+
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -53,29 +207,10 @@ const readOpenAIStream = async (response, onToken) => {
         buffer = events.pop() || '';
 
         for (const event of events) {
-            const dataLines = event
-                .split('\n')
-                .map(line => line.trim())
-                .filter(line => line.startsWith('data:'))
-                .map(line => line.slice(5).trim());
-
-            for (const dataLine of dataLines) {
-                if (!dataLine || dataLine === '[DONE]') continue;
-                try {
-                    const payload = JSON.parse(dataLine);
-                    const choice = payload.choices?.[0];
-                    const token = getStreamText(choice || payload);
-                    if (token) {
-                        content += token;
-                        onToken?.(token, content);
-                    }
-                    if (choice?.finish_reason) finishReason = choice.finish_reason;
-                } catch {
-                    // Ignore malformed keep-alive chunks.
-                }
-            }
+            processEvent(event);
         }
     }
+    if (buffer.trim()) processEvent(buffer);
 
     return { content, finishReason };
 };
@@ -101,8 +236,7 @@ ensureVault();
 
 const cleanAndParseJSON = (text) => {
     try {
-        let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleaned);
+        return parseAIJSON(text);
     } catch (e) {
         // Simple heuristic for JSON array or object
         const firstBrace = text.indexOf('{');
@@ -200,9 +334,10 @@ export const checkRateLimit = async (actionType) => {
 
 // ─── Enhanced Health Record & Circuit Breaker ──────────────────────────────
 export const PUTER_FIRST_ROSTER = [
-    { id: "z-ai/glm-4.7-flash", priority: 0, caps: ["reasoning", "code", "fast-chat"] },
+    { id: "z-ai/glm-4.5", priority: 0, caps: ["reasoning", "code", "json", "fast-chat"] },
+    { id: "z-ai/glm-4.7-flash", priority: 1, caps: ["reasoning", "code", "fast-chat", "fallback"] },
     { id: "poolside/laguna-m.1:free", priority: 1, caps: ["code", "compiler"] },
-    { id: "poolside/laguna-xs.2:free", priority: 2, caps: ["json", "code"] },
+    { id: "poolside/laguna-xs.2:free", priority: 3, caps: ["json", "code", "fallback"] },
     { id: "z-ai/glm-4.6v-flash", priority: 3, caps: ["vision", "reasoning", "code"] },
     { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", priority: 4, caps: ["reasoning", "code", "fallback"] },
     { id: "default", priority: 5, caps: ["fast-chat", "code", "json", "fallback"] }
@@ -236,7 +371,7 @@ const loadHealthRegistry = () => {
             registry[m.id] = record;
         });
         _healthRegistry = registry;
-    } catch (e) {
+    } catch {
         PUTER_FIRST_ROSTER.forEach(m => {
             _healthRegistry[m.id] = new EnhancedHealthRecord(m.id, m.caps);
         });
@@ -246,7 +381,9 @@ const loadHealthRegistry = () => {
 const saveHealthRegistry = () => {
     try {
         localStorage.setItem('hope_ai_health_records', JSON.stringify(_healthRegistry));
-    } catch {}
+    } catch {
+        // localStorage can be unavailable in private or restricted browser contexts.
+    }
 };
 
 loadHealthRegistry();
@@ -381,6 +518,7 @@ const getProviderModel = (model, provider) => {
     if (provider === 'openrouter') {
         // Default to a free model — users with BYOK should not get 402 surprises.
         // They can override via the vault model selector if they want paid models.
+        if (modelId === 'default') return PRIMARY_REASONING_MODEL;
         if (modelId.includes('inclusionai/') || modelId.includes('poolside/')) return PRIMARY_REASONING_MODEL;
         if (modelId.includes('grok') && !modelId.includes('/')) return "meta-llama/llama-3.1-70b-instruct:free";
         if (modelId.includes('gpt-') && !modelId.includes('/')) return `openai/${modelId}`;
@@ -465,7 +603,7 @@ class PuterRequestQueue {
     }
 }
 
-const puterQueue = new PuterRequestQueue(1, 1000);
+const puterQueue = new PuterRequestQueue(1, 150);
 
 // 1. Puter.js (Free, Serverless, No Key)
 const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
@@ -474,23 +612,27 @@ const fetchPuter = async (messages, modelOptions = {}, retries = 2) => {
 
 const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
     const { model = PUTER_CHAT_TUTOR_MODEL, jsonMode = false, actionType = 'chat', onToken, ...params } = modelOptions;
+    const isVisionRequest = messagesHaveImageContent(messages);
 
     try {
-        await ensurePuterReady({ timeoutMs: 5000 });
+        await ensurePuterReady({ timeoutMs: onToken ? 2500 : 5000 });
     } catch {
         throw new Error("Puter.js not ready.");
     }
     if (!window.puter) throw new Error("Puter.js not ready.");
 
-    const caps = actionType === 'compiler' ? ['json', 'code'] : ['reasoning', 'code'];
+    const caps = isVisionRequest
+        ? ['vision']
+        : (actionType === 'compiler' ? ['json', 'code'] : ['reasoning', 'code']);
     const userConfiguredModel = getUserModel('puter');
     let modelChain = selectModelChain(caps);
 
-    if (model && model !== PUTER_CHAT_TUTOR_MODEL && isPuterModelId(model)) {
+    const hasExplicitPuterModel = model && model !== 'default' && isPuterModelId(model);
+    if (hasExplicitPuterModel) {
         modelChain = [model, ...modelChain.filter(m => m !== model)];
     }
 
-    if (userConfiguredModel) {
+    if (!hasExplicitPuterModel && userConfiguredModel && (!isVisionRequest || puterModelSupports(userConfiguredModel, 'vision'))) {
         modelChain = [userConfiguredModel, ...modelChain.filter(m => m !== userConfiguredModel)];
     }
 
@@ -519,35 +661,35 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
     const nonSystemMessages = messages.filter(m => m.role !== 'system');
 
     const puterMessages = nonSystemMessages.map(m => {
-        let contentStr = '';
+        let content;
         if (typeof m.content === 'string') {
-            contentStr = m.content;
+            content = m.content;
         } else if (Array.isArray(m.content)) {
-            contentStr = m.content
-                .map(part => {
-                    if (typeof part === 'string') return part;
-                    if (part && typeof part === 'object') {
-                        if (part.type === 'text') return part.text || '';
-                        if (part.type === 'image_url') return '[Attached Image]';
-                    }
-                    return '';
-                })
+            const parts = m.content
+                .map(normalizePuterContentPart)
                 .filter(Boolean)
-                .join('\n');
+                .filter(part => part.type !== 'text' || part.text.trim() !== '');
+            content = parts.length > 0 ? parts : ' ';
         } else if (m.content) {
-            contentStr = String(m.content);
+            content = String(m.content);
+        } else {
+            content = ' ';
         }
 
         return {
             role: m.role || 'user',
-            content: contentStr.trim() === "" ? " " : contentStr
+            content: typeof content === 'string' && content.trim() === "" ? " " : content
         };
     });
 
     if (systemContent.trim()) {
-        const firstUserMsg = puterMessages.find(m => m.role === 'user');
-        if (firstUserMsg) {
-            firstUserMsg.content = `[System Instructions]\n${systemContent}\n\n[End of System Instructions]\n\n${firstUserMsg.content}`;
+        const firstUserIndex = puterMessages.findIndex(m => m.role === 'user');
+        if (firstUserIndex !== -1) {
+            puterMessages[firstUserIndex] = appendTextToPuterMessage(
+                puterMessages[firstUserIndex],
+                `[System Instructions]\n${systemContent}\n\n[End of System Instructions]`,
+                true
+            );
         } else {
             puterMessages.unshift({
                 role: 'user',
@@ -557,9 +699,18 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
     }
 
     if (jsonMode) {
-        const lastUserMsg = [...puterMessages].reverse().find(m => m.role === 'user');
-        if (lastUserMsg) {
-            lastUserMsg.content += "\n\nIMPORTANT: Respond in strict JSON format.";
+        const lastUserIndex = puterMessages.findLastIndex?.(m => m.role === 'user')
+            ?? (() => {
+                for (let index = puterMessages.length - 1; index >= 0; index -= 1) {
+                    if (puterMessages[index].role === 'user') return index;
+                }
+                return -1;
+            })();
+        if (lastUserIndex !== -1) {
+            puterMessages[lastUserIndex] = appendTextToPuterMessage(
+                puterMessages[lastUserIndex],
+                "IMPORTANT: Respond in strict JSON format."
+            );
         }
     }
 
@@ -587,7 +738,12 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
                     chatOptions.model = candidateModel;
                 }
 
-                const puterPromise = window.puter.ai.chat(puterMessages, chatOptions);
+                const puterPromise = isVisionRequest
+                    ? (() => {
+                        const visionRequest = buildPuterVisionRequest(puterMessages);
+                        return window.puter.ai.chat(visionRequest.prompt, visionRequest.media, chatOptions);
+                    })()
+                    : window.puter.ai.chat(puterMessages, chatOptions);
 
                 const timeoutPromise = new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Puter Timeout")), onToken ? 120000 : 90000)
@@ -862,13 +1018,11 @@ export const getAICompletion = async (messages, options = {}) => {
         ...restOptions              // Caller's options (including max_tokens) take precedence
     };
 
-    onProgress({ step: 'rate-limit', message: 'Checking Rate Limits...' });
-    await checkRateLimit(actionType);
-
-    // ── Vault-aware provider chain ─────────────────────────────────────────
-    // Build ordered list from vault; fall back to hardcoded order if vault not
-    // ready yet (first-load race condition).
-    await ensureVault();
+    onProgress({ step: 'preflight', message: 'Opening live stream...' });
+    await Promise.all([
+        checkRateLimit(actionType),
+        ensureVault()
+    ]);
 
     // Sanitize messages to avoid empty content which rejects under strict OpenAI/Puter APIs
     const sanitizedMessages = messages.map(m => {
@@ -896,7 +1050,9 @@ export const getAICompletion = async (messages, options = {}) => {
 
     const orderedProviders = getOrderedProviders(); // sorted, filtered by enabled
     const puterEntry   = orderedProviders.find(p => p.id === 'puter');
-    const clientEntry  = orderedProviders.find(p => p.id === 'openrouter' || p.id === 'groq');
+    const clientEntry  = orderedProviders.find(p => p.id === 'openrouter' || p.id === 'groq' || p.id === 'gemini');
+    const hasStructuredContent = messagesHaveStructuredContent(sanitizedMessages);
+    const hasImageContent = messagesHaveImageContent(sanitizedMessages);
 
     let resultData = null;
 
@@ -905,7 +1061,7 @@ export const getAICompletion = async (messages, options = {}) => {
     const canUsePuter = puterEntry
         && isPuterModelId(modelOptions.model)
         && provider !== 'backend'
-        && !sanitizedMessages.some(m => Array.isArray(m.content));
+        && (!hasStructuredContent || hasImageContent);
 
     if (canUsePuter) {
         try {
@@ -937,12 +1093,19 @@ export const getAICompletion = async (messages, options = {}) => {
             console.error("All client-side providers failed:", e.message);
             const canUsePuterFallback = puterEntry
                 && provider === 'auto'
-                && !sanitizedMessages.some(m => Array.isArray(m.content));
+                && (!hasStructuredContent || hasImageContent);
 
             if (canUsePuterFallback) {
                 try {
-                    onProgress({ step: 'fallback', message: 'OpenRouter unavailable. Trying Puter Laguna...', provider: 'Puter Cloud' });
-                    const puterResult = await fetchPuter(sanitizedMessages, { ...modelOptions, model: PUTER_CHAT_TUTOR_MODEL });
+                    const fallbackModel = hasImageContent ? 'z-ai/glm-4.6v-flash' : PUTER_CHAT_TUTOR_MODEL;
+                    onProgress({
+                        step: 'fallback',
+                        message: hasImageContent
+                            ? 'Trying Puter vision model...'
+                            : 'OpenRouter unavailable. Trying Puter Laguna...',
+                        provider: 'Puter Cloud'
+                    });
+                    const puterResult = await fetchPuter(sanitizedMessages, { ...modelOptions, model: fallbackModel });
                     resultData = { content: puterResult.content, provider: "Puter Cloud", model: puterResult.model };
                 } catch (puterError) {
                     console.warn("Puter fallback also failed.", puterError?.message || puterError);

@@ -6,6 +6,8 @@ import {
     MoreVertical, Edit2, Download, Search, LayoutGrid
 } from 'lucide-react';
 
+const MotionDiv = motion.div;
+
 const SessionSidebar = ({
     isOpen,
     onClose,
@@ -30,85 +32,83 @@ const SessionSidebar = ({
         <AnimatePresence>
             {isOpen && (
                 <>
-                    <motion.div
+                    <MotionDiv
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="position-fixed top-0 start-0 w-100 h-100 bg-black bg-opacity-25"
-                        style={{ zIndex: 1060, backdropFilter: 'blur(4px)' }}
+                        className="ai-session-backdrop position-fixed top-0 start-0 w-100 h-100"
+                        style={{ zIndex: 1060 }}
                     />
-                    <motion.div
+                    <MotionDiv
                         initial={{ x: '-100%' }}
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                        className="fixed top-0 left-0 h-full bg-white shadow-xl flex flex-col z-[1070]"
-                        style={{ width: '280px', mdWidth: '320px', maxWidth: '100%' }}
+                        className="ai-session-panel fixed top-0 left-0 h-full flex flex-col z-[1070]"
                     >
                         {/* Sidebar Header */}
-                        <div className="p-4 border-bottom d-flex justify-content-between align-items-center bg-light bg-opacity-50">
+                        <div className="ai-session-header">
                             <div>
-                                <h5 className="fw-bold mb-0 text-dark">Project History</h5>
-                                <p className="text-muted x-small mb-0 mt-1 uppercase fw-bold tracking-wider">HOPE AI Workbench</p>
+                                <h5>Project History</h5>
+                                <p>HOPE AI Workbench</p>
                             </div>
-                            <button className="btn btn-sm btn-outline-secondary border-0 rounded-circle flex items-center justify-center" onClick={onClose}><X size={18} /></button>
+                            <button className="ai-session-close" onClick={onClose} aria-label="Close session history"><X size={18} /></button>
                         </div>
 
                         {/* Search & New Chat */}
-                        <div className="p-3 border-bottom bg-white">
-                            <div className="position-relative mb-3">
-                                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" />
+                        <div className="ai-session-controls">
+                            <div className="ai-session-search">
+                                <Search size={14} />
                                 <input
                                     type="text"
-                                    className="form-control form-control-sm ps-5 bg-light border-0 rounded-pill"
+                                    className="theme-input"
                                     placeholder="Search engineering logs..."
-                                    style={{ fontSize: '13px', height: '36px' }}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
                             <button
                                 onClick={onNewSession}
-                                className="btn btn-primary w-100 py-2 rounded-pill fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm"
+                                className="ai-session-new"
                             >
                                 <Plus size={18} /> New Workbench
                             </button>
                         </div>
 
                         {/* Session List */}
-                        <div className="flex-grow-1 overflow-auto p-3 custom-scrollbar">
-                            <h6 className="text-muted text-uppercase small fw-bold mb-3 ms-1 opacity-50" style={{ fontSize: '10px' }}>Recent Sessions</h6>
+                        <div className="ai-session-list flex-grow-1 overflow-auto custom-scrollbar">
+                            <h6>Recent Sessions</h6>
                             {sessions.length === 0 && (
-                                <div className="text-center py-5 border rounded-4 border-dashed bg-light bg-opacity-25">
-                                    <p className="text-muted small mb-0">No active sessions found.</p>
+                                <div className="ai-session-empty">
+                                    <p>No active sessions found.</p>
                                 </div>
-                            )}
+                             )}
 
                             {sessions
                                 .filter(s => (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()))
                                 .map(s => (
-                                    <motion.div
+                                    <MotionDiv
                                         key={s.id}
                                         whileHover={{ x: 4 }}
                                         onClick={() => onSelectSession(s.id)}
-                                        className={`p-3 rounded-4 cursor-pointer mb-2 d-flex align-items-center gap-3 border transition-all ${activeSessionId === s.id ? 'bg-primary border-primary shadow-sm text-white' : 'bg-white border-light hover-bg-light'}`}
+                                        className={`ai-session-item ${activeSessionId === s.id ? 'is-active' : ''}`}
                                     >
-                                        <div className={`p-2 rounded-3 ${activeSessionId === s.id ? 'bg-white bg-opacity-20' : 'bg-light'}`}>
+                                        <div className="ai-session-icon">
                                             {React.cloneElement(getSessionIcon(s), { 
                                                 className: activeSessionId === s.id ? 'text-white' : getSessionIcon(s).props.className 
                                             })}
                                         </div>
                                         <div className="flex-grow-1 overflow-hidden">
-                                            <div className={`text-truncate small fw-bold ${activeSessionId === s.id ? 'text-white' : 'text-dark'}`}>
+                                            <div className="ai-session-title">
                                                 {s.title || 'Untitled Session'}
                                             </div>
-                                            <div className={`x-small mt-0.5 ${activeSessionId === s.id ? 'text-white opacity-75' : 'text-muted'}`} style={{ fontSize: '9px' }}>
+                                            <div className="ai-session-meta">
                                                 {new Date(s.timestamp).toLocaleDateString()} • {s.messageCount || 0} messages
-                                            </div>
+                                             </div>
                                         </div>
                                         <div className="dropdown" onClick={(e) => e.stopPropagation()}>
-                                            <button className={`btn btn-link p-1 flex items-center justify-center ${activeSessionId === s.id ? 'text-white' : 'text-muted opacity-50 hover-opacity-100'}`} data-bs-toggle="dropdown">
+                                            <button className="ai-session-menu" data-bs-toggle="dropdown" aria-label="Session options">
                                                 <MoreVertical size={14} />
                                             </button>
                                             <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2" style={{ fontSize: '13px' }}>
@@ -118,22 +118,22 @@ const SessionSidebar = ({
                                                 <li><button className="dropdown-item rounded-3 d-flex align-items-center gap-2 py-2 text-danger" onClick={() => onDeleteSession(s.id)}><Trash2 size={14} /> Delete</button></li>
                                             </ul>
                                         </div>
-                                    </motion.div>
+                                    </MotionDiv>
                                 ))}
                         </div>
 
                         {/* Footer Info */}
-                        <div className="p-4 bg-light bg-opacity-30 border-top text-center">
-                            <div className="d-flex align-items-center justify-content-center gap-2 mb-1">
-                                <div className="bg-success rounded-circle" style={{ width: 6, height: 6 }}></div>
-                                <span className="x-small fw-bold text-muted uppercase" style={{ fontSize: '9px' }}>Systems Online</span>
+                        <div className="ai-session-footer">
+                            <div>
+                                <span />
+                                <strong>Systems Online</strong>
                             </div>
-                            <p className="text-muted x-small mb-0 opacity-50">
+                            <p>
                                 Developed by Harinandan K<br />
                                 IES College of Engineering | KTU
                             </p>
                         </div>
-                    </motion.div>
+                    </MotionDiv>
                 </>
             )}
         </AnimatePresence>
