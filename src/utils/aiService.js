@@ -488,11 +488,19 @@ const recordPuterFailure = (model, reason = 'transient') => {
             if (!rotated) {
                 poolOk = false;
             }
+            record.cooldownUntil = 0;
+        } else if (reason === 'model') {
+            // Put model on permanent cooldown (100 years)
+            record.cooldownUntil = Date.now() + 100 * 365 * 24 * 60 * 60 * 1000;
+        } else {
+            record.cooldownUntil = 0;
         }
-        // Remove hardcoded cooldown times by setting cooldownUntil to 0
-        record.cooldownUntil = 0;
         saveHealthRegistry();
-        console.warn(`[Puter Breaker] Transient failure recorded for ${model} (${reason}). No cooldown applied.`);
+        if (reason === 'model') {
+            console.warn(`[Puter Breaker] Model not found failure recorded for ${model}. Model is put on permanent cooldown.`);
+        } else {
+            console.warn(`[Puter Breaker] Transient failure recorded for ${model} (${reason}). No cooldown applied.`);
+        }
     }
     return poolOk;
 };
@@ -812,7 +820,11 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
                     ...safeParams
                 };
                 if (candidateModel !== 'default') {
-                    chatOptions.model = candidateModel.replace(/:free$/, '');
+                    if (candidateModel.includes('cohere/north-mini-code') || candidateModel.includes('nvidia')) {
+                        chatOptions.model = candidateModel.endsWith(':free') ? candidateModel : `${candidateModel}:free`;
+                    } else {
+                        chatOptions.model = candidateModel.replace(/:free$/, '');
+                    }
                 }
 
                 const puterPromise = isVisionRequest
