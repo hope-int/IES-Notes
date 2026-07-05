@@ -1,4 +1,4 @@
-import { getAICompletion } from './aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from './aiService';
 import { parseAIJSON } from './jsonUtils';
 
 const cleanAndParseJSON = (text) => {
@@ -80,7 +80,7 @@ Break the learning path into 3 to 5 actionable, bite-sized steps.
         [{ role: 'user', content: prompt }],
         {
           jsonMode: true,
-          model: 'z-ai/glm-4.5',
+          model: FREE_MODEL_ROUTING.ROADMAP_PRIMARY,
           actionType: 'roadmap',
           includeMetadata: true,
           onProgress: (p) => onProgress({ ...p, message: `${p.message} (${i + 1}/3)` })

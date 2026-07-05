@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import UserAvatar from '../UserAvatar';
 import { getInternshipPosts, getLikedPostIds, toggleLikePostLocal, reportInternshipPost } from '../../utils/internshipService';
-import { getAICompletion } from '../../utils/aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from '../../utils/aiService';
 
 const MotionDiv = motion.div;
 
@@ -225,23 +225,9 @@ How can I help you regarding this opportunity? Ask me about the application proc
 
         try {
             const timeLeft = aiChatPost.expires_at ? getRemainingTimeText(aiChatPost.expires_at) : 'No expiration set';
-            const systemPrompt = `You are a helpful student assistant powered by the NVIDIA Nemotron model. You are discussing this specific opportunity posting:
-- Company/Organization: ${aiChatPost.company_name}
-- Location: ${aiChatPost.location || 'Unknown'}
-- Poster Description: ${aiChatPost.caption}
-- Poster Image URL: ${aiChatPost.image_url || 'None'}
-- Remaining Time to Apply: ${timeLeft}
-- Actions Available:
-  * Google Form: ${aiChatPost.google_form_link || 'None'}
-  * WhatsApp Group/Channel/Broadcast: ${aiChatPost.whatsapp_link || 'None'}
-  * WhatsApp Chat: ${aiChatPost.whatsapp_number || 'None'}
-  * Phone Number: ${aiChatPost.phone_number || 'None'}
-
-Rules:
-1. Be concise, highly professional, and encouraging.
-2. Read the poster description to clear doubts.
-3. Keep responses under 3 paragraphs and use bullet points where helpful.
-4. If they ask how to apply, tell them which action button is available.`;
+            const systemPrompt = `Role: Encouraging student assistant. Opp: ${aiChatPost.company_name} | Location: ${aiChatPost.location||'Unknown'} | Info: ${aiChatPost.caption} | Expires: ${timeLeft}.
+Actions: Form: ${aiChatPost.google_form_link||'None'}, WA Channel: ${aiChatPost.whatsapp_link||'None'}, WA Chat: ${aiChatPost.whatsapp_number||'None'}, Phone: ${aiChatPost.phone_number||'None'}.
+Rules: Concise, max 3 paragraphs, bullet points. Direct to available action buttons if asked how to apply.`;
 
             const formattedHistory = [
                 { role: 'system', content: systemPrompt },
@@ -249,7 +235,7 @@ Rules:
             ];
 
             await getAICompletion(formattedHistory, {
-                model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+                model: FREE_MODEL_ROUTING.CHAT_PRIMARY,
                 actionType: 'chat',
                 onToken: (token, fullText) => {
                     setAiMessages([...updatedMessages, { role: 'assistant', content: fullText }]);

@@ -2,11 +2,43 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Bot, User, Zap, Cpu, BookOpen, History, MessageSquare, Plus, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { getAICompletion } from '../../utils/aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from '../../utils/aiService';
 import { sanitizeInput, validateUserIntent } from '../../utils/security';
 import MermaidRenderer from './MermaidRenderer';
 
 const MotionDiv = motion.div;
+
+const SocraticThinkingIndicator = () => {
+    const steps = [
+        "Analyzing student proficiency...",
+        "Auditing pedagogical state...",
+        "Applying Socratic guidance protocol...",
+        "Formulating leading question...",
+        "Injecting concept analogies..."
+    ];
+    const [currentStep, setCurrentStep] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentStep(prev => (prev + 1) % steps.length);
+        }, 1500);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <div className="zth-socratic-thinking-inner">
+            <div className="zth-socratic-thinking-spinner">
+                <span className="zth-socratic-dot-ring ring-1" />
+                <span className="zth-socratic-dot-ring ring-2" />
+                <Bot size={15} />
+            </div>
+            <div className="zth-socratic-thinking-desc">
+                <span className="zth-socratic-thinking-title">TUTOR MIND</span>
+                <span className="zth-socratic-thinking-step">{steps[currentStep]}</span>
+            </div>
+        </div>
+    );
+};
 
 const SocraticChat = ({ profile }) => {
     const [sessions, setSessions] = useState(() => {
@@ -22,6 +54,7 @@ const SocraticChat = ({ profile }) => {
 
     const messagesEndRef = useRef(null);
     const scrollContainerRef = useRef(null);
+    const streamFrameRef = useRef(null);
 
     // Persist Sessions
     useEffect(() => {
@@ -72,14 +105,33 @@ const SocraticChat = ({ profile }) => {
             { role: 'system', content: systemPrompt },
             { role: 'system', content: "GENERATE OPENING MESSAGE: Based on the user's profile, ask a personalized, engaging question to start the session. Use their name if available, refer to their specific goal (e.g., 'passing exams'), and use their preferred analogy domain (e.g., 'gaming') to set the mood. Keep it under 2 sentences." }
         ];
+
+        // Seed a streaming placeholder
+        const streamingMsg = { role: 'assistant', content: '', isStreaming: true };
+        setMessages([streamingMsg]);
+
+        let streamed = '';
+        const publishOpener = () => {
+            streamFrameRef.current = null;
+            setMessages([{ role: 'assistant', content: streamed, isStreaming: true }]);
+        };
+        const queueOpenerPaint = () => {
+            if (streamFrameRef.current) return;
+            streamFrameRef.current = requestAnimationFrame(publishOpener);
+        };
+
         try {
-            const aiResponse = await getAICompletion(openerPrompt);
-            const finalMessage = { role: 'assistant', content: aiResponse };
+            const aiResponse = await getAICompletion(openerPrompt, {
+                onToken: (token, full) => { streamed = full || `${streamed}${token}`; queueOpenerPaint(); }
+            });
+            if (streamFrameRef.current) { cancelAnimationFrame(streamFrameRef.current); streamFrameRef.current = null; }
+            const finalContent = typeof aiResponse === 'string' ? aiResponse : aiResponse?.content || streamed;
+            const finalMessage = { role: 'assistant', content: finalContent, isStreaming: false };
             setMessages([finalMessage]);
             updateSession(sessionId, [finalMessage]);
         } catch (error) {
             console.error('Failed to generate opener:', error);
-            const fallback = { role: 'assistant', content: "Hello! I'm ready to help you code. What's on your mind?" };
+            const fallback = { role: 'assistant', content: "Hello! I'm ready to help you code. What's on your mind?", isStreaming: false };
             setMessages([fallback]);
             updateSession(sessionId, [fallback]);
         } finally {
@@ -131,6 +183,19 @@ const SocraticChat = ({ profile }) => {
 
     const constructSystemPrompt = (proficiency = 0.5) => {
         const studentProfile = profile.student_profile || {};
+
+        // Academic identity
+        const studentName = profile?.full_name?.split(' ')[0] || 'Student';
+        const studentDept = profile?.department_name || 'Engineering';
+        const studentSem  = profile?.semester_name  || null;
+        const studentYear = profile?.year           || null;
+        const academicCtx = [
+            `Name: ${studentName}`,
+            `Dept: ${studentDept}`,
+            studentSem  ? `Semester: ${studentSem}` : null,
+            studentYear ? `Year: ${studentYear}`    : null,
+        ].filter(Boolean).join(' | ');
+
         let scaffoldingDepth = 'Detailed and step-by-step';
         let misconceptionHaltingStrictness = 'Moderate';
         let challengeLevel = 'Guidance-focused';
@@ -145,44 +210,16 @@ const SocraticChat = ({ profile }) => {
             challengeLevel = 'Challenging / Strict Code Review.';
         }
 
-        return `
-You are the "Zero to Hero" Coding Mentor. You are an elite Developer and a cognitive psychologist. Your goal is NOT to write code, but to **train the user's brain to think like a developer**.
-
-### DYNAMIC PEDAGOGICAL DIFFICULTY CONFIGURATION:
-- Estimated Student Proficiency Level: ${proficiency.toFixed(2)} (on a 0.0 - 1.0 scale)
-- Scaffolding Depth: ${scaffoldingDepth}
-- Misconception Halting Strictness: ${misconceptionHaltingStrictness}
-- Challenge Level: ${challengeLevel}
-
-Here is the cognitive profile of the student you are currently mentoring:
-<json_profile>
-${JSON.stringify(studentProfile, null, 2)}
-</json_profile>
-
-### THE "DEVELOPER MINDSET" PROTOCOL (STRICT):
-You must guide the student through the **4-Step Engineering Process** for every coding question. Do not skip steps.
-
-#### PHASE 1: DECONSTRUCTION (The "What")
-- **Goal**: Ensure the user understands the problem.
-- **Your Action**: Ask them to identify the **Inputs** and **Desired Outputs**.
-
-#### PHASE 2: ALGORITHM DESIGN (The "How")
-- **Goal**: Plan the logic without syntax distraction.
-- **Your Action**: Ask for **Pseudo-code** or a logical step-by-step plan in plain English.
-
-#### PHASE 3: EDGE CASE ANALYSIS (The "What If")
-- **Goal**: Build robustness.
-- **Your Action**: Ask "What happens if the input is empty/null/negative?"
-
-#### PHASE 4: IMPLEMENTATION (The "Code")
-- **Goal**: Syntax and translation.
-- **Your Action**: NOW they can write code.
-
-### GOLDEN RULES:
-1. **NO SPOON-FEEDING**: Never provide the solution.
-2. **SOCRATIC METHOD**: Answer a question with a guiding question.
-3. **ANALOGIES**: Use analogies from domain: **${studentProfile.preferred_analogy_domain || 'general'}**.
-`;
+        return `Role: "Zero to Hero" Socratic Mentor (Elite Dev + Cognitive Psychologist). Train student to think like a developer. NEVER write solution.
+Student: ${studentName} | ${studentDept} syllabus. Analogy Domain: ${studentProfile.preferred_analogy_domain || 'general'}.
+Config: Prof=${proficiency.toFixed(2)}, Depth=${scaffoldingDepth}, Halt=${misconceptionHaltingStrictness}, Challenge=${challengeLevel}. Profile: ${JSON.stringify(studentProfile)}.
+Protocol: Force student through 4 steps (no skipping):
+1. DECONSTRUCTION: Ask for inputs & outputs.
+2. ALGORITHM: Ask for pseudo-code / logic in English.
+3. EDGE CASES: Ask about empty/null/negative values.
+4. CODE: Ask for syntax implementation.
+Rule: Use Socratic method (answer with a question). Use domain analogies.
+Always end response with exactly ONE line: [[REACTION:emoji encouraging-short-phrase]] (an appropriate emoji and short encouraging words reacting directly to user input, e.g. [[REACTION:💡 Good question!]], [[REACTION:💻 Solid logic!]], [[REACTION:✅ Spot on!]]).`;
     };
 
     const handleSend = async (customPrompt = null) => {
@@ -200,36 +237,82 @@ You must guide the student through the **4-Step Engineering Process** for every 
             return;
         }
 
-        const newMessages = [...messages, { role: 'user', content: userText }];
-        setMessages(newMessages);
+        const newMessages = [...messages, { role: 'user', content: userText, reaction: '⚡ Connecting...' }];
+        // Append a streaming placeholder for the assistant
+        const withPlaceholder = [...newMessages, { role: 'assistant', content: '', isStreaming: true }];
+        setMessages(withPlaceholder);
         setInput('');
         setLoading(true);
+
+        let streamed = '';
+        const publishStream = () => {
+            streamFrameRef.current = null;
+            setMessages(prev => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.isStreaming) next[next.length - 1] = { ...last, content: streamed };
+                return next;
+            });
+        };
+        const queuePaint = () => {
+            if (streamFrameRef.current) return;
+            streamFrameRef.current = requestAnimationFrame(publishStream);
+        };
 
         try {
             const proficiency = estimateProficiency(newMessages);
             const systemPrompt = constructSystemPrompt(proficiency);
             const conversation = newMessages
-                .filter(m => !m.isLoading && m.content && String(m.content).trim() !== '')
+                .filter(m => !m.isLoading && !m.isStreaming && m.content && String(m.content).trim() !== '')
                 .map(m => ({ role: m.role, content: m.content }));
 
             const lastAssistantMessage = [...conversation].reverse().find(m => m.role === 'assistant');
             const isMisconceptionHalted = lastAssistantMessage ? responseHasMisconceptionAlert(lastAssistantMessage.content) : false;
 
-            const aiResponse = await getAICompletion([
+            const aiResult = await getAICompletion([
                 { role: 'system', content: systemPrompt },
                 ...conversation
             ], {
-                actionType: 'chat',
+                actionType: 'tutor',
+                model: FREE_MODEL_ROUTING.TUTOR_PRIMARY,
                 studentProficiency: proficiency,
-                misconceptionHalted: isMisconceptionHalted
+                misconceptionHalted: isMisconceptionHalted,
+                onToken: (token, full) => { streamed = full || `${streamed}${token}`; queuePaint(); }
             });
 
-            const finalMessages = [...newMessages, { role: 'assistant', content: aiResponse }];
+            if (streamFrameRef.current) { cancelAnimationFrame(streamFrameRef.current); streamFrameRef.current = null; }
+            const finalContentRaw = typeof aiResult === 'string' ? aiResult : aiResult?.content || streamed;
+            let cleanFinalContent = finalContentRaw;
+            let reactionEmoji = null;
+            const reactionMatch = cleanFinalContent.match(/\[\[REACTION:([^\]]+)\]\]/);
+            if (reactionMatch) {
+                reactionEmoji = reactionMatch[1].trim();
+                cleanFinalContent = cleanFinalContent.replace(/\n?\[\[REACTION:[^\]]+\]\]/, '');
+            }
+
+            const finalMessages = [...newMessages, { role: 'assistant', content: cleanFinalContent.trimEnd(), isStreaming: false }];
+            if (finalMessages.length > 1) {
+                const userMsgIndex = finalMessages.length - 2;
+                if (finalMessages[userMsgIndex].role === 'user') {
+                    finalMessages[userMsgIndex] = { ...finalMessages[userMsgIndex], reaction: reactionEmoji || null };
+                }
+            }
             setMessages(finalMessages);
             updateSession(activeSessionId, finalMessages);
         } catch (error) {
             console.error('AI Error:', error);
-            setMessages(prev => [...prev, { role: 'assistant', content: "I'm having trouble connecting to my brain. Please try again." }]);
+            if (streamFrameRef.current) { cancelAnimationFrame(streamFrameRef.current); streamFrameRef.current = null; }
+            setMessages(prev => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.isStreaming) next[next.length - 1] = { role: 'assistant', content: "I'm having trouble connecting to my brain. Please try again.", isStreaming: false };
+                else next.push({ role: 'assistant', content: "I'm having trouble connecting to my brain. Please try again." });
+                const userIdx = next.findLastIndex(msg => msg.role === 'user');
+                if (userIdx !== -1) {
+                    next[userIdx] = { ...next[userIdx], reaction: null };
+                }
+                return next;
+            });
         } finally {
             setLoading(false);
         }
@@ -305,13 +388,19 @@ You must guide the student through the **4-Step Engineering Process** for every 
                                     </div>
                                     <div
                                         className="zth-socratic-card"
+                                        style={{ position: 'relative' }}
                                     >
-                                        {msg.isLoading ? (
-                                            <div className="zth-socratic-dots" aria-label="Personalizing start">
+                                        {msg.isLoading || (msg.isStreaming && !msg.content) ? (
+                                            <div className="zth-socratic-dots" aria-label="Thinking">
                                                 <span />
                                                 <span />
                                                 <span />
                                             </div>
+                                        ) : msg.isStreaming ? (
+                                            <>
+                                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                                <span className="zth-stream-cursor" aria-hidden="true" />
+                                            </>
                                         ) : (
                                             <ReactMarkdown components={{
                                                 code({ inline, className, children, ...props }) {
@@ -340,6 +429,11 @@ You must guide the student through the **4-Step Engineering Process** for every 
                                                 }
                                             }}>{msg.content}</ReactMarkdown>
                                         )}
+                                        {msg.reaction && (
+                                            <div className="ai-message-reaction-badge">
+                                                {msg.reaction}
+                                            </div>
+                                        )}
                                     </div>
                                 </MotionDiv>
                             ))}
@@ -354,10 +448,8 @@ You must guide the student through the **4-Step Engineering Process** for every 
                                 <div className="zth-socratic-avatar">
                                     <Bot size={26} />
                                 </div>
-                                <div className="zth-socratic-card is-thinking">
-                                    <span />
-                                    <span />
-                                    <span />
+                                <div className="zth-socratic-card is-thinking-premium">
+                                    <SocraticThinkingIndicator />
                                 </div>
                             </MotionDiv>
                         )}

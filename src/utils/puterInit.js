@@ -11,13 +11,18 @@
  *
  * Same applies to `setAuthToken()` — calling it from app code re-triggers
  * updateSubmodules(). Let the SDK manage its own auth token lifecycle.
+ * The ONLY exception is the multi-account pool (puterAccountPool.js) which
+ * calls setAuthToken() intentionally on 429 rotation.
  *
  * This module's ONLY job:
  *   - Wait for window.puter (CDN async load) before callers try to use it
  *   - Expose a shared, idempotent readiness promise (one poll loop, not N)
  *   - Provide an authoritative auth state reader
+ *   - Activate the account pool once SDK is ready
  * ─────────────────────────────────────────────────────────────────────────────
  */
+
+import { activatePool } from './puterAccountPool';
 
 const PUTER_POLL_INTERVAL_MS = 200;
 const PUTER_READY_TIMEOUT_MS = 10_000;
@@ -37,6 +42,7 @@ const waitForPuterGlobal = (timeoutMs = PUTER_READY_TIMEOUT_MS) =>
     new Promise((resolve, reject) => {
         if (window.puter) {
             window.puter.quiet = true;
+            activatePool();
             resolve();
             return;
         }
@@ -45,6 +51,7 @@ const waitForPuterGlobal = (timeoutMs = PUTER_READY_TIMEOUT_MS) =>
             if (window.puter) {
                 clearInterval(id);
                 window.puter.quiet = true;
+                activatePool();
                 resolve();
             }
             else if (Date.now() > deadline) {

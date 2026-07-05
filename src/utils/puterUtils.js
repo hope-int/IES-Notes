@@ -1,4 +1,4 @@
-import { getAICompletion } from './aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from './aiService';
 
 export const generatePodcastScript = async (text) => {
     const systemPrompt = `
@@ -25,7 +25,7 @@ Your audience consists of engineering students who are likely multitasking, comm
    - Outro: End with a quick, 2-sentence recap of the most important point.
    - Pacing: Use commas and periods frequently to create natural pauses for the text-to-speech engine.
 
-CRITICAL INSTRUCTION: Return ONLY the raw script text. Do not include "Here is your script", intros, outros, or markdown formatting like \`\`\`. Start directly with the Hook.
+CRITICAL INSTRUCTION: Return ONLY the raw script text. Do not include "Here is your script", intros, outs, or markdown formatting like \`\`\`. Start directly with the Hook.
 
 ### INPUT TEXT:
 ${text.slice(0, 15000)} // Limit context window if necessary
@@ -36,7 +36,7 @@ ${text.slice(0, 15000)} // Limit context window if necessary
             [{ role: 'user', content: systemPrompt }],
             {
                 actionType: 'chat',
-                model: 'z-ai/glm-4.5',
+                model: FREE_MODEL_ROUTING.CHAT_PRIMARY,
                 max_tokens: 12000,
                 temperature: 0.7
             }

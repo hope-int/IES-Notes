@@ -208,26 +208,9 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
         setStatus('planning');
 
         try {
-            const systemPrompt = `You are a world-class presentation director and visual storyteller. 
-                Create a detailed visual and content plan for a ${slideCount}-slide presentation on "${topic}".
-                
-                CONTEXT: ${customInstructions ? `User Instructions: "${customInstructions}"` : 'No specific user instructions.'}
-                LENGTH: ${descriptionLength === 'short' ? 'Keep content concise and punchy.' : 'Provide detailed, comprehensive content.'}
-                DIAGRAMS: ${includeDiagrams ? 'Aggressively suggest diagrams/visuals for complex concepts.' : 'Do NOT suggest complex diagrams, focus on text/images.'}
-
-                Your goal is to make a "Wow" presentation that is readable, aesthetic, and professionally structured.
-                For each slide, define:
-                1. 'title': Engaging and bold.
-                2. 'type': 'hero' | 'grid' | 'split' | 'quote' | 'data' | 'conclusion'.
-                3. 'briefIdea': A single sentence concise concept description.
-
-                RETURN A JSON OBJECT (not an array) with a "slides" key containing the array:
-                {
-                  "slides": [
-                    { "title": "...", "type": "...", "briefIdea": "..." },
-                    ...
-                  ]
-                }`;
+            const systemPrompt = `Role: PPT Director. Plan ${slideCount} slides for "${topic}".
+Context: ${customInstructions || 'None'}. Length: ${descriptionLength}. Diagrams: ${includeDiagrams}.
+Output: Raw JSON only. Schema: {"slides": [{"title": "Engaging title", "type": "hero"|"grid"|"split"|"quote"|"data"|"conclusion", "briefIdea": "1-sentence concept"}]}`;
 
             const userPrompt = `Topic: ${topic}. Context: ${details}`;
 
@@ -351,32 +334,17 @@ const AgenticPPTGenerator = ({ topic, details, slideCount = 5, onBack, customIns
 
         const themeRules = getThemeRules(theme);
 
-        let systemPrompt = `You are a senior Web UI Designer creating ultra-premium presentation slides.
-Create a stunning, high-contrast, and extremely readable HTML slide for: "${title}".
-
-DESIGN SYSTEM:
-- ${themeRules}
-- Typography: Use 'Outfit' or 'Inter'. Title: 5vh bold (max 8vh). Body: 2.5vh-3vh light/regular.
-- Visuals: Use flexbox/grid. Enforce 'flex-shrink: 1' on all internal elements.
-- Spacing: Use 'vh' for margins and gaps (e.g., gap: 2vh).
-- Motion: Add entrance animations (@keyframes fadeInDown { from { opacity: 0; transform: translateY(-2vh); } to { opacity: 1; transform: translateY(0); } }).
-
-VISUAL CONTENT RULES (CRITICAL):
-1. **Mermaid Diagrams**: ${includeDiagrams ? 'If a process/workflow is needed, use a Mermaid.js diagram. Embed inside: <div class="mermaid"> ...graph definition... </div>. \\n   - PREFERRED TYPES: graph TD, sequenceDiagram, mindmap.\\n   - CRITICAL: Use alphanumeric Node IDs (e.g. A[Label], Node1). Avoid special chars in IDs. Escape labels with quotes.' : 'DO NOT use Mermaid diagrams. Use CSS shapes, icons, or text layouts instead.'}
-2. **Vector Graphics**: Use ONLY simple inline SVGs. Ensure all <path> d attributes are complete and valid. Avoid overly complex paths.
-   - DO NOT use <img> tags with external URLs.
-
-LAYOUT RULES for Slide Type "${type}":
-- hero: Massive centered title (7vh), subtext, 1 focal icon or Visual.
+        let systemPrompt = `Role: Web UI Designer. Output HTML for slide: "${title}" in 16:9 box. Truncate overflow.
+System: ${themeRules}. Font: 'Outfit'/'Inter'. Title: 5vh bold, Body: 2.5-3vh. Use flex/grid with flex-shrink:1. Spacing: 'vh'. Entrance animation.
+Visuals:
+- Mermaid: ${includeDiagrams ? 'If needed, embed <div class="mermaid">...graph TD/sequenceDiagram/mindmap...</div>. Alphanumeric IDs, quoted labels.' : 'No Mermaid.'}
+- SVG: Inline only. No <img> tags.
+Layouts for "${type}":
+- hero: Centered title (7vh), subtext, 1 icon/visual.
 - grid: 3-4 cards.
-- split: 45% Visual + 55% Content.
-- quote: 4vh italicized text with horizontal accent lines.
-
-TECHNICAL:
-- NO <html>, <head>, or <body> tags.
-- Return ONLY the containing <div>.
-- Wrapper style: width: 100%; height: 100%; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4vh; box-sizing: border-box;
-- VERTICAL SPACE: This slide is 16:9. You MUST NOT overflow the bottom. If there is a lot of text, truncate it or use smaller fonts.`;
+- split: 45% visual, 55% content.
+- quote: 4vh italic text.
+Technical: No html/head/body tags. Return ONLY container <div> with style: width:100%; height:100%; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4vh; box-sizing:border-box;`;
 
         let userPrompt = `Synthesis Directive: ${prompt}. Topic: ${topic}. 
 Context: ${details || 'No specific context provided.'}

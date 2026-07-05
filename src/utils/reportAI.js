@@ -1,4 +1,4 @@
-import { getAICompletion } from './aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from './aiService';
 import { parseAIJSON } from './jsonUtils';
 
 /**
@@ -31,7 +31,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'report' }
+        { jsonMode: true, model: FREE_MODEL_ROUTING.CONTENT_PRIMARY, actionType: 'report' }
     );
 
     try {
@@ -71,7 +71,7 @@ OUTPUT: Return ONLY the raw plain text content for this section. No Markdown, no
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'z-ai/glm-4.5', actionType: 'report' }
+        { model: FREE_MODEL_ROUTING.CONTENT_PRIMARY, actionType: 'report' }
     );
 
     return content.trim();

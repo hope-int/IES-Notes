@@ -123,7 +123,7 @@ export const saveMessage = async (message) => {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORES.MESSAGES, 'readwrite');
         const store = transaction.objectStore(STORES.MESSAGES);
-        const request = store.add(message);
+        const request = store.put(message);
         request.onsuccess = () => resolve();
         request.onerror = (e) => reject(e.target.error);
     });

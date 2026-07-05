@@ -6,26 +6,75 @@ import { getOrderedProviders, getUserKey, getUserModel, initVault, sanitizeKey, 
 import { ensurePuterReady } from './puterInit';
 import { logAIChatTelemetry } from './telemetry';
 import { parseAIJSON } from './jsonUtils';
+import { rotateOnRateLimit, activatePool } from './puterAccountPool';
 
-const GLM_45_MODEL = 'z-ai/glm-4.5';
-const PRIMARY_REASONING_MODEL = GLM_45_MODEL;
-const PUTER_CHAT_TUTOR_MODEL = GLM_45_MODEL;
-const PUTER_JCOMPILER_MODEL = GLM_45_MODEL;
-const PUTER_MODEL_LABELS = {
-    'z-ai/glm-4.5': 'GLM-4.5',
-    'z-ai/glm-4.7-flash': 'GLM-4.7 Flash',
-    'poolside/laguna-m.1:free': 'Laguna M.1',
-    'poolside/laguna-xs.2:free': 'Laguna XS.2',
-    'z-ai/glm-4.6v-flash': 'GLM-4.6V Flash',
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 'Nemotron 3 Omni'
+// ─── 100% Free AI Routing Matrix ────────────────────────────────────────────
+export const FREE_MODEL_ROUTING = {
+    // 1. Socratic Tutoring (Requires Chain-of-Thought reasoning)
+    TUTOR_PRIMARY: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    TUTOR_FALLBACK: 'liquid-ai/lfm2.5-1.2b-thinking:free',
+
+    // 2. Code Compilation (Requires specialized coding weights)
+    COMPILER_PRIMARY: 'cohere/north-mini-code:free',
+    COMPILER_FALLBACK: 'baidu/qianfan-cobuddy:free',
+
+    // 3. Handbooks/PDFs (Requires Vision/Multimodal capabilities)
+    HANDBOOK_PRIMARY: 'z-ai/glm-4.5-flash:free',
+    HANDBOOK_FALLBACK: 'z-ai/glm-4.5-flash:free', // Fallback to text-only if image fails
+
+    // 4. Roadmaps/JSON (Requires flawless structured output)
+    ROADMAP_PRIMARY: 'z-ai/glm-4.5-flash:free',
+    ROADMAP_FALLBACK: 'google/gemma-3n-2b:free',
+
+    // 5. Moderation (Requires specialized safety guardrails)
+    MODERATION_PRIMARY: 'nvidia/nemotron-3.5-content-safety:free',
+    MODERATION_FALLBACK: 'nvidia/nemotron-nano-9b-v2:free',
+
+    // 6. Inline Docs/Sheets (Requires ultra-low latency)
+    INLINE_PRIMARY: 'liquid-ai/lfm2.5-1.2b-instruct:free',
+    INLINE_FALLBACK: 'z-ai/glm-4.5-flash:free',
+
+    // 7. Content Generation (Reports, PPTs)
+    CONTENT_PRIMARY: 'z-ai/glm-4.5-flash:free',
+    CONTENT_FALLBACK: 'google/gemma-3n-2b:free',
+
+    // 8. General Chat / Fallback
+    CHAT_PRIMARY: 'z-ai/glm-4.5-flash:free',
+    CHAT_FALLBACK: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free' // Uncensored fallback
 };
+
+const PRIMARY_REASONING_MODEL = FREE_MODEL_ROUTING.CHAT_PRIMARY;
+const PUTER_CHAT_TUTOR_MODEL = FREE_MODEL_ROUTING.TUTOR_PRIMARY;
+const PUTER_JCOMPILER_MODEL = FREE_MODEL_ROUTING.COMPILER_PRIMARY;
+
+const PUTER_MODEL_LABELS = {
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 'Nemotron 3 Omni (Tutor)',
+    'liquid-ai/lfm2.5-1.2b-thinking:free': 'LFM2.5 Thinking',
+    'cohere/north-mini-code:free': 'North Mini Code',
+    'baidu/qianfan-cobuddy:free': 'Qianfan CoBuddy',
+    'z-ai/glm-4.5-flash:free': 'GLM-4.5 Flash',
+    'google/gemma-3n-2b:free': 'Gemma 3n 2B',
+    'nvidia/nemotron-3.5-content-safety:free': 'Nemotron Content Safety',
+    'nvidia/nemotron-nano-9b-v2:free': 'Nemotron Nano 9B',
+    'liquid-ai/lfm2.5-1.2b-instruct:free': 'LFM2.5 Instruct',
+    'cognitivecomputations/dolphin-mistral-24b-venice-edition:free': 'Dolphin Mistral',
+    'z-ai/glm-4.5': 'GLM-4.5',
+    'default': 'Puter Default',
+};
+
 const PUTER_MODEL_OUTPUT_LIMITS = {
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 8192,
+    'liquid-ai/lfm2.5-1.2b-thinking:free': 4096,
+    'cohere/north-mini-code:free': 8192,
+    'baidu/qianfan-cobuddy:free': 4096,
+    'z-ai/glm-4.5-flash:free': 8192,
+    'google/gemma-3n-2b:free': 4096,
+    'nvidia/nemotron-3.5-content-safety:free': 4096,
+    'nvidia/nemotron-nano-9b-v2:free': 4096,
+    'liquid-ai/lfm2.5-1.2b-instruct:free': 4096,
+    'cognitivecomputations/dolphin-mistral-24b-venice-edition:free': 4096,
     'z-ai/glm-4.5': 8192,
-    'z-ai/glm-4.7-flash': 8192,
-    'poolside/laguna-m.1:free': 8192,
-    'poolside/laguna-xs.2:free': 8192,
-    'z-ai/glm-4.6v-flash': 8192,
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free': 8192
+    'default': 8192,
 };
 
 const getPuterModelCaps = (modelId) =>
@@ -229,7 +278,7 @@ const readCompletionResponse = async (response, onToken) => {
 let _vaultReady = false;
 const ensureVault = () => {
     if (_vaultReady) return Promise.resolve();
-    return initVault().then(() => { _vaultReady = true; }).catch(() => {});
+    return initVault().then(() => { _vaultReady = true; }).catch(() => { });
 };
 // Kick off immediately on module load (best-effort)
 ensureVault();
@@ -334,13 +383,30 @@ export const checkRateLimit = async (actionType) => {
 
 // ─── Enhanced Health Record & Circuit Breaker ──────────────────────────────
 export const PUTER_FIRST_ROSTER = [
-    { id: "z-ai/glm-4.5", priority: 0, caps: ["reasoning", "code", "json", "fast-chat"] },
-    { id: "z-ai/glm-4.7-flash", priority: 1, caps: ["reasoning", "code", "fast-chat", "fallback"] },
-    { id: "poolside/laguna-m.1:free", priority: 1, caps: ["code", "compiler"] },
-    { id: "poolside/laguna-xs.2:free", priority: 3, caps: ["json", "code", "fallback"] },
-    { id: "z-ai/glm-4.6v-flash", priority: 3, caps: ["vision", "reasoning", "code"] },
-    { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", priority: 4, caps: ["reasoning", "code", "fallback"] },
-    { id: "default", priority: 5, caps: ["fast-chat", "code", "json", "fallback"] }
+    // Tutor / Socratic — chain-of-thought reasoning
+    { id: FREE_MODEL_ROUTING.TUTOR_PRIMARY, priority: 0, caps: ["reasoning", "tutor", "fallback"] },
+    { id: FREE_MODEL_ROUTING.TUTOR_FALLBACK, priority: 1, caps: ["reasoning", "tutor"] },
+    // Code Compiler / J-Compiler
+    { id: FREE_MODEL_ROUTING.COMPILER_PRIMARY, priority: 0, caps: ["code", "compiler", "json"] },
+    { id: FREE_MODEL_ROUTING.COMPILER_FALLBACK, priority: 1, caps: ["code", "compiler"] },
+    // Vision / Handbook / PDF
+    { id: FREE_MODEL_ROUTING.HANDBOOK_PRIMARY, priority: 0, caps: ["vision", "handbook"] },
+    { id: FREE_MODEL_ROUTING.HANDBOOK_FALLBACK, priority: 1, caps: ["handbook", "fallback"] },
+    // Roadmap / JSON structured output
+    { id: FREE_MODEL_ROUTING.ROADMAP_PRIMARY, priority: 0, caps: ["json", "roadmap", "fast-chat"] },
+    { id: FREE_MODEL_ROUTING.ROADMAP_FALLBACK, priority: 1, caps: ["json", "roadmap"] },
+    // Moderation / Safety / Quiz
+    { id: FREE_MODEL_ROUTING.MODERATION_PRIMARY, priority: 0, caps: ["moderation", "quiz", "safety"] },
+    { id: FREE_MODEL_ROUTING.MODERATION_FALLBACK, priority: 1, caps: ["moderation", "quiz"] },
+    // Inline docs / Sheets — ultra-low latency
+    { id: FREE_MODEL_ROUTING.INLINE_PRIMARY, priority: 0, caps: ["inline", "fast-chat"] },
+    { id: FREE_MODEL_ROUTING.INLINE_FALLBACK, priority: 1, caps: ["inline", "json", "fast-chat"] },
+    // Content generation — reports, PPTs
+    { id: FREE_MODEL_ROUTING.CONTENT_PRIMARY, priority: 0, caps: ["content", "report", "ppt"] },
+    { id: FREE_MODEL_ROUTING.CONTENT_FALLBACK, priority: 1, caps: ["content", "report"] },
+    // General chat fallback
+    { id: FREE_MODEL_ROUTING.CHAT_PRIMARY, priority: 0, caps: ["reasoning", "code", "json", "fast-chat", "fallback"] },
+    { id: FREE_MODEL_ROUTING.CHAT_FALLBACK, priority: 2, caps: ["fallback", "fast-chat"] }
 ];
 
 class EnhancedHealthRecord {
@@ -413,26 +479,22 @@ const isPuterModelId = (model = '') =>
 
 const recordPuterFailure = (model, reason = 'transient') => {
     const record = _healthRegistry[model];
+    let poolOk = true;
     if (record) {
         record.rollingFailures++;
-        let duration = 2 * 60 * 1000; // default 2 mins
-        if (reason === 'auth') duration = 60 * 60 * 1000;
-        else if (reason === 'rate-limit') {
-            duration = 15 * 60 * 1000;
-            // Cooldown other non-default models since Puter rate limits IP-wide
-            PUTER_FIRST_ROSTER.forEach(m => {
-                if (m.id !== 'default' && m.id !== model) {
-                    const otherRecord = _healthRegistry[m.id];
-                    if (otherRecord && otherRecord.cooldownUntil < Date.now() + 5 * 60 * 1000) {
-                        otherRecord.cooldownUntil = Date.now() + 5 * 60 * 1000; // 5-minute pre-emptive cooldown
-                    }
-                }
-            });
+        if (reason === 'rate-limit') {
+            // Rotate to next Puter account if pool is configured
+            const rotated = rotateOnRateLimit();
+            if (!rotated) {
+                poolOk = false;
+            }
         }
-        record.cooldownUntil = Date.now() + duration;
+        // Remove hardcoded cooldown times by setting cooldownUntil to 0
+        record.cooldownUntil = 0;
         saveHealthRegistry();
-        console.warn(`[Puter Breaker] ${model} cooling down for ${Math.ceil(duration / 1000)}s after ${reason}.`);
+        console.warn(`[Puter Breaker] Transient failure recorded for ${model} (${reason}). No cooldown applied.`);
     }
+    return poolOk;
 };
 
 const recordPuterUsageLog = (model, latency) => {
@@ -470,14 +532,14 @@ const recordPuterSuccess = (model, latency = 0) => {
 const selectModelChain = (caps = []) => {
     const healthy = PUTER_FIRST_ROSTER.filter(m => isPuterModelHealthy(m.id));
     const matches = healthy.filter(m => caps.every(c => m.caps.includes(c)));
-    const sorted = (matches.length > 0 ? matches : healthy).sort((a, b) => {
-        if (a.priority !== b.priority) return a.priority - b.priority;
-        const rateA = getSuccessRate(_healthRegistry[a.id]);
-        const rateB = getSuccessRate(_healthRegistry[b.id]);
-        if (rateA !== rateB) return rateB - rateA;
-        return getP95Latency(_healthRegistry[a.id]) - getP95Latency(_healthRegistry[b.id]);
-    });
-    return sorted.map(m => m.id);
+    
+    const primaryMatches = matches.filter(m => m.priority === 0);
+    const primaryIds = new Set(primaryMatches.map(p => p.id));
+    
+    const fallbackPool = healthy.filter(h => !primaryIds.has(h.id));
+    const shuffledFallbacks = [...fallbackPool].sort(() => Math.random() - 0.5);
+
+    return [...primaryMatches.map(p => p.id), ...shuffledFallbacks.map(f => f.id)];
 };
 
 const classifyPuterError = (err) => {
@@ -621,9 +683,24 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
     }
     if (!window.puter) throw new Error("Puter.js not ready.");
 
+    // Map actionType → capability tags that drive model selection from PUTER_FIRST_ROSTER
+    const ACTION_CAPS = {
+        compiler: ['code', 'compiler'],
+        roadmap: ['json', 'roadmap'],
+        handbook: ['handbook'],
+        report: ['content', 'report'],
+        ppt: ['content', 'ppt'],
+        assignment: ['content', 'report'],
+        project: ['content', 'report'],
+        moderation: ['moderation', 'safety'],
+        quiz: ['moderation', 'quiz'],
+        inline: ['inline', 'fast-chat'],
+        tutor: ['reasoning', 'tutor'],
+        chat: ['reasoning', 'fast-chat'],
+    };
     const caps = isVisionRequest
         ? ['vision']
-        : (actionType === 'compiler' ? ['json', 'code'] : ['reasoning', 'code']);
+        : (ACTION_CAPS[actionType] ?? ['reasoning', 'fast-chat']);
     const userConfiguredModel = getUserModel('puter');
     let modelChain = selectModelChain(caps);
 
@@ -636,9 +713,7 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
         modelChain = [userConfiguredModel, ...modelChain.filter(m => m !== userConfiguredModel)];
     }
 
-    if (!modelChain.includes('default')) {
-        modelChain.push('default');
-    }
+
 
     // Extract system messages to merge them into the first user message,
     // as free models on Puter may leak or fail to isolate the 'system' role.
@@ -715,8 +790,10 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
     }
 
     let lastError = null;
+    let poolExhausted = false;
 
     for (const candidateModel of modelChain) {
+        if (poolExhausted) break;
         const modelMaxTokens = PUTER_MODEL_OUTPUT_LIMITS[candidateModel] || 8192;
         const requestedMaxTokens = Number(params.max_tokens) || modelMaxTokens;
         const safeParams = {
@@ -735,7 +812,7 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
                     ...safeParams
                 };
                 if (candidateModel !== 'default') {
-                    chatOptions.model = candidateModel;
+                    chatOptions.model = candidateModel.replace(/:free$/, '');
                 }
 
                 const puterPromise = isVisionRequest
@@ -746,7 +823,7 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
                     : window.puter.ai.chat(puterMessages, chatOptions);
 
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error("Puter Timeout")), onToken ? 120000 : 90000)
+                    setTimeout(() => reject(new Error("Puter Timeout")), onToken ? 45000 : 30000)
                 );
 
                 const response = await Promise.race([puterPromise, timeoutPromise]);
@@ -781,8 +858,13 @@ const fetchPuterInternal = async (messages, modelOptions = {}, retries = 2) => {
                 lastError = err;
                 const reason = classifyPuterError(err);
                 const errorMsg = err?.message || err?.toString() || "";
-                recordPuterFailure(candidateModel, reason);
+                const poolOk = recordPuterFailure(candidateModel, reason);
                 console.warn(`[Puter] ${PUTER_MODEL_LABELS[candidateModel] || candidateModel} attempt ${i + 1} failed (${reason}):`, errorMsg);
+
+                if (!poolOk) {
+                    poolExhausted = true;
+                    break;
+                }
 
                 const canRetrySameModel = reason === 'transport' || reason === 'timeout' || reason === 'unknown';
                 if (!canRetrySameModel || i === retries - 1) break;
@@ -903,28 +985,28 @@ const fetchClientSideFallback = async (messages, modelOptions) => {
 
     // ── Fallback 2: Groq (user's key only, if enabled) ────────────────────────
     try {
-            const groqKey = sanitizeKey(getUserKey('groq'));
-            if (groqKey && isProviderEnabled('groq')) {
-                const groqModel = getUserModel('groq') || getProviderModel(model, 'groq');
-                const groqMaxTokens = Math.min(params.max_tokens || 8192, 8192);
-                const groqPost = (useMessages = messages) => fetch("https://api.groq.com/openai/v1/chat/completions", {
-                    method: "POST",
-                    headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        model: groqModel,
-                        messages: useMessages,
-                        response_format: jsonMode ? { type: "json_object" } : undefined,
-                        stream: Boolean(onToken),
-                        ...params,
-                        max_tokens: groqMaxTokens
-                    })
-                });
-                const gResult = await readWithContinuation(groqPost, 'Groq', groqModel);
-                if (gResult.ok) {
-                    return gResult;
-                }
-                if (gResult.response.status === 429) rateLimited = true;
+        const groqKey = sanitizeKey(getUserKey('groq'));
+        if (groqKey && isProviderEnabled('groq')) {
+            const groqModel = getUserModel('groq') || getProviderModel(model, 'groq');
+            const groqMaxTokens = Math.min(params.max_tokens || 8192, 8192);
+            const groqPost = (useMessages = messages) => fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: groqModel,
+                    messages: useMessages,
+                    response_format: jsonMode ? { type: "json_object" } : undefined,
+                    stream: Boolean(onToken),
+                    ...params,
+                    max_tokens: groqMaxTokens
+                })
+            });
+            const gResult = await readWithContinuation(groqPost, 'Groq', groqModel);
+            if (gResult.ok) {
+                return gResult;
             }
+            if (gResult.response.status === 429) rateLimited = true;
+        }
     } catch (e) { console.warn("[Groq] Request failed:", e.message); }
 
     // ── Fallback 3: Google Gemini (user's key only, if enabled) ────────────────
@@ -986,14 +1068,14 @@ const fetchBackendFallback = async (messages, modelOptions) => {
 
 // Per-action token budget — ensures responses are NEVER cut off mid-sentence
 const ACTION_TOKEN_BUDGETS = {
-    chat:       32000,  // Long explanations, code blocks, doc generation
-    compiler:    8192,  // Structured JSON output, keep tight
-    roadmap:     8192,  // JSON with nodes/edges, moderate size
-    report:     12000,  // Report sections can be lengthy
-    ppt:         8192,  // Presentation slides
-    project:     8192,  // Project briefs
+    chat: 32000,  // Long explanations, code blocks, doc generation
+    compiler: 8192,  // Structured JSON output, keep tight
+    roadmap: 8192,  // JSON with nodes/edges, moderate size
+    report: 12000,  // Report sections can be lengthy
+    ppt: 8192,  // Presentation slides
+    project: 8192,  // Project briefs
     assignment: 10000,  // Full assignment write-ups
-    default:     8192   // Catch-all
+    default: 8192   // Catch-all
 };
 
 export const getAICompletion = async (messages, options = {}) => {
@@ -1009,10 +1091,31 @@ export const getAICompletion = async (messages, options = {}) => {
 
     const startTime = Date.now();
 
+    // Map legacy / hardcoded model strings to their current active equivalents in FREE_MODEL_ROUTING
+    let finalModel = model;
+    if (typeof model === 'string') {
+        const clean = model.trim().toLowerCase();
+        if (clean.includes('nemotron-3-nano-omni-30b-a3b-reasoning') || clean.includes('lfm2.5-1.2b-thinking')) {
+            finalModel = FREE_MODEL_ROUTING.TUTOR_PRIMARY;
+        } else if (clean.includes('north-mini-code') || clean.includes('qianfan-cobuddy')) {
+            finalModel = FREE_MODEL_ROUTING.COMPILER_PRIMARY;
+        } else if (clean.includes('glm-4.6v-flash') || clean.includes('glm-4.5-flash')) {
+            finalModel = FREE_MODEL_ROUTING.HANDBOOK_PRIMARY;
+        } else if (clean.includes('glm-4.7-flash')) {
+            finalModel = FREE_MODEL_ROUTING.ROADMAP_PRIMARY;
+        } else if (clean.includes('glm-4.5') || clean.includes('glm-4.5-flash')) {
+            finalModel = FREE_MODEL_ROUTING.CONTENT_PRIMARY;
+        } else if (clean.includes('nemotron-3.5-content-safety') || clean.includes('nemotron-nano-9b-v2')) {
+            finalModel = FREE_MODEL_ROUTING.MODERATION_PRIMARY;
+        } else if (clean.includes('lfm2.5-1.2b-instruct')) {
+            finalModel = FREE_MODEL_ROUTING.INLINE_PRIMARY;
+        }
+    }
+
     // Apply token budget: caller-supplied max_tokens always wins; otherwise use per-action default
     const defaultTokens = ACTION_TOKEN_BUDGETS[actionType] ?? ACTION_TOKEN_BUDGETS.default;
     const modelOptions = {
-        model,
+        model: finalModel,
         actionType,
         max_tokens: defaultTokens,  // Global default — overridden if caller explicitly sets it
         ...restOptions              // Caller's options (including max_tokens) take precedence
@@ -1049,8 +1152,8 @@ export const getAICompletion = async (messages, options = {}) => {
     });
 
     const orderedProviders = getOrderedProviders(); // sorted, filtered by enabled
-    const puterEntry   = orderedProviders.find(p => p.id === 'puter');
-    const clientEntry  = orderedProviders.find(p => p.id === 'openrouter' || p.id === 'groq' || p.id === 'gemini');
+    const puterEntry = orderedProviders.find(p => p.id === 'puter');
+    const clientEntry = orderedProviders.find(p => p.id === 'openrouter' || p.id === 'groq' || p.id === 'gemini');
     const hasStructuredContent = messagesHaveStructuredContent(sanitizedMessages);
     const hasImageContent = messagesHaveImageContent(sanitizedMessages);
 
@@ -1097,7 +1200,7 @@ export const getAICompletion = async (messages, options = {}) => {
 
             if (canUsePuterFallback) {
                 try {
-                    const fallbackModel = hasImageContent ? 'z-ai/glm-4.6v-flash' : PUTER_CHAT_TUTOR_MODEL;
+                    const fallbackModel = hasImageContent ? FREE_MODEL_ROUTING.HANDBOOK_PRIMARY : PUTER_CHAT_TUTOR_MODEL;
                     onProgress({
                         step: 'fallback',
                         message: hasImageContent
@@ -1157,27 +1260,13 @@ export const getAICompletion = async (messages, options = {}) => {
 
 export const simulateCodeExecution = async (code, language = "auto", inputs = [], history = [], options = {}) => {
     void inputs;
-    const systemPrompt = `<personality>Elite Syntax Auditor & Runtime Simulator.</personality>
-    <rules>
-    1. SYNTAX AUDIT: Before simulating, perform a BRUTAL syntax check. Look for:
-       - PYTHON: Incorrect indentation (THIS IS CRITICAL), missing colons, invalid variable names.
-       - C/C++: Missing semicolons, unmatched braces, undefined types.
-       - JS: Syntax errors, unclosed strings.
-    2. CRASH FIRST: If a syntax error is found, STOP immediately. Set status:"error" and explain exactly which line and why (e.g., "IndentationError: expected an indented block on line 2").
-    3. DETAILED LOGIC: If code is valid, provide a step-by-step execution reasoning. If input is static data (JSON/Object), explain its structure and potential usage.
-    4. RAW OUTPUT: In "output", generate EXACT terminal text.
-       - If Python/JS code is just a class/function with no calls, show "Status: Symbols Registered / Schema Parsed." or similar.
-       - If the input is PURE DATA (JSON/YAML/Arrays), provide a "Data Hub Map" or "Internal Schema Map" summary in the output.
-       - If there are print statements, show their literal output.
-       - EMBEDDED/ARDUINO: If isEmbedded is true, show "Virtual Hardware Logs" in the Serial Monitor even if Serial.print is missing (e.g. "[PIN 13] -> HIGH", "Delay 1000ms"). Show the loop execution for at least 2 cycles.
-    5. INTERACTION: Simulate interactive prompts clearly.
-    6. MERMAID: Generate a "mermaidGraph" if the input has logic (loops/ifs) OR if it has structural data (Nested Objects/JSON/Arrays).
-       - FORMAT: Use "graph TD" and ensure each statement is on a NEW LINE or separated by a semicolon (;).
-       - FOR JSON/DATA: Create a tree structure where Root is the object name, and keys are child nodes.
-       - QUOTED LABELS: ALWAYS use the syntax ID["Label Text"] or ID["Label<br/>Line2"] for ALL nodes. The quotes are MANDATORY.
-       - STRIP: Remove any colons (:), backticks, or unquoted parentheses from inside labels to prevent syntax crashes.
-    </rules>
-    <response_format>JSON: { reasoning, language, isEmbedded, output, serialMonitor, status, errorExplanation, fixedCode, mermaidGraph }</response_format>`;
+    const systemPrompt = `Role: Elite Syntax Auditor & Simulator.
+Rules:
+1. Audit syntax: Check indentation (Python), semicolons/braces (C/C++), syntax (JS). Stop and explain immediately on error: {status: "error", errorExplanation: "line and reason"}.
+2. If valid, reason step-by-step.
+3. In "output", return exact console output. For pure data, return Schema Map. For registers/loop, cycle loop. For embedded: simulate Virtual Hardware Logs (e.g. [PIN 13] -> HIGH).
+4. Mermaid: generate valid "graph TD" on logic/loops/data trees. Quote all node labels: ID["Label Text"]. Strip colons/parentheses.
+Format JSON ONLY: { reasoning, language, isEmbedded, output, serialMonitor, status, errorExplanation, fixedCode, mermaidGraph }`;
 
     const contextMessage = history.length > 0 ? history.map((h, i) => `[Mem ${i + 1}] Code:${h.code} Out:${h.result.output || 'ERR'}`).join("\n") : "";
 
@@ -1196,7 +1285,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
             includeMetadata: true,
             onToken: options.onToken
         });
-        
+
         let parsed;
         try {
             parsed = cleanAndParseJSON(resultWithMeta.content);
@@ -1223,13 +1312,7 @@ export const simulateCodeExecution = async (code, language = "auto", inputs = []
 
 // J-Compiler: Reverse Engineering (Output -> Code)
 export const reverseEngineerCode = async (expectedOutput, language = "javascript", options = {}) => {
-    const systemPrompt = `<personality>Reverse Engineering Engine.</personality>
-    <rules>
-    1. INPUT ANALYSIS: Analyze the provided terminal output or error text.
-    2. CODE RECOVERY: Generate the most efficient logic/code that produces this exact output.
-    3. ERROR DIAGNOSTICS: If the input is an error/crash log, explain the cause of the crash in "explanation" and provide the fix in "code".
-    </rules>
-    <response_format>JSON: { code, explanation, reasoning }</response_format>`;
+    const systemPrompt = `Role: Reverse Engineering Engine. Recover most efficient code for output: ${expectedOutput}. If crash log, explain in "explanation" and fix in "code". Format: JSON { code, explanation, reasoning }`;
     const messages = [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Lang: ${language}\nOutput:\n${expectedOutput}` }
@@ -1245,7 +1328,7 @@ export const reverseEngineerCode = async (expectedOutput, language = "javascript
             includeMetadata: true,
             onToken: options.onToken
         });
-        
+
         let parsed;
         try {
             parsed = cleanAndParseJSON(resultWithMeta.content);

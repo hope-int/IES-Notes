@@ -128,12 +128,7 @@ const PresentationGenerator = ({ onBack }) => {
         if (!topic.trim()) return;
         setIsEnhancing(true);
         try {
-            const systemPrompt = `You are an expert Presentation Architect. 
-The user has provided a short, basic idea for a presentation: "${topic}"
-
-Your job is to expand this into a highly detailed, professional, 3-sentence prompt. 
-Do not write the presentation itself. Just write a better, more explicit prompt that describes what the presentation SHOULD cover.
-DO NOT use markdown, quotes, or conversational filler. Just return the raw expanded prompt text.`;
+            const systemPrompt = `Expand: "${topic}" into a detailed, 3-sentence prompt. No raw presentation, no markdown, no quotes, no conversational filler. Return raw expanded text only.`;
 
             const aiText = await getAICompletion([
                 { role: "system", content: systemPrompt },
@@ -157,36 +152,10 @@ DO NOT use markdown, quotes, or conversational filler. Just return the raw expan
         setLoadingText('DeepSeek is analyzing millions of academic papers...');
 
         try {
-            const systemPrompt = `You are an expert Presentation Architect. 
-Overall Presentation Topic: "${topic}".
-Target Audience: "${audience}"
-Tone: "${tone}"
-Visual Vibe: "${vibe}"
-Layout Preference: "${layoutPreference}"
-
-Generate a strictly formatted JSON outline for ${slideCount} slides.
-
-CRITICAL RULES:
-1. You MUST choose a layout from this exact list ONLY: "TITLE_SLIDE", "TWO_COLUMN", "BIG_STAT", "STANDARD_BULLETS".
-2. Slide 1 MUST be "TITLE_SLIDE".
-3. If the Audience is "Beginner", ensure early slides focus on definitions. If "Expert/Professor", skip basics and focus on deep analysis.
-4. Output ONLY valid JSON, do not include markdown blocks or any other text.
-
-SCHEMA:
-{
-  "outline": [
-    {
-      "slide_number": 1,
-      "title": "Introduction to Data Science",
-      "layout": "TITLE_SLIDE"
-    },
-    {
-      "slide_number": 2,
-      "title": "The 3 Pillars of AI",
-      "layout": "TWO_COLUMN"
-    }
-  ]
-}`;
+            const systemPrompt = `Role: Presentation Architect. Topic: "${topic}". Audience: "${audience}". Tone: "${tone}". Vibe: "${vibe}". Layouts: "${layoutPreference}".
+Generate JSON outline for ${slideCount} slides.
+Rules: Layouts from list ONLY: ["TITLE_SLIDE", "TWO_COLUMN", "BIG_STAT", "STANDARD_BULLETS"]. Slide 1 MUST be TITLE_SLIDE. Focus depth on audience level.
+Schema: {"outline": [{"slide_number": number, "title": "bold assertion", "layout": "string"}]}`;
             const aiText = await getAICompletion([
                 { role: "system", content: systemPrompt },
                 { role: "user", content: "Generate the JSON outline now." }
@@ -224,39 +193,10 @@ SCHEMA:
 
             try {
                 // 3. Call AI Service for just ONE slide
-                const systemPrompt = `You are an expert Presentation Copywriter. 
-Overall Presentation Topic: "${topic}"
-Target Audience: "${audience}"
-Visual Vibe: "${vibe}"
-Layout Preference: "${layoutPreference}"
-
-Your task is to generate the content and a CONTEXTUAL DESIGN for ONLY ONE specific slide.
-
-CURRENT SLIDE TARGET:
-- Title: "${currentSlideTarget.title}"
-- Blueprint Layout: "${currentSlideTarget.layout}"
-
-CRITICAL RULES:
-1. MAX 3 bullet points per slide.
-2. MAX 12 words per bullet point.
-3. Every slide title MUST be a bold 'Assertion'.
-4. Be punchy and highly ${tone.toLowerCase()} in tone.
-5. You MUST provide a "design" object that describes how this slide should look based on its context.
-
-JSON SCHEMA:
-{
-  "slide_number": ${currentSlideTarget.slide_number},
-  "title": "...",
-  "bullets": ["..."],
-  "design": {
-    "bgType": "gradient | solid | mesh | glass",
-    "colors": { "primary": "hex", "secondary": "hex", "accent": "hex" },
-    "layoutHints": "center-card | split-vertical | hero-stat | grid-3x1",
-    "decorations": ["floating-orbs", "grid-pattern", "border-glow", "abstract-shapes"],
-    "icon": "lucide icon name relating to context"
-  }
-}
-`;
+                const systemPrompt = `Role: Presentation Copywriter. Topic: "${topic}", Audience: "${audience}", Vibe: "${vibe}", Layout: "${layoutPreference}". Tone: ${tone}.
+Generate content for ONE specific slide: Title: "${currentSlideTarget.title}", Layout: "${currentSlideTarget.layout}".
+Rules: Max 3 bullets, max 12 words per bullet. Bold assertion titles. Provide design styling context.
+Schema: {"slide_number": ${currentSlideTarget.slide_number}, "title": "...", "bullets": ["..."], "design": {"bgType": "gradient"|"solid"|"mesh"|"glass", "colors": {"primary": "hex", "secondary": "hex", "accent": "hex"}, "layoutHints": "center-card"|"split-vertical"|"hero-stat"|"grid-3x1", "decorations": ["floating-orbs"|"grid-pattern"|"border-glow"|"abstract-shapes"], "icon": "lucide icon"}}`;
 
                 const aiText = await getAICompletion([
                     { role: "system", content: systemPrompt },
@@ -307,28 +247,8 @@ JSON SCHEMA:
 
         try {
             const slideToFix = finalSlides[index];
-            const systemPrompt = `You are fixing ONE specific slide in a presentation.
-            The user did not like this slide's content. Rewrite it using the ASSERTION-EVIDENCE style.
-            Overall Topic: "${topic}"
-            Visual Vibe: "${vibe}"
-            
-            Keep the content punchy but YOU MUST also provide an updated "design" object for this slide based on its content context.
-            
-            Return ONLY a JSON object.
-            
-            SCHEMA:
-            {
-              "slide_number": ${slideToFix.slide_number},
-              "title": "...",
-              "bullets": ["..."],
-              "design": {
-                "bgType": "gradient | solid | mesh | glass",
-                "colors": { "primary": "hex", "secondary": "hex", "accent": "hex" },
-                "layoutHints": "center-card | split-vertical | hero-stat | grid-3x1",
-                "decorations": ["floating-orbs", "grid-pattern", "border-glow", "abstract-shapes"],
-                "icon": "lucide icon name"
-              }
-            }`;
+            const systemPrompt = `Rewrite Slide ${slideToFix.slide_number} for topic "${topic}", vibe "${vibe}" using Assertion-Evidence style. Return JSON ONLY.
+            Schema: {"slide_number": ${slideToFix.slide_number}, "title": "...", "bullets": ["..."], "design": {"bgType": "gradient"|"solid"|"mesh"|"glass", "colors": {"primary": "hex", "secondary": "hex", "accent": "hex"}, "layoutHints": "center-card"|"split-vertical"|"hero-stat"|"grid-3x1", "decorations": ["floating-orbs"|"grid-pattern"|"border-glow"|"abstract-shapes"], "icon": "lucide icon"}}`;
 
             const aiText = await getAICompletion([
                 { role: "system", content: systemPrompt },
@@ -449,31 +369,11 @@ JSON SCHEMA:
 
         try {
             const currentSlide = finalSlides[activeSlideIndex];
-            const systemPrompt = `You are an expert Presentation Co-Pilot. 
-The user is currently viewing Slide ${activeSlideIndex + 1} of a presentation about "${topic}".
-Current Slide Content (JSON): ${JSON.stringify(currentSlide)}
-
-The user wants to edit THIS SPECIFIC SLIDE. Their request: "${userPrompt}"
-
-CRITICAL RULES:
-1. Return ONLY the updated JSON for THIS SLIDE.
-2. Maintain the ASSERTION-EVIDENCE style.
-3. You MUST provide an updated "design" object if the user request implies a visual change or if the content significantly changes its context.
-4. Output valid JSON, no markdown.
-
-SCHEMA:
-{
-  "title": "...",
-  "bullets": ["..."],
-  "design": {
-    "bgType": "...", 
-    "colors": { "primary": "...", "secondary": "...", "accent": "..." },
-    "layoutHints": "...",
-    "decorations": [...],
-    "icon": "..."
-  }
-}
-`;
+            const systemPrompt = `Role: Presentation Co-Pilot. Topic: "${topic}". Modify slide ${activeSlideIndex + 1}.
+Current: ${JSON.stringify(currentSlide)}.
+User request: "${userPrompt}".
+Rules: Return updated JSON ONLY, no markdown. Maintain Assertion-Evidence format.
+Schema: {"title": "...", "bullets": ["..."], "design": {"bgType": "...", "colors": {"primary": "...", "secondary": "...", "accent": "..."}, "layoutHints": "...", "decorations": [...], "icon": "..."}}`;
 
             const aiText = await getAICompletion([
                 { role: "system", content: systemPrompt },

@@ -1,4 +1,4 @@
-import { getAICompletion } from './aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from './aiService';
 import { parseAIJSON } from './jsonUtils';
 
 /**
@@ -26,7 +26,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'assignment' }
+        { jsonMode: true, model: FREE_MODEL_ROUTING.CONTENT_PRIMARY, actionType: 'assignment' }
     );
 
     try {
@@ -64,7 +64,7 @@ OUTPUT: Return ONLY the raw markdown/text solution for this step.
 
     const content = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { model: 'z-ai/glm-4.5', actionType: 'assignment' }
+        { model: FREE_MODEL_ROUTING.CONTENT_PRIMARY, actionType: 'assignment' }
     );
 
     return content.trim();
@@ -99,7 +99,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'assignment' }
+        { jsonMode: true, model: FREE_MODEL_ROUTING.CONTENT_PRIMARY, actionType: 'assignment' }
     );
 
     try {
@@ -134,7 +134,7 @@ OUTPUT FORMAT: Strict JSON only.
 
     const response = await getAICompletion(
         [{ role: 'user', content: prompt }],
-        { jsonMode: true, model: 'z-ai/glm-4.5', actionType: 'assignment' }
+        { jsonMode: true, model: FREE_MODEL_ROUTING.COMPILER_PRIMARY, actionType: 'compiler' }
     );
 
     try {

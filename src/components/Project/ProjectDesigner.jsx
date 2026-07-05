@@ -4,7 +4,7 @@ import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getAICompletion } from '../../utils/aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from '../../utils/aiService';
 import { parseAIJSON } from '../../utils/jsonUtils';
 
 const Motion = motion;
@@ -65,7 +65,7 @@ const ProjectDesigner = () => {
 
     const handleAiCall = async (prompt, type) => {
         try {
-            const targetModel = 'z-ai/glm-4.5';
+            const targetModel = FREE_MODEL_ROUTING.CONTENT_PRIMARY;
 
             const response = await getAICompletion([
                 { role: 'user', content: prompt }

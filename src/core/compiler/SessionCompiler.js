@@ -1,5 +1,5 @@
 import { ragEngine } from '../rag/RAGEngine';
-import { getAICompletion } from '../../utils/aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from '../../utils/aiService';
 import { audioManager } from '../audio/AudioManager';
 import { useLearningSessionStore } from '../../stores/useLearningSessionStore';
 import { saveQueueState } from '../../utils/indexedDB';
@@ -29,48 +29,31 @@ class SessionCompiler {
         const totalDurationMs = durationMinutes * 60 * 1000;
 
         // 2. Build detailed prompt for DAG synthesis
-        const systemPrompt = `
-You are the HOPE Autonomous Educational Intelligence System Compiler.
-Your job is to compile a structured, pacing-controlled Directed Educational Graph (DAG) for the topic: "${topic || 'Document-based Learning Session'}".
-
-Analyze the student profile:
-- Pacing Preference: ${profile.pacing || 'normal'}
-- Target Depth: ${profile.depth || 'conceptual'}
-- Weak Concepts: ${JSON.stringify(profile.weakConcepts || [])}
-
-Retrieved learning fragments:
----
-${contextText}
----
-
-Output a valid JSON object representing the entire compiled lesson DAG. Do not include markdown wraps.
-The JSON must contain:
-1. "nodes": A map of nodes where keys are unique string IDs (e.g., "node_0", "node_1") and values are:
-   {
+        const systemPrompt = `Role: HOPE Educational DAG Compiler for topic: "${topic || 'Document-based Learning Session'}".
+Student Profile: Pacing=${profile.pacing || 'normal'}, Depth=${profile.depth || 'conceptual'}, Weak=${JSON.stringify(profile.weakConcepts || [])}.
+Fragments: ${contextText}.
+Output: Raw JSON ONLY (no markdown fences). Structure:
+{
+  "nodes": {
+    "node_id": {
       "id": "node_id",
-      "type": "intro" | "concept_explanation" | "equation" | "diagram" | "quiz" | "code_simulation" | "graph_plot" | "summary",
-      "payload": { ... node specific payload ... },
-      "estimatedDuration": number (in milliseconds),
+      "type": "intro"|"concept_explanation"|"equation"|"diagram"|"quiz"|"code_simulation"|"graph_plot"|"summary",
+      "payload": {},
+      "estimatedDuration": number (ms),
       "interruptible": boolean,
       "prerequisites": [string],
-      "transitions": {
-         "success": string (next node ID on success/completion),
-         "failure": string (fallback/remediating node ID if quiz is failed, or null),
-         "timeout": string (fallback node ID if time limit exceeded, or null)
-      }
-   }
-2. "rootNodeId": The ID of the start node.
-3. "checkpoints": An array of relative timeline checkpoint events (every 15-30s) to support replay scrub seeking.
-
+      "transitions": {"success": string, "failure": string|null, "timeout": string|null}
+    }
+  },
+  "rootNodeId": string,
+  "checkpoints": [{"time": number, "nodeId": string, "label": string}]
+}
 Rules:
-- Total Class Time Budget: ${durationMinutes} minutes (${totalDurationMs} ms). Ensure the sum of node "estimatedDuration" fields is approximately ${totalDurationMs} ms. Create a sequence of loops or transitions that uses this budget.
-- For "code_simulation" type, payload MUST have: "code" (source code to execute/demonstrate), "language" (e.g. "python", "javascript"), and "expectedOutput" (the output from running that code).
-- For "graph_plot" type, payload MUST have: "latexEquation" (e.g., "y = sin(x)"), "functionFormula" (javascript formula like "Math.sin(x)" or "x*x" to plot over range [-5, 5]), and "explanation".
-- If a node is a "quiz" type, payload must have: "question", "options" (array of strings), "answer" (exact string match), "explanation" (for fallback/remediation).
-- Every "quiz" node MUST have a transitions.failure target node defined in the nodes list (an "analogy_remediation" node of type "concept_explanation" explaining that concept with a simplified analogy).
-- Provide LaTeX in "equation" payloads and Mermaid markdown in "diagram" payloads.
-- Ensure all transitions refer to existing node IDs.
-`;
+- Estimated duration sum must equal ${totalDurationMs} ms.
+- code_simulation payload: {code, language, expectedOutput}.
+- graph_plot payload: {latexEquation, functionFormula (JS math for range [-5,5]), explanation}.
+- quiz payload: {question, options, answer, explanation}. MUST transition.failure to a concept_explanation (analogy_remediation).
+- Use LaTeX in equations, Mermaid in diagrams. Valid node IDs in transitions.`;
 
         let compiledData = null;
         try {
@@ -79,7 +62,7 @@ Rules:
             ], {
                 actionType: 'compiler',
                 jsonMode: true,
-                model: 'z-ai/glm-4.5',
+                model: FREE_MODEL_ROUTING.CONTENT_PRIMARY,
                 temperature: 0.1
             });
 

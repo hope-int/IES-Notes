@@ -12,7 +12,7 @@ import APIKeyVault from '../Settings/APIKeyVault';
 import { extractPDFContext } from '../../utils/pdfUtils';
 
 // Utilities
-import { getAICompletion } from '../../utils/aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from '../../utils/aiService';
 import { ensurePuterReady } from '../../utils/puterInit';
 import {
     saveSession, getAllSessions, deleteSessionFromDB,
@@ -27,6 +27,28 @@ import JCompilerWorkbench from './components/JCompilerWorkbench';
 import DocumentViewer from './components/DocumentViewer';
 
 const MotionDiv = motion.div;
+
+// Parse [[SUGGESTIONS:...]] and [[REACTION:...]] blocks from AI content
+const parseSuggestionsAndReaction = (content) => {
+    if (!content || typeof content !== 'string') return { cleanContent: content, suggestions: [], reaction: null };
+    let cleanContent = content;
+    let suggestions = [];
+    let reaction = null;
+
+    const reactionMatch = cleanContent.match(/\[\[REACTION:([^\]]+)\]\]/);
+    if (reactionMatch) {
+        reaction = reactionMatch[1].trim();
+        cleanContent = cleanContent.replace(/\n?\[\[REACTION:[^\]]+\]\]/, '');
+    }
+
+    const suggestionsMatch = cleanContent.match(/\[\[SUGGESTIONS:([^\]]+)\]\]/);
+    if (suggestionsMatch) {
+        suggestions = suggestionsMatch[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 5);
+        cleanContent = cleanContent.replace(/\n?\[\[SUGGESTIONS:[^\]]+\]\]/, '');
+    }
+
+    return { cleanContent: cleanContent.trimEnd(), suggestions, reaction };
+};
 
 const getInstantTutorReply = (text, profile) => {
     const raw = String(text || '').trim();
@@ -72,6 +94,23 @@ export default function AITutor() {
     const [activeModel, setActiveModel] = useState('Puter Fast Chat');
     const [latency, setLatency] = useState(0);
     const [rateLimit] = useState('98/100');
+
+    // ── Model Selection ──────────────────────────────────────────────────────
+    // Pool of all chat-capable models. One is picked randomly per session;
+    // user can also override via the selector dropdown.
+    const CHAT_MODEL_POOL = [
+        { id: FREE_MODEL_ROUTING.CHAT_PRIMARY,      label: 'GLM-4.5 Flash' },
+        { id: FREE_MODEL_ROUTING.TUTOR_PRIMARY,     label: 'Nemotron 3 Omni' },
+        { id: FREE_MODEL_ROUTING.TUTOR_FALLBACK,    label: 'LFM2.5 Thinking' },
+        { id: FREE_MODEL_ROUTING.ROADMAP_PRIMARY,   label: 'GLM-4.5 Flash' },
+        { id: FREE_MODEL_ROUTING.CHAT_FALLBACK,     label: 'Dolphin Mistral' },
+        { id: FREE_MODEL_ROUTING.INLINE_PRIMARY,    label: 'LFM2.5 Instruct' },
+        { id: FREE_MODEL_ROUTING.COMPILER_PRIMARY,  label: 'North Mini Code' },
+        { id: FREE_MODEL_ROUTING.COMPILER_FALLBACK, label: 'Qianfan CoBuddy' },
+    ];
+    const pickRandom = () => CHAT_MODEL_POOL[Math.floor(Math.random() * CHAT_MODEL_POOL.length)];
+    const [selectedChatModel, setSelectedChatModel] = useState(() => pickRandom());
+    const [modelPickerOpen, setModelPickerOpen] = useState(false);
 
     // Context / Files
     const [selectedFile, setSelectedFile] = useState(null);
@@ -180,10 +219,18 @@ export default function AITutor() {
         setSessions(prev => [newSession, ...prev]);
         setActiveSessionId(newSession.id);
 
+        const firstName = profile?.full_name?.split(' ')[0] || 'Engineer';
         const welcomeMsg = {
             sessionId: newSession.id,
             role: 'assistant',
-            content: `Hello ${profile?.full_name?.split(' ')[0] || 'Engineer'}! Target initialized. How can I assist your studies today?`,
+            content: `Hi ${firstName}! I'm your HOPE AI Tutor. What would you like to study today?`,
+            suggestedReplies: [
+                '⚡ Explain a KTU concept',
+                '🐛 Debug my code',
+                '📄 Analyze a PDF',
+                '📝 Generate study notes',
+                '🔢 Solve a math problem',
+            ],
             timestamp: Date.now()
         };
         
@@ -260,7 +307,8 @@ export default function AITutor() {
                 const welcomeMsg = {
                     sessionId: newSession.id,
                     role: 'assistant',
-                    content: `Hello ${profile?.full_name?.split(' ')[0] || 'Engineer'}! Target initialized. Let's start this session.`,
+                    content: `Session started. What would you like to explore?`,
+                    suggestedReplies: ['⚡ Explain a concept', '🐛 Debug code', '📄 Upload a PDF'],
                     timestamp: Date.now()
                 };
                 createdWelcomeMsg = welcomeMsg;
@@ -303,7 +351,8 @@ export default function AITutor() {
                     selectablePages: pdfContext.selectablePages,
                     storedAs: 'extracted-text'
                 } : null,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                reaction: '⚡ Connecting...'
             };
 
             // Clear inputs and update UI messages early
@@ -317,8 +366,12 @@ export default function AITutor() {
                 console.warn('Failed to save user message before streaming finished:', error);
             });
 
-            const persistAssistantExchange = async (assistantMsg, finalAssistantContent) => {
+            const persistAssistantExchange = async (assistantMsg, finalAssistantContent, reaction = null) => {
                 await userSavePromise;
+                if (reaction) {
+                    const updatedUserMsg = { ...userMsg, reaction };
+                    await saveMessage(updatedUserMsg).catch(err => console.warn('Failed to update user message reaction:', err));
+                }
                 await saveMessage(assistantMsg);
 
                 setSessions(prev => prev.map(s => s.id === sessionId ? {
@@ -381,27 +434,26 @@ export default function AITutor() {
                 return;
             }
 
-            const systemPrompt = `You are Justin, HOPE Studio's fast KTU engineering tutor for APJ Abdul Kalam Technological University B.Tech students at IES College of Engineering, Thrissur.
+            // ── System prompt (model-aware + student-identity-aware) ───────────────
+            const modelName = selectedChatModel.label;
+            const studentName  = profile?.full_name?.split(' ')[0] || 'Student';
+            const studentDept  = profile?.department_name || 'Engineering';
+            const studentSem   = profile?.semester_name   || null;
+            const studentYear  = profile?.year            || null;
+            const studentCtx   = [
+                `Name: ${studentName}`,
+                `Dept: ${studentDept}`,
+                studentSem  ? `Semester: ${studentSem}` : null,
+                studentYear ? `Year: ${studentYear}`    : null,
+            ].filter(Boolean).join(' | ');
 
-Current date: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
-Current time: ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-
-Highest priority: answer immediately. Your first sentence must contain useful answer content, not filler like "Sure" or "I can help". Ask at most one clarification only when the task is impossible without it.
-
-Style:
-- Keep normal chat concise, direct, and exam-ready.
-- Use KTU module framing when obvious, but do not force it into every answer.
-- Use LaTeX for equations and fenced code blocks for programs.
-- For code requests, infer the standard KTU context and provide runnable code first, then brief explanation.
-- For uploaded PDFs/images, use the provided context and state assumptions when the source is unclear.
-- If asked about origin, say: "I was developed by Harinandan K for the HOPE Studio initiative."
-
-Commands:
-- /explain: give a focused concept breakdown with steps, formulas, and common exam traps.
-- /debug: identify the bug, explain the fix, and provide corrected code.
-- /doc: generate a polished Markdown engineering document. If key details are missing, ask one compact question. When generating the final document, start with "# Title", avoid conversational intro/outro, and append [[PDF_ATTACHMENT]] as the final raw text.
-
-Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
+            const systemPrompt = `HOPE AI (by Harinandan K). Model: ${modelName}. Student: ${studentCtx}.
+Role: Sharp KTU B.Tech tutor. Speak to ${studentName}.
+Rules: Concise, exam-ready, no filler. LaTeX math. Code blocks.
+Commands: /explain (step-by-step), /debug (fix+explain), /doc (ONLY markdown, start '# Title', end [[PDF_ATTACHMENT]]).
+Always end non-/doc responses with two lines:
+[[REACTION:emoji encouraging-short-phrase]] (an appropriate emoji and short encouraging words reacting directly to student input, e.g. [[REACTION:💡 Good question!]], [[REACTION:💻 Solid logic!]], [[REACTION:✅ Spot on!]])
+[[SUGGESTIONS:Q1?|Q2?|Q3?]] (dynamic context follow-up questions for ${studentName}, each <45 chars, ending with ?).`;
 
             const history = messages
                 .filter(m => !m.streaming && m.content && String(m.content).trim() !== '')
@@ -437,15 +489,15 @@ Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
             const normalizedInput = currentInput.trim().toLowerCase();
             const isDocumentCommand = normalizedInput.startsWith('/doc');
 
-            let targetModel = 'default';
-            let targetModelLabel = 'Puter Fast Chat';
+            let targetActionType = 'chat';
+            let targetModelLabel = 'AI Tutor';
             if (isDocumentCommand) {
-                targetModel = 'z-ai/glm-4.5';
-                targetModelLabel = 'GLM-4.5';
+                targetActionType = 'report';
+                targetModelLabel = 'Content Generator';
             }
             if (currentFile?.type.startsWith('image/') || currentFile?.type === 'application/pdf') {
-                targetModel = 'z-ai/glm-4.6v-flash';
-                targetModelLabel = 'GLM-4.6V Flash';
+                targetActionType = 'handbook';
+                targetModelLabel = 'Vision Model';
             }
             setActiveModel(targetModelLabel);
 
@@ -471,8 +523,8 @@ Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
                 streamFrame = window.requestAnimationFrame(publishStreamContent);
             };
             const aiResult = await getAICompletion(requestMessages, {
-                actionType: 'chat',
-                model: targetModel,
+                actionType: targetActionType,
+                model: (targetActionType === 'chat') ? selectedChatModel.id : undefined,
                 max_tokens: responseTokenBudget,
                 temperature: isDocumentCommand ? 0.45 : 0.55,
                 includeMetadata: true,
@@ -494,19 +546,29 @@ Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
             if (streamedContent) publishStreamContent();
             if (aiResult?.provider) setProviderStatus(aiResult.provider);
             const finalAIContent = typeof aiResult === 'string' ? aiResult : aiResult?.content;
+            const rawFinalContent = finalAIContent || streamedContent;
+            const { cleanContent: parsedContent, suggestions, reaction } = parseSuggestionsAndReaction(rawFinalContent);
 
             const assistantMsg = {
                 id: assistantMsgId,
                 sessionId,
                 role: 'assistant',
-                content: finalAIContent || streamedContent,
+                content: parsedContent,
+                suggestedReplies: suggestions.length > 0 ? suggestions : undefined,
                 streaming: false,
                 timestamp: assistantDraft.timestamp
             };
             const finalAssistantContent = assistantMsg.content;
 
-            setMessages(prev => prev.map(msg => msg.id === assistantMsgId ? assistantMsg : msg));
-            await persistAssistantExchange(assistantMsg, finalAssistantContent);
+            setMessages(prev => {
+                const next = prev.map(msg => msg.id === assistantMsgId ? assistantMsg : msg);
+                const idx = next.findIndex(m => m.id === assistantMsgId);
+                if (idx > 0 && next[idx - 1].role === 'user') {
+                    next[idx - 1] = { ...next[idx - 1], reaction: reaction || null };
+                }
+                return next;
+            });
+            await persistAssistantExchange(assistantMsg, finalAssistantContent, reaction);
         } catch (e) {
             console.error("Chat Error:", e);
             if (streamFrame && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
@@ -538,6 +600,14 @@ Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
                 );
                 showToast("AI Service Unavailable. Please try again.", "error");
             }
+            setMessages(prev => {
+                const next = [...prev];
+                const userIdx = next.findLastIndex(msg => msg.role === 'user');
+                if (userIdx !== -1) {
+                    next[userIdx] = { ...next[userIdx], reaction: null };
+                }
+                return next;
+            });
         } finally {
             setLoading(false);
             setProcessingStep({ step: '' });
@@ -687,6 +757,16 @@ Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
         }
     };
 
+    const handleSuggestedReply = (text) => {
+        // Strip emoji prefix (e.g. '⚡ Explain a KTU concept' → 'Explain a KTU concept')
+        const clean = text.replace(/^[\p{Emoji}\s]+/u, '').trim();
+        setInput(clean);
+        // Small delay so state flushes, then send
+        setTimeout(() => {
+            handleSend();
+        }, 50);
+    };
+
     const isCodeInput = (text) => {
         const codePatterns = [/const\s+/, /def\s+/, /import\s+/, /function\s+/, /class\s+/, /\{\s*$/, /\);\s*$/];
         return codePatterns.some(pattern => pattern.test(text));
@@ -730,15 +810,7 @@ Never append [[PDF_ATTACHMENT]] for normal chat, /explain, or /debug.`;
     const handleDocumentRefinement = async (currentContent, instruction, history = []) => {
         setLoading(true);
         try {
-            const systemPrompt = `You are HOPE Studio's KTU document refinement engine. Date: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}.
-
-Rewrite the current document according to the user instruction.
-Rules:
-- Return only updated Markdown.
-- Preserve meaning unless the instruction asks for a change.
-- Use engineering/IEEE or KTU report formatting when relevant.
-- No conversational intro, explanation, sign-off, or markdown code fence wrapper.
-- Preserve [[PDF_ATTACHMENT]] at the end only if it already exists or the instruction explicitly asks for a generated PDF document.`;
+            const systemPrompt = `Document refiner. Rewrite per instructions. Return ONLY raw Markdown (no code fences, intro, or explanation). Preserve [[PDF_ATTACHMENT]] if present.`;
 
             const studioHistory = history
                 .filter(m => !m.streaming && m.content && String(m.content).trim() !== '')
@@ -750,8 +822,7 @@ Rules:
             ];
 
             const result = await getAICompletion(requestMessages, {
-                actionType: 'chat',
-                model: 'z-ai/glm-4.5',
+                actionType: 'report',
                 max_tokens: 32000,
                 temperature: 0.3
             });
@@ -819,6 +890,7 @@ Rules:
                 messages={messages}
                 profile={profile}
                 onStarterClick={handleStarterClick}
+                onSuggestedReply={handleSuggestedReply}
                 onFileClick={setPreviewFile}
                 loading={loading}
                 simulationResults={simulationResults}
@@ -951,6 +1023,67 @@ Rules:
                                     <Paperclip size={18} />
                                     <span className="visually-hidden">Attach engineering context</span>
                                 </button>
+                                <span className="ai-tool-divider" aria-hidden="true" />
+
+                                {/* ── Model Selector ── */}
+                                <div className="ai-model-selector" style={{ position: 'relative' }}>
+                                    <button
+                                        type="button"
+                                        className="ai-tool-button ai-model-btn"
+                                        onClick={() => setModelPickerOpen(o => !o)}
+                                        title={`Active model: ${selectedChatModel.label}`}
+                                        aria-haspopup="listbox"
+                                        aria-expanded={modelPickerOpen}
+                                    >
+                                        <Bot size={15} />
+                                        <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {selectedChatModel.label}
+                                        </span>
+                                        <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
+                                    </button>
+                                    <AnimatePresence>
+                                        {modelPickerOpen && (
+                                            <MotionDiv
+                                                key="model-picker"
+                                                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                                                transition={{ duration: 0.15 }}
+                                                className="ai-model-picker-popup"
+                                                role="listbox"
+                                                aria-label="Select AI model"
+                                            >
+                                                <div className="ai-model-picker-header">
+                                                    <Zap size={12} />
+                                                    <span>Select Model</span>
+                                                    <button
+                                                        type="button"
+                                                        className="ai-model-random-btn"
+                                                        onClick={() => { setSelectedChatModel(pickRandom()); setModelPickerOpen(false); }}
+                                                        title="Pick random model"
+                                                    >
+                                                        <RefreshCw size={11} /> Random
+                                                    </button>
+                                                </div>
+                                                {CHAT_MODEL_POOL.map(m => (
+                                                    <button
+                                                        key={m.label}
+                                                        type="button"
+                                                        role="option"
+                                                        aria-selected={selectedChatModel.id === m.id}
+                                                        className={`ai-model-option ${selectedChatModel.id === m.id ? 'is-active' : ''}`}
+                                                        onClick={() => { setSelectedChatModel(m); setModelPickerOpen(false); }}
+                                                    >
+                                                        <span className="ai-model-option-dot" />
+                                                        {m.label}
+                                                        {selectedChatModel.id === m.id && <Check size={12} style={{ marginLeft: 'auto', color: 'var(--accent)' }} />}
+                                                    </button>
+                                                ))}
+                                            </MotionDiv>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
                                 <span className="ai-tool-divider" aria-hidden="true" />
                                 {[
                                     { cmd: '/explain', label: 'Explain', icon: Sparkles },

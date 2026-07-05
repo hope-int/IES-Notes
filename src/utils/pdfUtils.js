@@ -1,6 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { getAICompletion } from './aiService';
+import { getAICompletion, FREE_MODEL_ROUTING } from './aiService';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -37,7 +37,7 @@ const detectTextWithAI = async (imageDataUrl, pageNumber) => {
         [
             {
                 role: 'system',
-                content: 'You are a precise OCR engine. Extract only readable text from the page image. Preserve headings, equations, code, tables, and line breaks when possible. Do not explain the extraction.'
+                content: 'Precise OCR. Extract only readable text. Preserve headings, equations, code, tables, layout. Do not explain.'
             },
             {
                 role: 'user',
@@ -50,7 +50,7 @@ const detectTextWithAI = async (imageDataUrl, pageNumber) => {
         {
             actionType: 'chat',
             provider: 'client',
-            model: 'openai/gpt-4o-mini',
+            model: FREE_MODEL_ROUTING.HANDBOOK_PRIMARY,
             max_tokens: 4096,
             temperature: 0
         }

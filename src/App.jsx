@@ -572,7 +572,7 @@ function App() {
                   <nav className="container py-4 d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-4">
                       <div
-                        onClick={() => setShowAdminLogin(true)}
+                        onClick={() => setShowAdmin(true)}
                         className="d-flex align-items-center gap-2 cursor-pointer"
                       >
                         <div className="clay-card d-flex align-items-center justify-content-center p-2 rounded-3 border-0">

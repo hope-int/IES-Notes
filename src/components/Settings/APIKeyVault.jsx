@@ -3,12 +3,17 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
     X, Key, Eye, EyeOff, ChevronUp, ChevronDown,
     Check, AlertCircle, Loader, ExternalLink, Shield,
-    Info, ToggleLeft, ToggleRight, Save, RefreshCw, AlertTriangle
+    Info, ToggleLeft, ToggleRight, Save, RefreshCw, AlertTriangle,
+    PlusCircle, Trash2, Users, RotateCcw, Zap
 } from 'lucide-react';
 import {
     loadVaultSettings, saveVaultSettings, testApiKey,
     refreshVault, getOwnerId, DEFAULT_SETTINGS, PROVIDER_MODELS
 } from '../../utils/keyVault';
+import {
+    loadPool, addPoolToken, removePoolToken,
+    getPoolStatus, resetAllCooldowns
+} from '../../utils/puterAccountPool';
 
 const BADGE = {
     free: { label: 'Free' },
@@ -25,6 +30,222 @@ const ACCENT = {
 
 const MotionAside = motion.aside;
 const MotionDiv = motion.div;
+
+// ─── Puter Multi-Account Pool Panel ──────────────────────────────────────────
+function PuterAccountPoolPanel() {
+    const [pool, setPool] = useState(() => getPoolStatus());
+    const [loginStatus, setLoginStatus] = useState('idle'); // idle | pending | success | error
+    const [loginMsg, setLoginMsg] = useState('');
+
+    const refresh = () => setPool(getPoolStatus());
+
+    const handleLoginWithPuter = async () => {
+        if (!window.puter?.auth) {
+            setLoginMsg('Puter SDK not ready. Please wait and try again.');
+            setLoginStatus('error');
+            return;
+        }
+
+        setLoginStatus('pending');
+        setLoginMsg('Opening Puter login popup…');
+
+        // Remember the currently active token so we can restore it after
+        const previousToken = window.puter.authToken
+            ?? window.puter.auth?.token
+            ?? null;
+
+        try {
+            await window.puter.auth.signIn();
+
+            // After signIn resolves, the SDK holds the new account's token
+            // Extract it from various known SDK property paths
+            const newToken =
+                window.puter.authToken ||
+                window.puter.auth?.token ||
+                window.puter.auth?.authToken ||
+                null;
+
+            if (!newToken) {
+                throw new Error('Could not read token from Puter SDK after login.');
+            }
+
+            // Check if this token is already in the pool
+            const existing = loadPool();
+            if (existing.some(p => p.token === newToken)) {
+                setLoginMsg('This account is already in the pool.');
+                setLoginStatus('error');
+            } else {
+                // Get the account username for labelling
+                let label = `Account ${existing.length + 1}`;
+                try {
+                    const userInfo = await window.puter.auth.getUser();
+                    if (userInfo?.username) label = userInfo.username;
+                } catch { /* label stays as default */ }
+
+                addPoolToken(newToken, label);
+                refresh();
+                setLoginStatus('success');
+                setLoginMsg(`✓ "${label}" added to pool.`);
+
+                setTimeout(() => {
+                    setLoginStatus('idle');
+                    setLoginMsg('');
+                }, 3000);
+            }
+
+            // Restore the original account so the current session is not disrupted
+            if (previousToken && previousToken !== newToken) {
+                try { window.puter.setAuthToken(previousToken); } catch { /* non-critical */ }
+            }
+        } catch (err) {
+            // Restore on error too
+            if (previousToken) {
+                try { window.puter.setAuthToken(previousToken); } catch { /* non-critical */ }
+            }
+            const msg = err?.message || 'Login cancelled or failed.';
+            setLoginMsg(msg.includes('cancel') || msg.includes('closed') ? 'Login cancelled.' : msg);
+            setLoginStatus('error');
+            setTimeout(() => { setLoginStatus('idle'); setLoginMsg(''); }, 4000);
+        }
+    };
+
+    const handleRemove = (token) => {
+        removePoolToken(token);
+        refresh();
+    };
+
+    const handleResetCooldowns = () => {
+        resetAllCooldowns();
+        refresh();
+    };
+
+    return (
+        <div style={{
+            marginTop: '1.25rem',
+            border: '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
+            borderRadius: '12px',
+            padding: '1rem',
+            background: 'var(--surface-raised, rgba(255,255,255,0.03))',
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Users size={15} style={{ opacity: 0.7 }} />
+                    <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>Puter Account Pool</span>
+                    <span style={{
+                        fontSize: '0.68rem', background: 'rgba(99,102,241,0.18)',
+                        color: '#818cf8', borderRadius: '4px', padding: '1px 6px'
+                    }}>Auto-rotate on 429</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    {pool.some(p => p.isCoolingDown) && (
+                        <button
+                            onClick={handleResetCooldowns}
+                            title="Clear all cooldowns"
+                            style={{
+                                background: 'none', border: '1px solid var(--border-subtle)',
+                                borderRadius: '6px', padding: '3px 8px', cursor: 'pointer',
+                                fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px',
+                                color: 'var(--text-muted, #888)',
+                            }}
+                        >
+                            <RotateCcw size={11} /> Reset
+                        </button>
+                    )}
+                    <button
+                        id="puter-pool-add-btn"
+                        onClick={handleLoginWithPuter}
+                        disabled={loginStatus === 'pending'}
+                        style={{
+                            background: loginStatus === 'success'
+                                ? 'rgba(34,197,94,0.15)'
+                                : loginStatus === 'error'
+                                    ? 'rgba(239,68,68,0.15)'
+                                    : 'rgba(99,102,241,0.15)',
+                            border: `1px solid ${loginStatus === 'success' ? 'rgba(34,197,94,0.4)' : loginStatus === 'error' ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.3)'}`,
+                            borderRadius: '6px', padding: '3px 10px', cursor: loginStatus === 'pending' ? 'default' : 'pointer',
+                            fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px',
+                            color: loginStatus === 'success' ? '#4ade80' : loginStatus === 'error' ? '#f87171' : '#818cf8',
+                            opacity: loginStatus === 'pending' ? 0.7 : 1,
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        {loginStatus === 'pending'
+                            ? <><Loader size={11} className="animate-spin" /> Signing in…</>
+                            : loginStatus === 'success'
+                                ? <><Check size={11} /> Added</>
+                                : loginStatus === 'error'
+                                    ? <><AlertCircle size={11} /> Failed</>
+                                    : <><PlusCircle size={11} /> Add Account</>
+                        }
+                    </button>
+                </div>
+            </div>
+
+            {loginMsg && (
+                <p style={{
+                    fontSize: '0.73rem',
+                    color: loginStatus === 'success' ? '#4ade80' : loginStatus === 'error' ? '#f87171' : 'var(--text-muted)',
+                    marginBottom: '0.6rem',
+                    padding: '0.3rem 0.5rem',
+                    background: loginStatus === 'success' ? 'rgba(34,197,94,0.07)' : loginStatus === 'error' ? 'rgba(239,68,68,0.07)' : 'transparent',
+                    borderRadius: '6px',
+                }}>
+                    {loginMsg}
+                </p>
+            )}
+
+            {pool.length === 0 && loginStatus === 'idle' && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted, #888)', marginBottom: '0.5rem' }}>
+                    No accounts yet. Click <strong>Add Account</strong> to sign in with a second Puter account — its quota will auto-rotate when the primary gets rate-limited.
+                </p>
+            )}
+
+            {pool.map(entry => (
+                <div key={entry.token} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.45rem 0.6rem', borderRadius: '8px', marginBottom: '0.35rem',
+                    background: entry.isActive
+                        ? 'rgba(99,102,241,0.1)'
+                        : entry.isCoolingDown
+                            ? 'rgba(239,68,68,0.07)'
+                            : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${entry.isActive ? 'rgba(99,102,241,0.3)' : 'transparent'}`,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                        {entry.isActive
+                            ? <Zap size={12} style={{ color: '#818cf8', flexShrink: 0 }} />
+                            : entry.isCoolingDown
+                                ? <span style={{ fontSize: '0.65rem', color: '#f87171', flexShrink: 0 }}>⏳</span>
+                                : <span style={{ width: 12, flexShrink: 0 }} />
+                        }
+                        <span style={{ fontSize: '0.78rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {entry.label}
+                        </span>
+                        <code style={{ fontSize: '0.67rem', color: 'var(--text-muted, #888)', letterSpacing: '0.03em' }}>
+                            {entry.tokenPreview}
+                        </code>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                        {entry.isCoolingDown && (
+                            <span style={{ fontSize: '0.67rem', color: '#f87171' }}>
+                                {entry.cooldownSecsLeft}s
+                            </span>
+                        )}
+                        <button
+                            onClick={() => handleRemove(entry.token)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted, #888)' }}
+                            title="Remove account"
+                        >
+                            <Trash2 size={12} />
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 export default function APIKeyVault({ isOpen, onClose }) {
     const [settings, setSettings] = useState(null);
@@ -435,10 +656,14 @@ export default function APIKeyVault({ isOpen, onClose }) {
                                     })}
                                 </div>
 
-                                <div className="provider-security-note">
+                                <div className="provider-security-note" style={{ marginTop: '1rem' }}>
                                     <Shield size={15} />
                                     <p>Keys are encrypted in the browser before sync. Plain keys are not stored on the server.</p>
                                 </div>
+
+                                {/* ── Puter Multi-Account Pool ───────────────────────────────── */}
+                                <PuterAccountPoolPanel />
+
                             </>
                         )}
                     </div>

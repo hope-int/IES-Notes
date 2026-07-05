@@ -29,28 +29,87 @@ function ShaderBackdrop() {
             uniform vec2 resolution;
             uniform float time;
 
+            // Smooth noise helpers
+            float hash(vec2 p) {
+                p = fract(p * vec2(127.1, 311.7));
+                p += dot(p, p + 19.19);
+                return fract(p.x * p.y);
+            }
+
+            float smoothNoise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                vec2 u = f * f * (3.0 - 2.0 * f);
+                return mix(
+                    mix(hash(i + vec2(0,0)), hash(i + vec2(1,0)), u.x),
+                    mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x),
+                    u.y
+                );
+            }
+
+            float fbm(vec2 p) {
+                float v = 0.0;
+                float a = 0.5;
+                for (int i = 0; i < 5; i++) {
+                    v += a * smoothNoise(p);
+                    p = p * 2.1 + vec2(1.7, 9.2);
+                    a *= 0.48;
+                }
+                return v;
+            }
+
             void main(void) {
                 vec2 uv = (gl_FragCoord.xy * 2.0 - resolution.xy) / min(resolution.x, resolution.y);
-                float t = time * 0.04;
-                float lineWidth = 0.0024;
-                vec3 color = vec3(0.0);
+                float t = time * 0.18;
 
-                for(int j = 0; j < 3; j++) {
-                    for(int i = 0; i < 5; i++) {
-                        float band = abs(fract(t - 0.01 * float(j) + float(i) * 0.01) * 5.0 - length(uv) + mod(uv.x + uv.y, 0.2));
-                        color[j] += lineWidth * float(i * i) / max(band, 0.005);
-                    }
-                }
+                // Warped nebula domain
+                vec2 q = vec2(fbm(uv + t * 0.11), fbm(uv + vec2(1.3, 0.9)));
+                vec2 r = vec2(fbm(uv + 1.7 * q + vec2(1.7, 9.2) + t * 0.07),
+                              fbm(uv + 1.7 * q + vec2(8.3, 2.8) + t * 0.06));
+                float n = fbm(uv + 1.9 * r);
 
-                float sweep = 0.5 + 0.5 * sin(uv.x * 4.0 + uv.y * 2.0 + time * 0.12);
-                float ribbon = smoothstep(0.16, 0.0, abs(sin(uv.x * 2.3 + uv.y * 3.4 + time * 0.08) * 0.28 + uv.y * 0.36));
-                float diagonal = pow(1.0 - smoothstep(0.0, 0.22, abs(mod(uv.x + uv.y + time * 0.01, 0.22) - 0.11)), 3.0);
-                vec3 aurora = vec3(0.05, 0.28, 0.9) * ribbon * sweep * 0.52;
-                vec3 trace = vec3(0.14, 0.78, 1.0) * diagonal * 0.42;
-                vec3 tint = vec3(0.06, 0.12, 0.25);
-                vec3 glow = vec3(color.r * 1.25, color.g * 1.45, color.b * 1.85);
-                float vignette = smoothstep(1.65, 0.25, length(uv));
-                gl_FragColor = vec4(tint + glow * vignette + aurora + trace, 1.0);
+                // Deep base — near-black indigo
+                vec3 base = vec3(0.02, 0.03, 0.10);
+
+                // Flowing aurora bands in indigo → violet → electric-cyan
+                float a1 = smoothstep(0.42, 0.78, n);
+                float a2 = smoothstep(0.56, 0.84, n + 0.18 * sin(uv.x * 2.2 + t));
+                float a3 = smoothstep(0.30, 0.62, n - 0.12 * cos(uv.y * 1.8 + t * 0.8));
+
+                vec3 indigo  = vec3(0.24, 0.10, 0.72);   // deep indigo
+                vec3 violet  = vec3(0.56, 0.18, 0.90);   // violet
+                vec3 ecyan   = vec3(0.04, 0.82, 1.00);   // electric cyan
+                vec3 rose    = vec3(0.72, 0.12, 0.52);   // accent magenta-rose
+
+                vec3 aurora = indigo * a1 * 0.72
+                            + violet * a2 * 0.54
+                            + ecyan  * a3 * 0.38
+                            + rose   * a1 * a2 * 0.22;
+
+                // Luminous soft orbs
+                float orb1 = exp(-3.8 * length(uv - vec2(-0.55 + 0.12 * sin(t * 0.5),  0.22 + 0.09 * cos(t * 0.4))));
+                float orb2 = exp(-5.2 * length(uv - vec2( 0.60 + 0.10 * cos(t * 0.35), -0.30 + 0.08 * sin(t * 0.6))));
+                float orb3 = exp(-4.5 * length(uv - vec2( 0.05 + 0.08 * sin(t * 0.7), -0.65 + 0.06 * cos(t * 0.3))));
+
+                vec3 orbs = violet * orb1 * 0.55
+                          + ecyan  * orb2 * 0.40
+                          + indigo * orb3 * 0.35;
+
+                // Subtle shimmer veil
+                float shimmer = 0.5 + 0.5 * sin(uv.x * 6.0 + uv.y * 4.2 + t * 1.4);
+                float veil = smoothstep(0.62, 0.78, n) * shimmer * 0.10;
+                vec3 shim = ecyan * veil;
+
+                // Radial vignette — dark at edges
+                float vignette = smoothstep(1.72, 0.22, length(uv));
+
+                vec3 final = base + (aurora + orbs + shim) * vignette;
+
+                // Tone-map & slight gamma lift
+                final = final / (final + 0.55);
+                final = pow(final, vec3(0.88));
+
+                gl_FragColor = vec4(final, 1.0);
             }
         `;
 
