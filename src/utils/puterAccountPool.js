@@ -8,7 +8,7 @@
  * Format: JSON array of { label: string, token: string, cooldownUntil: number }
  *
  * ⚠️  setAuthToken() causes WebSocket reconnect churn (harmless console noise).
- *     We only call it on an actual 429, not on every request.
+ *     We only call it on an actual 429 rotation, not at startup or every request.
  */
 
 const POOL_KEY = 'hope_puter_token_pool';
@@ -122,21 +122,14 @@ export const rotateOnRateLimit = () => {
 /**
  * Activate the pool (apply the first available token) when the app starts.
  * Call this after Puter SDK is ready.
- * No-op if pool is empty.
+ * No-op by design: applying a token eagerly calls setAuthToken(), which causes
+ * the Puter SDK to rebuild its Socket.IO transport and print websocket warnings.
+ * The first real token application happens in rotateOnRateLimit().
  */
 export const activatePool = () => {
     const available = getAvailableAccounts();
     if (available.length === 0) return;
-
-    _activeIndex = available[0].index;
-    try {
-        if (window.puter?.setAuthToken) {
-            window.puter.setAuthToken(available[0].token);
-            console.info(`[PuterPool] Activated pool with "${available[0].label}".`);
-        }
-    } catch (e) {
-        console.warn('[PuterPool] activatePool setAuthToken failed:', e.message);
-    }
+    console.info(`[PuterPool] ${available.length} account(s) ready for rate-limit rotation.`);
 };
 
 /**
